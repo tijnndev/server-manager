@@ -1,0 +1,118 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+    .file-bar {
+        background-color: #333;
+        border-radius: 5px;
+        color: #fff !important
+    }
+    .btn {
+        color: #fff !important
+    }
+    .btn span{
+        border-bottom: 1px solid white;
+    }
+</style>
+    <div class="container mt-5">
+        <h1 class="mb-4">File Manager</h1>
+
+        <div class="row">
+            <div class="col-12">
+                <h4 class="file-bar">
+                    <a href="{{ url_for('files.file_manager', location='./') }}" class="btn">
+                        <span>home</span>
+                    </a>
+                    <span>/</span>
+                    {% set path_parts = current_location.replace('\\', '/').split('/') %}
+                    {% for i in range(path_parts|length) %}
+                        {% set part = path_parts[i] %}
+                        {% if part != "." %}
+                            <a href="{{ url_for('files.file_manager', location='/'.join(path_parts[:i+1])) }}" class="btn">
+                                <span>{{ part }}</span>
+                            </a>
+                            {% if not loop.last %}
+                            <span>/</span>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </h4>
+                
+                <!-- Button to create a new file in the current directory -->
+                <a href="{{ url_for('files.create_file', location=current_location) }}" class="btn btn-success mt-2 mb-4">
+                    Create New File
+                </a>
+                <a href="{{ url_for('files.create_directory', location=current_location) }}" class="btn btn-warning mt-2 mb-4">
+                    Create New Directory
+                </a>
+                <ul class="list-group">
+                    {% set directories = files | selectattr('is_directory', 'equalto', true) | sort(attribute='name') %}
+                    {% set regular_files = files | selectattr('is_directory', 'equalto', false) | sort(attribute='name') %}
+
+                    <!-- List directories first -->
+                    {% for file in directories %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>{{ file.name }}</span>
+                            <div>
+                                <!-- Directory: Navigate to directory -->
+                                <a href="{{ url_for('files.file_manager', location=file.path) }}" class="btn btn-secondary btn-sm mr-2">Open Directory</a>
+                            </div>
+                        </li>
+                    {% endfor %}
+
+                    <!-- Then list regular files -->
+                    {% for file in regular_files %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>{{ file.name }}</span>
+                            <div>
+                                <!-- File: Show Download button -->
+                                <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
+                                <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                    <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
+                                    <input type="hidden" name="location" value="{{ current_location }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <hr>
+
+        <h4 class="mt-4">Upload a New File</h4>
+        <form action="{{ url_for('files.file_manager', location=current_location) }}" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="file" class="form-label">Select file to upload</label>
+                <input type="file" name="file" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload File</button>
+        </form>
+
+        {% if success %}
+            <div class="alert alert-success mt-4">{{ success }}</div>
+        {% endif %}
+        
+        {% if error %}
+            <div class="alert alert-danger mt-4">{{ error }}</div>
+        {% endif %}
+    </div>
+
+    <script>
+        function confirmDelete(form, filename) {
+            const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
+
+            if (userConfirmed) {
+                const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
+                if (action) {
+                    form.action = "{{ url_for('files.delete_file', filename='') }}" + filename + "&permanent=true";
+                } else {
+                    form.action = "{{ url_for('files.delete_file', filename='') }}" + filename;
+                }
+            }
+
+            return true;
+        }
+    </script>
+{% endblock content %}

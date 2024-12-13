@@ -1,0 +1,58 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h1 class="mb-4">Create a New Process</h1>
+
+        <form id="add-service-form" class="card p-4 shadow-sm">
+            <div class="form-group mb-3">
+                <label for="service-name" class="form-label">Service Name</label>
+                <input type="text" id="service-name" class="form-control" placeholder="Service Name" required>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="service-command" class="form-label">Command</label>
+                <input type="text" id="service-command" class="form-control" placeholder="Command" required>
+            </div>
+
+            <div class="form-group mb-3">
+                <label for="service-type" class="form-label">Service Type</label>
+                <select id="service-type" class="form-select">
+                    <option value="nodejs">Node.js</option>
+                    <option value="python">Python</option>
+                </select>
+            </div>
+
+            <button type="button" class="btn btn-primary" onclick="addService()">Add Service</button>
+        </form>
+
+        {% if success %}
+            <div class="alert alert-success mt-4">{{ success }}</div>
+        {% endif %}
+        
+        {% if error %}
+            <div class="alert alert-danger mt-4">{{ error }}</div>
+        {% endif %}
+        
+        <a href="/" class="btn btn-secondary mt-4">Back to Dashboard</a>
+    </div>
+
+    <script>
+        async function addService() {
+            const name = document.getElementById('service-name').value;
+            const command = document.getElementById('service-command').value;
+            const type = document.getElementById('service-type').value;
+            const response = await fetch('/api/services', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, command, type })
+            });
+            if (response.ok) {
+                alert('Service added successfully');
+            } else {
+                console.log(response)
+                alert('Failed to add service');
+            }
+        }
+    </script>
+{% endblock content %}

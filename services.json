@@ -1,0 +1,17 @@
+{
+    "test": {
+        "type": "python",
+        "command": "test",
+        "status": "stopped"
+    },
+    "rtew": {
+        "type": "nodejs",
+        "command": "sdfe",
+        "status": "stopped"
+    },
+    "tet": {
+        "type": "nodejs",
+        "command": "etet",
+        "status": "stopped"
+    }
+}
