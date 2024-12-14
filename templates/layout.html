@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"
+{% if page_title and page_title == "File Manager" %}
+ondragover="handleDragOver(event)" 
+    ondragenter="handleDrag(event, '{{ current_location }}');" 
+    ondragleave="handleDragLeave(event);" 
+    ondrop="handleFileDrop(event, '{{ current_location }}');"
+    {% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
@@ -13,19 +19,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
 </head>
 <body>
+    {% if page_title and page_title == "File Manager" %}
+    <div id="drag-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 1.5rem; text-align: center;">
+            Drop your files here
+        </div>
+    </div>
+    {% endif %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container d-flex justify-content-center">
-            <!-- Brand Logo -->
             <a class="navbar-brand d-flex align-items-center me-4" href="/">
                 Web-Monitor
             </a>
     
-            <!-- Toggler for responsive navbar -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
     
-            <!-- Navbar Links -->
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
@@ -42,11 +52,66 @@
                     </li>
                 </ul>
             </div>
-            <!-- Logout Button -->
             <button class="btn btn-primary ms-4" onclick="logout()">Logout</button>
         </div>
     </nav>
     {% block content %}
     {% endblock content %}
+    <script>
+        let dragOverTimeout;
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            const overlay = document.getElementById('drag-overlay');
+
+            overlay.style.display = "block";
+
+            clearTimeout(dragOverTimeout);
+        }
+
+        function handleDragLeave(event) {
+            const overlay = document.getElementById('drag-overlay');
+
+            dragOverTimeout = setTimeout(() => {
+                overlay.style.display = "none";
+            }, 100);
+        }
+
+        function handleFileDrop(event, targetPath) {
+            event.preventDefault();
+            const overlay = document.getElementById('drag-overlay');
+            
+            clearTimeout(dragOverTimeout);
+            overlay.style.display = "none";
+
+            const files = event.dataTransfer.files;
+
+            if (files.length > 0) {
+                const formData = new FormData();
+                for (const file of files) {
+                    formData.append('file', file);
+                }
+                formData.append('targetPath', targetPath);
+                fetch('{{ url_for("files.upload_file") }}', {
+                    method: 'POST',
+                    body: formData,
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            alert('Files uploaded successfully.');
+                            location.reload();
+                        } else {
+                            return response.json().then(data => {
+                                alert(`Upload failed: ${data.error}`);
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error uploading files:', error);
+                        alert('An error occurred while uploading files.');
+                    });
+            }
+        }
+    </script>
 </body>
 </html>

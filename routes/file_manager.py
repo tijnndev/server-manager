@@ -62,7 +62,7 @@ def file_manager():
             )
 
     # Render the template with the current files and location
-    return render_template('file_manager.html', files=files, current_location=relative_location)
+    return render_template('file_manager.html', files=files, current_location=relative_location, page_title="File Manager")
 
 
 @file_manager_routes.route('/file-manager/delete', methods=['POST'])
@@ -74,30 +74,49 @@ def delete_file():
 
     file_path = os.path.abspath(os.path.normpath(os.path.join(location, filename)))
     trash_path = os.path.abspath(os.path.normpath(os.path.join(TRASH_DIR, f"{filename.replace('/', '_')}-{int(time.time())}")))
+
     if os.path.exists(file_path):
         directory_path, _file_name = os.path.split(file_path)
         try:
-            if permanent:
-                os.remove(file_path)
-                message = f"File '{filename}' permanently deleted."
-            else:
-                if os.path.exists(TRASH_DIR):
-                    if os.path.exists(trash_path):
-                        _base, ext = os.path.splitext(filename.replace('/', '_'))
-                        trash_path = os.path.join(TRASH_DIR, f"-{int(time.time())}{ext}")
-                    shutil.move(file_path, trash_path)
-                    message = f"File '{filename}' moved to .trash."
-                    
+            if os.path.isfile(file_path):
+                # Handle file deletion
+                if permanent:
+                    os.remove(file_path)
+                    message = f"File '{filename}' permanently deleted."
                 else:
-                    message = "Trash directory does not exist."
+                    if not os.path.exists(TRASH_DIR):
+                        message = "Trash directory does not exist."
+                    else:
+                        if os.path.exists(trash_path):
+                            _base, ext = os.path.splitext(filename.replace('/', '_'))
+                            trash_path = os.path.join(TRASH_DIR, f"{_base}-{int(time.time())}{ext}")
+                        shutil.move(file_path, trash_path)
+                        message = f"File '{filename}' moved to .trash."
+
+            elif os.path.isdir(file_path):
+                # Handle directory deletion
+                if permanent:
+                    shutil.rmtree(file_path)
+                    message = f"Directory '{filename}' permanently deleted."
+                else:
+                    if not os.path.exists(TRASH_DIR):
+                        message = "Trash directory does not exist."
+                    else:
+                        if os.path.exists(trash_path):
+                            trash_path = f"{trash_path}-{int(time.time())}"
+                        shutil.move(file_path, trash_path)
+                        message = f"Directory '{filename}' moved to .trash."
+
             return redirect(url_for('files.file_manager', location=directory_path, message=message))
+        
         except Exception as e:
             print(f"Error: {e}")
-            message = str(e)
+            message = f"Error deleting {'directory' if os.path.isdir(file_path) else 'file'}: {e}"
             return redirect(url_for('files.file_manager', location=directory_path, message=message))
     else:
-        print(f"File not found at: {file_path}")
-        return jsonify({"error": "File not found"}), 404
+        print(f"File or directory not found at: {file_path}")
+        return jsonify({"error": "File or directory not found"}), 404
+
 
 
 @file_manager_routes.route('/file-manager/download/<filename>', methods=['GET'])
@@ -156,3 +175,17 @@ def create_directory():
                 error = f"Error creating directory: {e}"
                 return redirect(url_for('files.file_manager', location=location, error=error))
     return render_template('create_directory.html', current_location=location)
+
+@file_manager_routes.route('/file-manager/upload', methods=['POST'])
+def upload_file():
+    target_path = os.path.join(ACTIVE_SERVERS_DIR, request.form.get('targetPath'))
+
+    if not os.path.isdir(target_path):
+        return jsonify({'error': 'Invalid directory path'}), 400
+
+    uploaded_files = request.files.getlist('file')
+    for uploaded_file in uploaded_files:
+        file_path = os.path.join(target_path, uploaded_file.filename)
+        uploaded_file.save(file_path)
+
+    return jsonify({'success': True})

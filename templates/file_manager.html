@@ -2,117 +2,258 @@
 
 {% block content %}
 <style>
-    .file-bar {
-        background-color: #333;
-        border-radius: 5px;
-        color: #fff !important
-    }
-    .btn {
-        color: #fff !important
-    }
-    .btn span{
-        border-bottom: 1px solid white;
-    }
+.file-bar {
+    background-color: #333;
+    border-radius: 5px;
+    color: #fff !important;
+}
+
+.btn {
+    color: #fff !important;
+}
+
+.btn span {
+    border-bottom: 1px solid white;
+}
+
+.list-group-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+
+.file-checkbox {
+    margin-right: 10px;
+}
+
+.list-group-item .btn {
+    margin-left: 10px;
+}
+
+.drop-zone {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem;
+    border: 2px dashed #fff;
+    z-index: 10;
+}
+
+.list-group-item.drag-hover .drop-zone {
+    display: flex;
+}
+
+.drag-hover {
+    background: red;
+}
+
+.actions-overlay {
+    position: fixed;
+    bottom: -100px; /* Initially position the overlay off-screen */
+    left: 0;
+    width: 100%;
+    background-color: transparent;
+    color: white;
+    padding: 10px;
+    z-index: 9999;
+    text-align: center;
+    opacity: 0; /* Initially hide the overlay */
+    visibility: hidden; /* Set visibility to hidden */
+    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out, visibility 0s 0.3s; /* Add transition for opacity, visibility and bottom */
+}
+
+.actions-overlay.active {
+    bottom: 25px; /* Bring it on-screen when active */
+    opacity: 1; /* Make the overlay visible */
+    visibility: visible; /* Set visibility to visible */
+    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out; /* Remove delay for visibility */
+}
+
+.actions-overlay button {
+    margin: 0 10px;
+}
+
+.actions-overlay.active {
+    display: block;
+}
+
+.actions-overlay button {
+    margin: 0 10px;
+}
+
+.list-group-item .div {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+}
+
 </style>
-    <div class="container mt-5">
-        <h1 class="mb-4">File Manager</h1>
 
-        <div class="row">
-            <div class="col-12">
-                <h4 class="file-bar">
-                    <a href="{{ url_for('files.file_manager', location='./') }}" class="btn">
-                        <span>home</span>
-                    </a>
-                    <span>/</span>
-                    {% set path_parts = current_location.replace('\\', '/').split('/') %}
-                    {% for i in range(path_parts|length) %}
-                        {% set part = path_parts[i] %}
-                        {% if part != "." %}
-                            <a href="{{ url_for('files.file_manager', location='/'.join(path_parts[:i+1])) }}" class="btn">
-                                <span>{{ part }}</span>
-                            </a>
-                            {% if not loop.last %}
-                            <span>/</span>
-                            {% endif %}
+<div class="container mt-5">
+    <h1 class="mb-4">File Manager</h1>
+
+    <div class="row">
+        <div class="col-12">
+            <h4 class="file-bar">
+                <a href="{{ url_for('files.file_manager', location='./') }}" class="btn">
+                    <span>home</span>
+                </a>
+                <span>/</span>
+                {% set path_parts = current_location.replace('\\', '/').split('/') %}
+                {% for i in range(path_parts|length) %}
+                    {% set part = path_parts[i] %}
+                    {% if part != "." %}
+                        <a href="{{ url_for('files.file_manager', location='/'.join(path_parts[:i+1])) }}" class="btn">
+                            <span>{{ part }}</span>
+                        </a>
+                        {% if not loop.last %}
+                        <span>/</span>
                         {% endif %}
-                    {% endfor %}
-                </h4>
-                
-                <!-- Button to create a new file in the current directory -->
-                <a href="{{ url_for('files.create_file', location=current_location) }}" class="btn btn-success mt-2 mb-4">
-                    Create New File
-                </a>
-                <a href="{{ url_for('files.create_directory', location=current_location) }}" class="btn btn-warning mt-2 mb-4">
-                    Create New Directory
-                </a>
-                <ul class="list-group">
-                    {% set directories = files | selectattr('is_directory', 'equalto', true) | sort(attribute='name') %}
-                    {% set regular_files = files | selectattr('is_directory', 'equalto', false) | sort(attribute='name') %}
+                    {% endif %}
+                {% endfor %}
+            </h4>
+            
+            <a href="{{ url_for('files.create_file', location=current_location) }}" class="btn btn-success mt-2 mb-4">
+                Create New File
+            </a>
+            <a href="{{ url_for('files.create_directory', location=current_location) }}" class="btn btn-warning mt-2 mb-4">
+                Create New Directory
+            </a>
 
-                    <!-- List directories first -->
-                    {% for file in directories %}
-                        <li class="list-group-item d-flex justify-content-between">
-                            <span>{{ file.name }}</span>
-                            <div>
-                                <!-- Directory: Navigate to directory -->
-                                <a href="{{ url_for('files.file_manager', location=file.path) }}" class="btn btn-secondary btn-sm mr-2">Open Directory</a>
-                            </div>
-                        </li>
-                    {% endfor %}
+            <ul class="list-group">
+                {% set directories = files | selectattr('is_directory', 'equalto', true) | sort(attribute='name') %}
+                {% set regular_files = files | selectattr('is_directory', 'equalto', false) | sort(attribute='name') %}
 
-                    <!-- Then list regular files -->
-                    {% for file in regular_files %}
-                        <li class="list-group-item d-flex justify-content-between">
+                {% for file in directories %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <div>
+                            <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
                             <span>{{ file.name }}</span>
-                            <div>
-                                <!-- File: Show Download button -->
-                                <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
-                                <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
-                                    <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
-                                    <input type="hidden" name="location" value="{{ current_location }}">
-                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                                </form>
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('files.file_manager', location=file.path) }}" class="btn btn-secondary btn-sm mr-2">Open Directory</a>
+                            <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
+                                <input type="hidden" name="location" value="{{ current_location }}">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
+                    </li>
+                {% endfor %}
+
+                {% for file in regular_files %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <div>
+                            <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
+                            <span>{{ file.name }}</span>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
+                            <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
+                                <input type="hidden" name="location" value="{{ current_location }}">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
         </div>
-
-        <hr>
-
-        <h4 class="mt-4">Upload a New File</h4>
-        <form action="{{ url_for('files.file_manager', location=current_location) }}" method="POST" enctype="multipart/form-data">
-            <div class="mb-3">
-                <label for="file" class="form-label">Select file to upload</label>
-                <input type="file" name="file" class="form-control" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Upload File</button>
-        </form>
-
-        {% if success %}
-            <div class="alert alert-success mt-4">{{ success }}</div>
-        {% endif %}
-        
-        {% if error %}
-            <div class="alert alert-danger mt-4">{{ error }}</div>
-        {% endif %}
     </div>
 
-    <script>
-        function confirmDelete(form, filename) {
-            const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
+    <hr>
 
-            if (userConfirmed) {
-                const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
-                if (action) {
-                    form.action = "{{ url_for('files.delete_file', filename='') }}" + filename + "&permanent=true";
-                } else {
-                    form.action = "{{ url_for('files.delete_file', filename='') }}" + filename;
-                }
+    <h4 class="mt-4">Upload a New File</h4>
+    <form action="{{ url_for('files.file_manager', location=current_location) }}" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="file" class="form-label">Select file to upload</label>
+            <input type="file" name="file" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload File</button>
+    </form>
+
+    {% if success %}
+        <div class="alert alert-success mt-4">{{ success }}</div>
+    {% endif %}
+    
+    {% if error %}
+        <div class="alert alert-danger mt-4">{{ error }}</div>
+    {% endif %}
+</div>
+
+<!-- Actions Overlay -->
+<div id="actions-overlay" class="actions-overlay">
+    <button class="btn btn-danger" onclick="deleteSelectedFiles()">Delete Selected</button>
+    <button class="btn btn-info" onclick="downloadSelectedFiles()">Download Selected</button>
+</div>
+
+<script>
+    let selectedFiles = [];
+
+    // Update selected files based on checkbox
+    document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (event) => {
+            const filePath = event.target.getAttribute('data-path');
+            if (event.target.checked) {
+                selectedFiles.push(filePath);
+            } else {
+                selectedFiles = selectedFiles.filter(path => path !== filePath);
             }
+            toggleActionsOverlay();
+        });
+    });
 
-            return true;
+    // Toggle actions overlay based on selected files
+    function toggleActionsOverlay() {
+        const overlay = document.getElementById('actions-overlay');
+        if (selectedFiles.length > 0) {
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
         }
-    </script>
+    }
+
+    // Delete selected files
+    function deleteSelectedFiles() {
+        if (selectedFiles.length === 0) return;
+        if (confirm("Are you sure you want to delete the selected files?")) {
+            // Implement your deletion logic here, such as sending a request to the backend
+            alert('Deleting files: ' + selectedFiles.join(', '));
+            // You can send an AJAX request to delete the files
+        }
+    }
+
+    // Download selected files
+    function downloadSelectedFiles() {
+        if (selectedFiles.length === 0) return;
+        // Implement your download logic here, such as creating download links
+        alert('Downloading files: ' + selectedFiles.join(', '));
+    }
+
+    function confirmDelete(form, filename) {
+        const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
+
+        if (userConfirmed) {
+            const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
+            if (action) {
+                form.action = "{{ url_for('files.delete_file', filename='') }}" + filename + "&permanent=true";
+            } else {
+                form.action = "{{ url_for('files.delete_file', filename='') }}" + filename;
+            }
+        }
+
+        return true;
+    }
+</script>
+
 {% endblock content %}
