@@ -198,10 +198,21 @@ def edit_file():
     file_type = os.path.basename(file_path).split('.')[1] if '.' in os.path.basename(file_path) else ''
 
     if request.method == 'POST':
-        new_content = request.form['file_content']
-        with open(file_path, 'w') as f:
+        new_name = request.form['file_name']
+        new_type = request.form['file_type']
+        new_file_name = f"{new_name}" if new_type else new_name
+        new_file_path = os.path.join(os.path.dirname(file_path), new_file_name)
+
+        new_content = request.form['file_code']
+        new_content = new_content.replace('\r\n', '\n').replace('\r', '\n')
+
+        if file_path != new_file_path:
+            os.remove(file_path)
+
+        with open(new_file_path, 'w', newline='') as f:
             f.write(new_content)
-        return redirect(url_for('files.file_manager', location=os.path.relpath(os.path.dirname(file_path), ACTIVE_SERVERS_DIR)))
+
+        return redirect(url_for('files.file_manager', location=os.path.relpath(os.path.dirname(new_file_path), ACTIVE_SERVERS_DIR)))
 
     with open(file_path, 'r') as f:
         file_content = f.read()

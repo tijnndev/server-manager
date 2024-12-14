@@ -2,8 +2,8 @@
 
 {% block content %}
     <div class="container mt-5">
-        <h1>Create New File with Code</h1>
-        <form action="{{ url_for('files.create_file', location=location) }}" method="POST">
+        <h1>Edit file: {{ file_name }}.{{file_type}}</h1>
+        <form action="{{ url_for('files.edit_file', file=file_path) }}" method="POST">
             <div class="mb-3">
                 <label for="file_name" class="form-label">File Name (without extension)</label>
                 <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required oninput="validateFileName()">
@@ -13,10 +13,10 @@
             <div class="mb-3">
                 <label for="file_type" class="form-label">File Type</label>
                 <select id="file_type" class="form-control" name="file_type" onchange="changeEditorMode()">
-                    <option value="python" selected>Python (.py)</option>
-                    <option value="javascript">JavaScript (.js)</option>
-                    <option value="html">HTML (.html)</option>
-                    <option value="css">CSS (.css)</option>
+                    <option value="python" {% if file_type == "py" %} selected {% endif %}>Python (.py)</option>
+                    <option value="javascript" {% if file_type == "js" %} selected {% endif %}>JavaScript (.js)</option>
+                    <option value="html" {% if file_type == "html" %} selected {% endif %}>HTML (.html)</option>
+                    <option value="css" {% if file_type == "css" %} selected {% endif %}>CSS (.css)</option>
                 </select>
             </div>
 
@@ -57,7 +57,13 @@
         }
     
         document.querySelector("form").addEventListener("submit", function() {
-            document.getElementById("file_code").value = editor.getValue();
+            let content = editor.getValue();
+            
+            // Normalize line endings to UNIX style (LF)
+            content = content.replace(/\r\n|\r/g, "\n");
+
+            document.getElementById("file_code").value = content;
+
             var fileType = document.getElementById("file_type").value;
             var fileName = document.getElementById("file_name").value;
             var fileExtension = getFileExtension(fileType);
