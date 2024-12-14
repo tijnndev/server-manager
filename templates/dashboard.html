@@ -14,12 +14,10 @@
         font-size: 0.9rem;
         font-weight: bold;
     }
-    .server-actions button {
-    }
     
 </style>
 
-<div class="container">
+<div class="container mt-5">
     <h1 class="mb-4">Ubuntu System Manager</h1>
 
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -33,7 +31,7 @@
 
     <script>
         async function fetchServices() {
-            const response = await fetch('/api/services');
+            const response = await fetch({{ url_for('service.get_services') }});
             const services = await response.json();
             const grid = document.getElementById('services-grid');
             grid.innerHTML = '';
@@ -59,7 +57,7 @@
             const name = document.getElementById('service-name').value;
             const command = document.getElementById('service-command').value;
             const type = document.getElementById('service-type').value;
-            const response = await fetch('/api/services', {
+            const response = await fetch('{{ url_for('service.get_services') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, command, type })

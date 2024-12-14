@@ -1,17 +1,7 @@
 {
-    "test": {
-        "type": "python",
-        "command": "test",
-        "status": "stopped"
-    },
-    "rtew": {
+    "webshop-backend": {
         "type": "nodejs",
-        "command": "sdfe",
-        "status": "stopped"
-    },
-    "tet": {
-        "type": "nodejs",
-        "command": "etet",
+        "command": "node index.js",
         "status": "stopped"
     }
 }

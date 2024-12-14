@@ -1,0 +1,88 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <div class="container mt-5">
+        <h1>Create New File with Code</h1>
+        <form action="{{ url_for('files.create_file', location=location) }}" method="POST">
+            <div class="mb-3">
+                <label for="file_name" class="form-label">File Name (without extension)</label>
+                <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required oninput="validateFileName()">
+            </div>
+
+            <!-- Dropdown for selecting file type -->
+            <div class="mb-3">
+                <label for="file_type" class="form-label">File Type</label>
+                <select id="file_type" class="form-control" name="file_type" onchange="changeEditorMode()">
+                    <option value="python" selected>Python (.py)</option>
+                    <option value="javascript">JavaScript (.js)</option>
+                    <option value="html">HTML (.html)</option>
+                    <option value="css">CSS (.css)</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="file_code" class="form-label">Code</label>
+                <div id="editor" style="height: 300px;"></div>
+                <textarea name="file_code" id="file_code" style="display: none;"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Edit File</button>
+        </form>
+
+        {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script>
+        var editor = ace.edit("editor");
+        editor.setTheme("ace/theme/github");
+    
+        var fileType = document.getElementById("file_type").value;
+        setEditorMode(fileType);
+    
+        var fileContent = {{ file_content|tojson }};
+        if (fileContent) {
+            editor.setValue(fileContent);
+        }
+    
+        function changeEditorMode() {
+            var selectedType = document.getElementById("file_type").value;
+            setEditorMode(selectedType);
+        }
+    
+        async function setEditorMode(fileType) {
+            editor.session.setMode(`ace/mode/${fileType}`);
+        }
+    
+        document.querySelector("form").addEventListener("submit", function() {
+            document.getElementById("file_code").value = editor.getValue();
+            var fileType = document.getElementById("file_type").value;
+            var fileName = document.getElementById("file_name").value;
+            var fileExtension = getFileExtension(fileType);
+            document.getElementById("file_name").value = fileName + fileExtension;
+        });
+    
+        function validateFileName() {
+            var fileName = document.getElementById("file_name").value;
+            document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9/-]/g, '');
+        }
+    
+        function getFileExtension(fileType) {
+            switch(fileType) {
+                case 'python':
+                    return '.py';
+                case 'javascript':
+                    return '.js';
+                case 'html':
+                    return '.html';
+                case 'css':
+                    return '.css';
+                default:
+                    return '';
+            }
+        }
+    </script>
+    
+{% endblock content %}

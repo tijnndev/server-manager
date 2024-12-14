@@ -105,7 +105,7 @@
     <div class="row">
         <div class="col-12">
             <h4 class="file-bar">
-                <a href="{{ url_for('files.file_manager', location='./') }}" class="btn">
+                <a href="{{ url_for('files.file_manager') }}" class="btn">
                     <span>home</span>
                 </a>
                 <span>/</span>
@@ -135,13 +135,14 @@
                 {% set regular_files = files | selectattr('is_directory', 'equalto', false) | sort(attribute='name') %}
 
                 {% for file in directories %}
+                <a href="{{ url_for('files.file_manager', location=file.path) }}">
                     <li class="list-group-item d-flex justify-content-between">
                         <div>
                             <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
+                            <i style="font-size: 15px;" class="fa-solid fa-folder"></i>
                             <span>{{ file.name }}</span>
                         </div>
                         <div>
-                            <a href="{{ url_for('files.file_manager', location=file.path) }}" class="btn btn-secondary btn-sm mr-2">Open Directory</a>
                             <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
                                 <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
                                 <input type="hidden" name="location" value="{{ current_location }}">
@@ -149,23 +150,26 @@
                             </form>
                         </div>
                     </li>
+                </a>
                 {% endfor %}
 
                 {% for file in regular_files %}
-                    <li class="list-group-item d-flex justify-content-between">
-                        <div>
-                            <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
-                            <span>{{ file.name }}</span>
-                        </div>
-                        <div>
-                            <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
-                            <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
-                                <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
-                                <input type="hidden" name="location" value="{{ current_location }}">
-                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                            </form>
-                        </div>
-                    </li>
+                    <a href="{{ url_for('files.edit_file', file=file.path) }}">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <div>
+                                <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
+                                <span>{{ file.name }}</span>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
+                                <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                    <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
+                                    <input type="hidden" name="location" value="{{ current_location }}">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                            </div>
+                        </li>
+                    </a>
                 {% endfor %}
             </ul>
         </div>

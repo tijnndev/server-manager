@@ -42,11 +42,12 @@
             const name = document.getElementById('service-name').value;
             const command = document.getElementById('service-command').value;
             const type = document.getElementById('service-type').value;
-            const response = await fetch('/api/services', {
+            const response = await fetch('{{ url_for('service.add_service') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, command, type })
             });
+            console.log(response)
             if (response.ok) {
                 alert('Service added successfully');
             } else {
