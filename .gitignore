@@ -2,5 +2,4 @@ __pycache__
 venv
 .env
 /.venv
-/active-servers/webshop-backend
-/active-servers/webshop-backend
+/active-servers/*

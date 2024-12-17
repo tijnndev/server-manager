@@ -58,7 +58,10 @@ def file_manager():
 
 @file_manager_routes.route('/file-manager/delete', methods=['POST'])
 def delete_file():
-    filename = request.form.get('filename').replace("\\", "/")
+
+    if not request.form:
+        return
+    filename = request.form.get('filename', "").replace("\\", "/")
     location = request.args.get('location', '')
     permanent = request.args.get('permanent', 'false').lower() == 'true'
 
@@ -72,6 +75,7 @@ def delete_file():
 
     if os.path.exists(file_path):
         try:
+            message = ""
             if os.path.isfile(file_path):
                 if permanent:
                     os.remove(file_path)

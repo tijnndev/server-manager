@@ -14,6 +14,7 @@ class Process(BaseModel):
     file_location = db.Column(db.String(255), nullable=False)
     description = db.Column(db.String(255), nullable=True)
     dependencies = db.Column(db.JSON, nullable=True)
+    port_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
     def __repr__(self):
         return f"<Process {self.name}>"
