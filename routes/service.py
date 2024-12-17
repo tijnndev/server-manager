@@ -121,11 +121,13 @@ def add_service():
                 f.write("// Entry point for Node.js service\n")
                 f.write("console.log('Node.js service running');\n")
 
-            dockerfile = """FROM node:latest
+            dockerfile = """# DO NOT TOUCH THIS FILE
+FROM node:latest
 WORKDIR /app
 COPY . .
 RUN npm install
-CMD ["node", "index.js"]"""
+CMD ["node", "index.js"]
+# DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
                 f.write(dockerfile)
@@ -137,11 +139,13 @@ CMD ["node", "index.js"]"""
                 f.write("if __name__ == '__main__':\n")
                 f.write("    print('Python service running')\n")
 
-            dockerfile = """FROM python:3.9-slim
+            dockerfile = """# DO NOT TOUCH THIS FILE
+FROM python:3.9-slim
 WORKDIR /app
 COPY . .
 RUN pip install -r requirements.txt
-CMD ["python", "app.py"]"""
+CMD ["python", "app.py"]
+# DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
                 f.write(dockerfile)
