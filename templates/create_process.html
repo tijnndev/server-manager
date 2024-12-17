@@ -14,7 +14,10 @@
                 <label for="service-command" class="form-label">Command</label>
                 <input type="text" id="service-command" class="form-control" placeholder="Command" required>
             </div>
-
+            <div class="form-group mb-3">
+                <label for="service-dependencies" class="form-label">Dependencies</label>
+                <input type="text" id="service-dependencies" class="form-control" placeholder="Dependencies" required>
+            </div>
             <div class="form-group mb-3">
                 <label for="service-type" class="form-label">Service Type</label>
                 <select id="service-type" class="form-select">
@@ -41,11 +44,12 @@
         async function addService() {
             const name = document.getElementById('service-name').value;
             const command = document.getElementById('service-command').value;
+            const dependencies = document.getElementById('service-dependencies').value;
             const type = document.getElementById('service-type').value;
             const response = await fetch('{{ url_for('service.add_service') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, command, type })
+                body: JSON.stringify({ name, command, type, dependencies })
             });
             console.log(response)
             if (response.ok) {

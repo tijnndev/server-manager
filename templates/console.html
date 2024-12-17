@@ -1,0 +1,54 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+    .console-output {
+        background-color: #333;
+        color: white;
+        font-family: monospace;
+        padding: 15px;
+        height: 300px;
+        overflow-y: scroll;
+        white-space: pre-wrap;
+    }
+</style>
+
+<div class="container mt-5">
+    <h1 class="mb-4">Console for {{ service_name }}</h1>
+
+    <div class="console-output" id="console-output"></div>
+
+    <div class="mt-3">
+        <input type="text" id="command-input" class="form-control" placeholder="Enter command..." />
+        <button class="btn btn-primary mt-2" onclick="sendCommand()">Send Command</button>
+    </div>
+</div>
+
+<script>
+    const consoleOutput = document.getElementById('console-output');
+    const commandInput = document.getElementById('command-input');
+
+    async function startConsole() {
+        const eventSource = new EventSource(`/services/console/{{ service_name }}/logs`);
+        console.log(eventSource)
+        eventSource.onmessage = function(event) {
+            consoleOutput.innerHTML += event.data + '\n';
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;  // Scroll to bottom
+        };
+    }
+
+    async function sendCommand() {
+        const command = commandInput.value;
+        const response = await fetch(`/services/console/{{ service_name }}/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command })
+        });
+        if (response.ok) {
+            commandInput.value = '';
+        }
+    }
+
+    startConsole();
+</script>
+{% endblock content %}

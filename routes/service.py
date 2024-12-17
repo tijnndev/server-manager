@@ -1,8 +1,9 @@
 # app/routes/service_routes.py
-from flask import Blueprint, jsonify, request
-import subprocess, psutil
-import json
-import os
+from flask import Blueprint, jsonify, request, render_template, Response, current_app
+import subprocess, psutil, os, sys, docker, json
+
+from db import db
+from models.process import Process
 
 service_routes = Blueprint('service', __name__)
 
@@ -19,27 +20,43 @@ def is_within_base_dir(path, base=ACTIVE_SERVERS_DIR):
 
 def load_services():
     services = {}
-    if not os.path.exists(SERVICES_DIRECTORY):
-        return services
-    
-    for server_dir in os.listdir(SERVICES_DIRECTORY):
-        server_path = os.path.join(SERVICES_DIRECTORY, server_dir)
-        if os.path.isdir(server_path):
-            service_name = server_dir
-            service_type = "unknown"
-            for filename in os.listdir(server_path):
-                if filename.endswith('.py'):
-                    service_type = "python"
-                    break
-                elif filename.endswith('.js'):
-                    service_type = "javascript"
-                    break
+    client = docker.from_env()  # Initialize Docker client
 
-            services[service_name] = {
-                "type": service_type,
-                "command": f"python {server_path}/server.py" if service_type == "python" else f"node {server_path}/server.js",
-                "status": "stopped"
+    processes = Process.query.all()
+
+    for process in processes:
+        try:
+            container = client.containers.get(process.id)
+            status = container.status
+
+            services[process.name] = {
+                "id": process.id,
+                "type": process.type,
+                "command": process.command,
+                "file_location": process.file_location,
+                "name": process.name,
+                "status": status
             }
+        except docker.errors.NotFound: # type: ignore
+            services[process.name] = {
+                "id": process.id,
+                "type": process.type,
+                "command": process.command,
+                "file_location": process.file_location,
+                "name": process.name,
+                "status": "Not Found"
+            }
+        except Exception as e:
+            print(f"Error fetching status for {process.name}: {e}")
+            services[process.name] = {
+                "id": process.id,
+                "type": process.type,
+                "command": process.command,
+                "file_location": process.file_location,
+                "name": process.name,
+                "status": "Error"
+            }
+
     return services
 
 def save_services(services):
@@ -51,9 +68,16 @@ def get_services():
     services = load_services()
     return jsonify(services)
 
+client = docker.from_env()
+
 @service_routes.route('/add', methods=['POST'])
 def add_service():
     data = request.json
+    print(data)
+
+    if data is None:
+        return jsonify({"error": "Invalid or duplicate service name"}), 400
+
     services = load_services()
     service_name = data.get("name")
 
@@ -64,11 +88,23 @@ def add_service():
 
     if not is_within_base_dir(service_dir):
         return jsonify({"error": "Invalid service name or directory"}), 400
+    
     if os.path.exists(service_dir):
         return jsonify({"error": "Service directory already exists"}), 400
 
     try:
         os.makedirs(service_dir, exist_ok=False)
+
+        dependencies = data.get('dependencies')
+        if not dependencies:
+            return None
+        
+        dependency_list = dependencies.split(',')
+        
+        requirements_path = os.path.join(service_dir, 'requirements.txt')
+        with open(requirements_path, 'w') as f:
+            for dep in dependency_list:
+                f.write(dep.strip() + '\n')
 
         service_type = data.get("type")
         if service_type == "nodejs":
@@ -76,51 +112,203 @@ def add_service():
             with open(file_path, "w") as f:
                 f.write("// Entry point for Node.js service\n")
                 f.write("console.log('Node.js service running');\n")
+
+            # Create Dockerfile for Node.js
+            dockerfile = """FROM node:latest
+WORKDIR /app
+COPY . .
+RUN npm install
+CMD ["node", "index.js"]"""
+            dockerfile_path = os.path.join(service_dir, "Dockerfile")
+            with open(dockerfile_path, "w") as f:
+                f.write(dockerfile)
+
         elif service_type == "python":
             file_path = os.path.join(service_dir, "app.py")
             with open(file_path, "w") as f:
                 f.write("# Entry point for Python service\n")
                 f.write("if __name__ == '__main__':\n")
                 f.write("    print('Python service running')\n")
+
+            dockerfile = """FROM python:3.9-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python", "app.py"]"""
+            dockerfile_path = os.path.join(service_dir, "Dockerfile")
+            with open(dockerfile_path, "w") as f:
+                f.write(dockerfile)
+
+        else:
+            return jsonify({"error": "Unknown service type"}), 400
+
+        image_tag = f"{service_name}_image"
+        try:
+            print(f"Building Docker image for {service_type}")
+            client.images.build(path=service_dir, tag=image_tag)
+
+        except docker.errors.BuildError as e:
+            print(f"Error building Docker image: {e}")
+            return jsonify({"error": f"Failed to build Docker image: {e}"}), 500
+
+        command = data.get("command")
+        container_name = f"{service_type}_{service_name}"
+        try:
+            try:
+                existing_container = client.containers.get(container_name)
+                print(f"Removing existing container: {existing_container.id}")
+                existing_container.remove(force=True)
+            except docker.errors.NotFound:
+                pass
+
+            print("Creating and starting container")
+            container = client.containers.run(
+                image_tag,
+                name=container_name,
+                command=command,
+                volumes={service_dir: {"bind": "/app", "mode": "rw"}},
+                ports={8000: 8000},
+                detach=True
+            )
+
+            print(f"Container started: {container.id}")
+
+            new_process = Process(
+                name=service_name,
+                command=command,
+                type=service_type,
+                file_location=service_dir,
+                id=container.id,
+            )
+            db.session.add(new_process)
+            db.session.commit()
+
+        except docker.errors.DockerException as e:
+            print(f"Error starting Docker container: {e}")
+            return jsonify({"error": f"Failed to create Docker container: {e}"}), 500
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return jsonify({"error": f"Unexpected error: {e}"}), 500
+
     except OSError as e:
         return jsonify({"error": f"Failed to create service directory: {e}"}), 500
+    except docker.errors.DockerException as e:
+        return jsonify({"error": f"Failed to create Docker container: {e}"}), 500
 
-    services[service_name] = {
-        "type": data.get("type"),
-        "command": data.get("command"),
-        "status": "stopped"
-    }
-    save_services(services)
+    return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id})
 
-    return jsonify({"message": "Service added", "directory": service_dir})
-
-@service_routes.route('/<string:name>/start', methods=['POST'])
+@service_routes.route('/start/<string:name>', methods=['POST'])
 def start_service(name):
-    services = load_services()
-    if name not in services:
+    service = find_process_by_name(name)
+    if not service:
         return jsonify({"error": "Service not found"}), 404
+
     try:
-        command = services[name]["command"]
-        process = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        services[name]["status"] = "running"
-        services[name]["pid"] = process.pid
-        save_services(services)
-        return jsonify({"message": f"Service {name} started", "pid": process.pid})
+        container_id = service.id
+        if not container_id:
+            return jsonify({"error": "Service ID not found"}), 404
+
+        client = docker.from_env()
+
+        print(f"Starting Docker container with ID: {container_id}")
+        container = client.containers.get(container_id)
+
+        if container.status != 'running':
+            container.start()
+            print(f"Container {container_id} started.")
+        else:
+            print(f"Container {container_id} is already running.")
+
+        return jsonify({"message": f"Service {name} started successfully on container {container_id}."})
+
+    except docker.errors.NotFound:
+        return jsonify({"error": f"Container with ID {container_id} not found."}), 404
+    except docker.errors.APIError as e:
+        return jsonify({"error": f"Docker API error: {str(e)}"}), 500
+    except Exception as e:
+        print(e)
+        return jsonify({"error": str(e)}), 500
+
+
+@service_routes.route('/console/<string:name>', methods=['GET'])
+def console(name):
+    service = find_process_by_name(name)
+    if not service:
+        return jsonify({"error": "Service not found"}), 404
+    
+    return render_template('console.html', service_name=name, command=service.command)
+
+@service_routes.route('/console/<string:name>/send', methods=['POST'])
+def send_command(name):
+    data = request.get_json()
+    command = data.get('command')
+
+    service = find_process_by_name(name)
+    if not service:
+        return jsonify({"error": "Service not found"}), 404
+    
+    try:
+        result = subprocess.check_output(f"bash -c '{command}'", shell=True)
+        return jsonify({"result": result.decode('utf-8')})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@service_routes.route('/console/<string:name>/logs')
+def stream_logs(name):
+    response_text = ""
+    service = find_process_by_name(name)
+    if not service:
+        return
+
+    process = subprocess.Popen(service.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    
+    for line in iter(process.stdout.readline, b''):
+        response_text += f"data: {line.decode()} \n\n"
+    
+    process.stdout.close()
+    process.wait()
+
+
+    return Response(response_text, content_type='text/event-stream')
+
+
+@service_routes.route('/stop/<string:name>', methods=['POST'])
+def stop_service(name):
+    
+    service = find_process_by_name(name)
+    if not service:
+        return jsonify({"error": "Service not found"}), 404
+
+    try:
+        container_id = service.id
+        if not container_id:
+            return jsonify({"error": "Service ID not found"}), 404
+
+        client = docker.from_env()
+
+        container = client.containers.get(container_id)
+
+        if container.status == 'running':
+            container.stop()
+            print(f"Service {name} stopped successfully.")
+            return jsonify({"message": f"Service {name} stopped successfully."})
+        else:
+            print(f"Service {name} is not running.")
+            return jsonify({"error": f"Service {name} is not running."}), 400
+
+    except docker.errors.NotFound:
+        return jsonify({"error": f"Container with ID {container_id} not found."}), 404
+    except docker.errors.APIError as e:
+        return jsonify({"error": f"Docker API error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@service_routes.route('/<string:name>/stop', methods=['POST'])
-def stop_service(name):
-    services = load_services()
-    if name not in services or "pid" not in services[name]:
-        return jsonify({"error": "Service not running"}), 400
-    try:
-        pid = services[name]["pid"]
-        process = psutil.Process(pid)
-        process.terminate()
-        services[name]["status"] = "stopped"
-        del services[name]["pid"]
-        save_services(services)
-        return jsonify({"message": f"Service {name} stopped"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+def find_process_by_name(name):
+    with current_app.app_context():
+        return Process.query.filter_by(name=name).first()
+
+def find_process_by_id(process_id):
+    with current_app.app_context():
+        return Process.query.get(process_id)

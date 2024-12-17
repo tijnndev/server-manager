@@ -40,11 +40,12 @@
                     <div class="server-card card p-3">
                         <div class="card-body">
                             <h5 class="card-title">${name}</h5>
-                            <p class="server-status text-${service.status === 'Running' ? 'success' : 'danger'}">${service.status}</p>
+                            <p class="server-status text-${service.status === 'running' ? 'success' : 'danger'}">${service.status}</p>
                             <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
                             <div class="server-actions">
                                 <button class="btn btn-sm btn-success" onclick="startService('${name}')">Start</button>
                                 <button class="btn btn-sm btn-danger" onclick="stopService('${name}')">Stop</button>
+                                <a href="/services/console/${name}" class="btn btn-sm btn-info">View Console</a>
                             </div>
                         </div>
                     </div>
@@ -71,7 +72,8 @@
         }
 
         async function startService(name) {
-            const response = await fetch(`/api/services/${name}/start`, { method: 'POST' });
+        
+            const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
             if (response.ok) {
                 alert('Service started successfully');
                 fetchServices();
@@ -81,7 +83,7 @@
         }
 
         async function stopService(name) {
-            const response = await fetch(`/api/services/${name}/stop`, { method: 'POST' });
+            const response = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
             if (response.ok) {
                 alert('Service stopped successfully');
                 fetchServices();
