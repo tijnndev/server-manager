@@ -9,7 +9,6 @@
                 <input type="text" class="form-control" id="file_name" name="file_name" required oninput="validateFileName()">
             </div>
 
-            <!-- Dropdown for selecting file type -->
             <div class="mb-3">
                 <label for="file_type" class="form-label">File Type</label>
                 <select id="file_type" class="form-control" name="file_type" onchange="changeEditorMode()">
@@ -34,7 +33,6 @@
         {% endif %}
     </div>
 
-    <!-- Include Ace Editor from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script>
         var editor = ace.edit("editor");

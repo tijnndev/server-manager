@@ -9,7 +9,6 @@
                 <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required oninput="validateFileName()">
             </div>
 
-            <!-- Dropdown for selecting file type -->
             <div class="mb-3">
                 <label for="file_type" class="form-label">File Type</label>
                 <select id="file_type" class="form-control" name="file_type" onchange="changeEditorMode()">
@@ -59,7 +58,6 @@
         document.querySelector("form").addEventListener("submit", function() {
             let content = editor.getValue();
             
-            // Normalize line endings to UNIX style (LF)
             content = content.replace(/\r\n|\r/g, "\n");
 
             document.getElementById("file_code").value = content;

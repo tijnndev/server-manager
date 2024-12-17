@@ -1,5 +1,8 @@
 from db import db
 from models.base_model import BaseModel
+import docker
+
+client = docker.from_env()
 
 class Process(BaseModel):
     __tablename__ = 'processes'
@@ -27,3 +30,7 @@ class Process(BaseModel):
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }
+    def get_status(self):
+        container = client.containers.get(self.id)
+        status = container.status
+        return status

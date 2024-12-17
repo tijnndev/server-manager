@@ -25,9 +25,7 @@
         <a href="/process/create" class="btn btn-primary">Create Server</a>
     </div>
     
-    <div id="services-grid" class="row g-3">
-        <!-- Server cards will be dynamically inserted here -->
-    </div>
+    <div id="services-grid" class="row g-3"></div>
 
     <script>
         async function fetchServices() {
@@ -36,20 +34,19 @@
             const grid = document.getElementById('services-grid');
             grid.innerHTML = '';
             Object.entries(services).forEach(([name, service]) => {
-                const card = `<div class="col-md-4">
+                const card = `
+                <div class="col-md-4">
+                    <a href="/services/console/${name}">
                     <div class="server-card card p-3">
                         <div class="card-body">
                             <h5 class="card-title">${name}</h5>
                             <p class="server-status text-${service.status === 'running' ? 'success' : 'danger'}">${service.status}</p>
                             <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
-                            <div class="server-actions">
-                                <button class="btn btn-sm btn-success" onclick="startService('${name}')">Start</button>
-                                <button class="btn btn-sm btn-danger" onclick="stopService('${name}')">Stop</button>
-                                <a href="/services/console/${name}" class="btn btn-sm btn-info">View Console</a>
-                            </div>
                         </div>
                     </div>
-                </div>`;
+                    </a>
+                </div>
+                `;
                 grid.innerHTML += card;
             });
         }
@@ -68,27 +65,6 @@
                 fetchServices();
             } else {
                 alert('Failed to add service');
-            }
-        }
-
-        async function startService(name) {
-        
-            const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
-            if (response.ok) {
-                alert('Service started successfully');
-                fetchServices();
-            } else {
-                alert('Failed to start service');
-            }
-        }
-
-        async function stopService(name) {
-            const response = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
-            if (response.ok) {
-                alert('Service stopped successfully');
-                fetchServices();
-            } else {
-                alert('Failed to stop service');
             }
         }
 

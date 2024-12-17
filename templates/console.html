@@ -7,20 +7,30 @@
         color: white;
         font-family: monospace;
         padding: 15px;
-        height: 300px;
+        height: 600px;
         overflow-y: scroll;
+        font-size: 13px;
         white-space: pre-wrap;
     }
 </style>
 
 <div class="container mt-5">
-    <h1 class="mb-4">Console for {{ service_name }}</h1>
+    <h1 class="">Console for {{ service.name }}</h1>
+    <div class="text-dark mb-4">
+        Status: 
+        <span class="server-status text-{{ 'success' if service.get_status() == 'running' else 'danger' }}">
+            <span class="server-status-label">{{ service.get_status() | capitalize }}</span>
+        </span>
+    </div>
 
     <div class="console-output" id="console-output"></div>
 
     <div class="mt-3">
         <input type="text" id="command-input" class="form-control" placeholder="Enter command..." />
         <button class="btn btn-primary mt-2" onclick="sendCommand()">Send Command</button>
+        <button class="btn btn-success mt-2 " onclick="startService('{{ service.name }}')">Start</button>
+        <button class="btn btn-danger mt-2" onclick="stopService('{{ service.name }}')">Stop</button>
+        <button class="btn btn-warning mt-2" onclick="restartService('{{ service.name }}')">Restart</button>
     </div>
 </div>
 
@@ -29,26 +39,103 @@
     const commandInput = document.getElementById('command-input');
 
     async function startConsole() {
-        const eventSource = new EventSource(`/services/console/{{ service_name }}/logs`);
-        console.log(eventSource)
+        const eventSource = new EventSource(`/services/console/{{ service.name }}/logs`);
+        
         eventSource.onmessage = function(event) {
-            consoleOutput.innerHTML += event.data + '\n';
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;  // Scroll to bottom
+            consoleOutput.innerHTML += event.data + '\n';   
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+
+        eventSource.onerror = function(error) {
+            // consoleOutput.innerHTML += "Error: Unable to stream logs.\n";
         };
     }
 
     async function sendCommand() {
-        const command = commandInput.value;
-        const response = await fetch(`/services/console/{{ service_name }}/send`, {
+        const command = commandInput.value.trim();
+        if (!command) {
+            alert("Please enter a command.");
+            return;
+        }
+
+        const response = await fetch(`/services/console/{{ service.name }}/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ command })
         });
+
         if (response.ok) {
+            const data = await response.json();
+            consoleOutput.innerHTML += `> ${command}\n${data.output}\n`;
             commandInput.value = '';
+        } else {
+            const errorData = await response.json();
+            consoleOutput.innerHTML += `Error: ${errorData.error}\n`;
         }
     }
 
     startConsole();
+
+    async function startService(name) {
+        const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
+        if (response.ok) {
+            consoleOutput.innerHTML += `Service start command received\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            updateServiceStatus('running');
+        } else {
+            alert('Failed to start service');
+        }
+    }
+
+    async function stopService(name) {
+        const response = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
+        if (response.ok) {
+            consoleOutput.innerHTML += `Service stop command received\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            updateServiceStatus('exited');
+        } else {
+            alert('Failed to stop service');
+        }
+    }
+
+    async function restartService(name) {
+        consoleOutput.innerHTML += `Restarting service...\n`;
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        
+        const stopResponse = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
+        if (stopResponse.ok) {
+            consoleOutput.innerHTML += `Service stopped successfully.\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            
+            setTimeout(async () => {
+                const startResponse = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
+                if (startResponse.ok) {
+                    consoleOutput.innerHTML += `Service started successfully.\n`;
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                    updateServiceStatus('running');
+                } else {
+                    alert('Failed to start service after stopping');
+                }
+            }, 2000);
+        } else {
+            alert('Failed to stop service');
+        }
+    }
+
+    function updateServiceStatus(status) {
+        const statusText = document.querySelector('.server-status');
+        const statusLabel = document.querySelector('.server-status-label');
+
+        if (status === 'running') {
+            statusText.classList.remove('text-danger');
+            statusText.classList.add('text-success');
+            statusLabel.innerText = 'Running';
+        } else {
+            statusText.classList.remove('text-success');
+            statusText.classList.add('text-danger');
+            statusLabel.innerText = 'Exited';
+        }
+    }
+
 </script>
 {% endblock content %}

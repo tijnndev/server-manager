@@ -57,7 +57,7 @@
 
 .actions-overlay {
     position: fixed;
-    bottom: -100px; /* Initially position the overlay off-screen */
+    bottom: -100px;
     left: 0;
     width: 100%;
     background-color: transparent;
@@ -65,16 +65,16 @@
     padding: 10px;
     z-index: 9999;
     text-align: center;
-    opacity: 0; /* Initially hide the overlay */
-    visibility: hidden; /* Set visibility to hidden */
-    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out, visibility 0s 0.3s; /* Add transition for opacity, visibility and bottom */
+    opacity: 0;
+    visibility: hidden;
+    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out, visibility 0s 0.3s;
 }
 
 .actions-overlay.active {
-    bottom: 25px; /* Bring it on-screen when active */
-    opacity: 1; /* Make the overlay visible */
-    visibility: visible; /* Set visibility to visible */
-    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out; /* Remove delay for visibility */
+    bottom: 25px;
+    opacity: 1;
+    visibility: visible;
+    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out;
 }
 
 .actions-overlay button {
@@ -195,7 +195,6 @@
     {% endif %}
 </div>
 
-<!-- Actions Overlay -->
 <div id="actions-overlay" class="actions-overlay">
     <button class="btn btn-danger" onclick="deleteSelectedFiles()">Delete Selected</button>
     <button class="btn btn-info" onclick="downloadSelectedFiles()">Download Selected</button>
@@ -203,8 +202,6 @@
 
 <script>
     let selectedFiles = [];
-
-    // Update selected files based on checkbox
     document.querySelectorAll('.file-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', (event) => {
             const filePath = event.target.getAttribute('data-path');
@@ -217,7 +214,6 @@
         });
     });
 
-    // Toggle actions overlay based on selected files
     function toggleActionsOverlay() {
         const overlay = document.getElementById('actions-overlay');
         if (selectedFiles.length > 0) {
@@ -227,20 +223,15 @@
         }
     }
 
-    // Delete selected files
     function deleteSelectedFiles() {
         if (selectedFiles.length === 0) return;
         if (confirm("Are you sure you want to delete the selected files?")) {
-            // Implement your deletion logic here, such as sending a request to the backend
             alert('Deleting files: ' + selectedFiles.join(', '));
-            // You can send an AJAX request to delete the files
         }
     }
 
-    // Download selected files
     function downloadSelectedFiles() {
         if (selectedFiles.length === 0) return;
-        // Implement your download logic here, such as creating download links
         alert('Downloading files: ' + selectedFiles.join(', '));
     }
 

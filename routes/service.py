@@ -1,11 +1,13 @@
 # app/routes/service_routes.py
 from flask import Blueprint, jsonify, request, render_template, Response, current_app
-import subprocess, psutil, os, sys, docker, json
+import os, docker, json, re
 
+from termcolor import colored
 from db import db
 from models.process import Process
 
 service_routes = Blueprint('service', __name__)
+client = docker.from_env()
 
 SERVICES_DIRECTORY = 'active-servers'
 SERVICES_FILE = 'services.json'
@@ -20,22 +22,18 @@ def is_within_base_dir(path, base=ACTIVE_SERVERS_DIR):
 
 def load_services():
     services = {}
-    client = docker.from_env()  # Initialize Docker client
 
     processes = Process.query.all()
 
     for process in processes:
         try:
-            container = client.containers.get(process.id)
-            status = container.status
-
             services[process.name] = {
                 "id": process.id,
                 "type": process.type,
                 "command": process.command,
                 "file_location": process.file_location,
                 "name": process.name,
-                "status": status
+                "status": process.get_status()
             }
         except docker.errors.NotFound: # type: ignore
             services[process.name] = {
@@ -68,7 +66,6 @@ def get_services():
     services = load_services()
     return jsonify(services)
 
-client = docker.from_env()
 
 @service_routes.route('/add', methods=['POST'])
 def add_service():
@@ -209,8 +206,6 @@ def start_service(name):
         if not container_id:
             return jsonify({"error": "Service ID not found"}), 404
 
-        client = docker.from_env()
-
         print(f"Starting Docker container with ID: {container_id}")
         container = client.containers.get(container_id)
 
@@ -231,49 +226,6 @@ def start_service(name):
         return jsonify({"error": str(e)}), 500
 
 
-@service_routes.route('/console/<string:name>', methods=['GET'])
-def console(name):
-    service = find_process_by_name(name)
-    if not service:
-        return jsonify({"error": "Service not found"}), 404
-    
-    return render_template('console.html', service_name=name, command=service.command)
-
-@service_routes.route('/console/<string:name>/send', methods=['POST'])
-def send_command(name):
-    data = request.get_json()
-    command = data.get('command')
-
-    service = find_process_by_name(name)
-    if not service:
-        return jsonify({"error": "Service not found"}), 404
-    
-    try:
-        result = subprocess.check_output(f"bash -c '{command}'", shell=True)
-        return jsonify({"result": result.decode('utf-8')})
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@service_routes.route('/console/<string:name>/logs')
-def stream_logs(name):
-    response_text = ""
-    service = find_process_by_name(name)
-    if not service:
-        return
-
-    process = subprocess.Popen(service.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-    
-    for line in iter(process.stdout.readline, b''):
-        response_text += f"data: {line.decode()} \n\n"
-    
-    process.stdout.close()
-    process.wait()
-
-
-    return Response(response_text, content_type='text/event-stream')
-
-
 @service_routes.route('/stop/<string:name>', methods=['POST'])
 def stop_service(name):
     
@@ -285,8 +237,6 @@ def stop_service(name):
         container_id = service.id
         if not container_id:
             return jsonify({"error": "Service ID not found"}), 404
-
-        client = docker.from_env()
 
         container = client.containers.get(container_id)
 
@@ -312,3 +262,75 @@ def find_process_by_name(name):
 def find_process_by_id(process_id):
     with current_app.app_context():
         return Process.query.get(process_id)
+
+
+@service_routes.route('/console/<string:name>', methods=['GET'])
+def console(name):
+    service = find_process_by_name(name)
+    if not service:
+        return jsonify({"error": "Service not found"}), 404
+    
+    return render_template('console.html', service=service)
+
+@service_routes.route('/console/<string:name>/logs', methods=['GET'])
+def stream_logs(name):
+    service = find_process_by_name(name)
+    if not service:
+        return jsonify({"error": "Service not found"}), 404
+
+    try:
+        container = client.containers.get(service.id)
+        logs = container.logs(stream=True, follow=True, tail=50)
+        
+        def colorize_log(log):
+            log = log.decode('utf-8')
+            
+            log = re.sub(r'\033\[([0-9;]+)m', lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log)
+            log = log.replace('\033[0m', '</span>')
+            
+            return log
+        
+        def generate():
+            for log in logs:
+                yield f"data: {colorize_log(log)}\n\n"
+        
+        return Response(generate(), content_type='text/event-stream')
+    except docker.errors.NotFound:
+        return jsonify({"error": "Container not found"}), 404
+
+@service_routes.route('/console/<string:name>/send', methods=['POST'])
+def send_command(name):
+    service = find_process_by_name(name)
+    if not service:
+        return jsonify({"error": "Service not found"}), 404
+
+    command = request.json.get('command')
+    if not command:
+        return jsonify({"error": "No command provided"}), 400
+
+    try:
+        container = client.containers.get(service.id)
+        exec_id = container.exec_run(command, tty=True, stdin=True)
+        return jsonify({"message": "Command executed", "output": exec_id.output.decode('utf-8')})
+    except docker.errors.NotFound:
+        return jsonify({"error": "Container not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+def ansi_to_html(ansi_code):
+    """Map ANSI codes to HTML colors."""
+    color_map = {
+        '31': 'red',
+        '32': 'green',
+        '33': 'yellow',
+        '34': 'blue',
+        '35': 'magenta',
+        '36': 'cyan',
+        '37': 'white',
+        '0': 'black',
+    }
+    codes = ansi_code.split(';')
+    for code in codes:
+        if code in color_map:
+            return color_map[code]
+    return 'black'
