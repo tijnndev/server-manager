@@ -6,8 +6,8 @@ This guide will help you install, configure, and run the Server Manager applicat
 
 Before proceeding, ensure the following are installed on your system:
 
-- **Ubuntu or Linux Manjaro**
-- **Python 3.9** or newer
+- **OS:** Ubuntu or Linux Manjaro
+- **Python:** 3.9 or newer
 - **pip** (Python's package installer)
 - **Docker** (if you're using containerized deployment)
 - **NPM** (Only if you want to use nodejs servers.)
