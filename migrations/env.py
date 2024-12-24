@@ -1,7 +1,5 @@
 import logging
 from logging.config import fileConfig
-from db import db
-from models.process import Process
 
 from flask import current_app
 
