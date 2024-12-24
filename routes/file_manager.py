@@ -200,6 +200,7 @@ def edit_file():
 
     # Get the file name with extension
     file_name = os.path.basename(file_path)
+    print(file_path)
     
     if request.method == 'POST':
         new_name = request.form['file_name']  # This should include the extension (e.g., config.js)
