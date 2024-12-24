@@ -125,7 +125,7 @@ def add_service():
 FROM node:latest
 WORKDIR /app
 COPY . .
-RUN npm install
+RUN npm init -y
 CMD ["node", "index.js"]
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")

@@ -77,6 +77,8 @@ systemctl daemon-reload
 
 read -p "Do you want to edit the .env file? (y/n): " edit_env
 if [ "$edit_env" == "y" ]; then
+    echo ""
+    echo ""
     echo "Step 1: Please edit the /etc/server-manager/.env file with the right database credentials to allow the service to create processes"
     echo "Step 2: Go in to /etc/server-manager/ and execute: source venv/bin/activate"
     echo "Step 3: Execute the command: flask db migrate"
