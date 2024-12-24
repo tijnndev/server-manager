@@ -1,8 +1,6 @@
 import logging
 from logging.config import fileConfig
 from flask import current_app
-from db import db
-from models.process import Process
 from alembic import context
 from app import app  # Import the Flask app here
 
