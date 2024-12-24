@@ -198,27 +198,30 @@ def edit_file():
     if not os.path.exists(file_path):
         return "File not found", 404
 
-    file_name = os.path.basename(file_path).split('.')[0]
-    file_type = os.path.basename(file_path).split('.')[1] if '.' in os.path.basename(file_path) else ''
-
+    # Get the file name with extension
+    file_name = os.path.basename(file_path)
+    
     if request.method == 'POST':
-        new_name = request.form['file_name']
-        new_type = request.form['file_type']
-        new_file_name = f"{new_name}" if new_type else new_name
-        new_file_path = os.path.join(os.path.dirname(file_path), new_file_name)
+        new_name = request.form['file_name']  # This should include the extension (e.g., config.js)
+        new_file_path = os.path.join(os.path.dirname(file_path), new_name)
 
         new_content = request.form['file_code']
         new_content = new_content.replace('\r\n', '\n').replace('\r', '\n')
 
+        # If the file name changed, remove the old file
         if file_path != new_file_path:
             os.remove(file_path)
 
+        # Write the new content to the new file
         with open(new_file_path, 'w', newline='') as f:
             f.write(new_content)
 
+        # Redirect to the file manager after saving
         return redirect(url_for('files.file_manager', location=os.path.relpath(os.path.dirname(new_file_path), ACTIVE_SERVERS_DIR)))
 
+    # Read the file content for editing
     with open(file_path, 'r') as f:
         file_content = f.read()
 
-    return render_template('edit_file.html', file_path=file_path, file_content=file_content, file_name=file_name, file_type=file_type)
+    # Render the edit file template with the current file content
+    return render_template('edit_file.html', file_path=file_path, file_content=file_content, file_name=file_name)

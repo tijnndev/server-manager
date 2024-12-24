@@ -15,7 +15,7 @@ You will also need access to the MariaDB server for database setup and configura
 ## Step 1: Clone the Repository
 
 Option 1, install it trough my CDN:
-
+When using this option, you can normally skip any other step, except for the database setup in the .env file and starting the service!
 ```bash
 curl -O https://tijnn.dev/assets/server-manager/run.sh && chmod +x run.sh && sudo ./run.sh
 ```
@@ -152,4 +152,3 @@ Make sure that the MariaDB user `root` has the appropriate privileges and passwo
 ### Issue: Docker "Failed to start docker.service"
 
 If you receive an error when trying to start Docker, you may need to install Docker properly by following [Docker's official installation instructions](https://docs.docker.com/engine/install/).
-

@@ -2,21 +2,11 @@
 
 {% block content %}
     <div class="container mt-5">
-        <h1>Edit file: {{ file_name }}.{{file_type}}</h1>
+        <h1>Edit file: {{ file_name }}</h1>
         <form action="{{ url_for('files.edit_file', file=file_path) }}" method="POST">
             <div class="mb-3">
-                <label for="file_name" class="form-label">File Name (without extension)</label>
+                <label for="file_name" class="form-label">File Name (with extension)</label>
                 <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required oninput="validateFileName()">
-            </div>
-
-            <div class="mb-3">
-                <label for="file_type" class="form-label">File Type</label>
-                <select id="file_type" class="form-control" name="file_type" onchange="changeEditorMode()">
-                    <option value="python" {% if file_type == "py" %} selected {% endif %}>Python (.py)</option>
-                    <option value="javascript" {% if file_type == "js" %} selected {% endif %}>JavaScript (.js)</option>
-                    <option value="html" {% if file_type == "html" %} selected {% endif %}>HTML (.html)</option>
-                    <option value="css" {% if file_type == "css" %} selected {% endif %}>CSS (.css)</option>
-                </select>
             </div>
 
             <div class="mb-3">
@@ -38,21 +28,34 @@
         var editor = ace.edit("editor");
         editor.setTheme("ace/theme/github");
     
-        var fileType = document.getElementById("file_type").value;
-        setEditorMode(fileType);
+        var fileName = document.getElementById("file_name").value;
+        var fileExtension = getFileExtension(fileName);
+        setEditorMode(fileExtension);
     
         var fileContent = {{ file_content|tojson }};
         if (fileContent) {
             editor.setValue(fileContent);
         }
     
-        function changeEditorMode() {
-            var selectedType = document.getElementById("file_type").value;
-            setEditorMode(selectedType);
-        }
-    
-        async function setEditorMode(fileType) {
-            editor.session.setMode(`ace/mode/${fileType}`);
+        function setEditorMode(fileExtension) {
+            var mode = '';
+            switch (fileExtension) {
+                case '.py':
+                    mode = 'python';
+                    break;
+                case '.js':
+                    mode = 'javascript';
+                    break;
+                case '.html':
+                    mode = 'html';
+                    break;
+                case '.css':
+                    mode = 'css';
+                    break;
+                default:
+                    mode = 'text';  // Default mode if extension doesn't match
+            }
+            editor.session.setMode(`ace/mode/${mode}`);
         }
     
         document.querySelector("form").addEventListener("submit", function() {
@@ -62,10 +65,9 @@
 
             document.getElementById("file_code").value = content;
 
-            var fileType = document.getElementById("file_type").value;
             var fileName = document.getElementById("file_name").value;
-            var fileExtension = getFileExtension(fileType);
-            document.getElementById("file_name").value = fileName + fileExtension;
+            var fileExtension = getFileExtension(fileName);
+            document.getElementById("file_name").value = fileName;  // No need to add extension here
         });
     
         function validateFileName() {
@@ -73,19 +75,8 @@
             document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9/-]/g, '');
         }
     
-        function getFileExtension(fileType) {
-            switch(fileType) {
-                case 'python':
-                    return '.py';
-                case 'javascript':
-                    return '.js';
-                case 'html':
-                    return '.html';
-                case 'css':
-                    return '.css';
-                default:
-                    return '';
-            }
+        function getFileExtension(fileName) {
+            return fileName.slice(((fileName.lastIndexOf(".") - 1) >>> 0) + 2);  // Extract extension from filename
         }
     </script>
     
