@@ -118,7 +118,7 @@ def download_file(filename):
     return jsonify({"error": "File not found"}), 404
 
 
-@file_manager_routes.route('/create-file', methods=['GET', 'POST'])
+@file_manager_routes.route('/new/file', methods=['GET', 'POST'])
 def create_file():
     location = request.args.get('location', '')
     try:
@@ -142,7 +142,7 @@ def create_file():
     return render_template('create_file.html', location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
 
-@file_manager_routes.route('/files/create_directory', methods=['GET', 'POST'])
+@file_manager_routes.route('/new/dir', methods=['GET', 'POST'])
 def create_directory():
     location = request.args.get('location', '')
     try:
@@ -187,7 +187,7 @@ def upload_file():
     return jsonify({'success': True})
 
 
-@file_manager_routes.route('/edit_file', methods=['GET', 'POST'])
+@file_manager_routes.route('/edit', methods=['GET', 'POST'])
 def edit_file():
     file_path_param = request.args.get('file', '')
     try:
