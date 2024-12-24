@@ -4,7 +4,6 @@ set -e
 
 echo "Starting server manager setup..."
 
-# Step 1: Check if the folder exists
 if [ -d "/etc/server-manager" ]; then
   echo "/etc/server-manager already exists."
   read -p "Do you want to overwrite the existing folder? (y/n): " choice
@@ -16,17 +15,14 @@ if [ -d "/etc/server-manager" ]; then
   rm -rf /etc/server-manager
 fi
 
-# Step 2: Clone the GitHub repository
 echo "Cloning GitHub repository into /etc/server-manager..."
 git clone https://github.com/tijnndev/server-manager.git /etc/server-manager
 
 cd /etc/server-manager
 
-# Step to copy .env.example to .env
 echo "Copying .env.example to .env..."
 cp .env.example .env
 
-# Step 3: Set up Python virtual environment and install dependencies
 echo "Installing Python dependencies..."
 if [ ! -d "venv" ]; then
   python3 -m venv venv
@@ -35,24 +31,36 @@ fi
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Step 4: Database setup prompt
 read -p "Do you want to import the database (server-monitor)? (y/n): " import_db
 if [ "$import_db" == "y" ]; then
     echo "Please provide MySQL credentials to import the database."
 
-    # Step 4.1: Get MySQL credentials
     read -p "Enter MySQL username: " db_user
     read -sp "Enter MySQL password: " db_password
     echo
 
-    # Step 4.2: Import the database
     echo "Setting up the database..."
     mysql -u "$db_user" -p"$db_password" -e "CREATE DATABASE IF NOT EXISTS \`server-monitor\`;"
 else
     echo "Skipping database import."
 fi
 
-# Step 5: Service setup
+read -p "Do you want to use Node.js? (y/n): " use_nodejs
+if [ "$use_nodejs" == "y" ]; then
+  if ! command -v npm &> /dev/null; then
+    echo "npm not found, installing npm..."
+    apt-get update
+    apt-get install -y npm
+  else
+    echo "npm is already installed."
+  fi
+
+  echo "Running npm install..."
+  npm install
+else
+  echo "Skipping Node.js setup."
+fi
+
 echo "Setting up the service..."
 SERVICE_PATH="/etc/systemd/system/server-manager.service"
 
@@ -71,7 +79,6 @@ WantedBy=multi-user.target"
 
 echo "$SERVICE_CONTENT" > $SERVICE_PATH
 
-# Step 6: Reload systemd to recognize the new service
 echo "Reloading systemd..."
 systemctl daemon-reload
 
