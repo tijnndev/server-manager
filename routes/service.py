@@ -219,7 +219,7 @@ def start_service(name):
 
         print(f"Starting Docker container with ID: {container_id}")
         container = client.containers.get(container_id)
-
+        
         if container.status != 'running':
             container.start()
             print(f"Container {container_id} started.")
