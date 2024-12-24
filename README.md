@@ -14,13 +14,17 @@ You will also need access to the MariaDB server for database setup and configura
 
 ## Step 1: Clone the Repository
 
-First, clone the repository to your server:
+Option 1, install it trough my CDN:
 
+```bash
+curl -O https://tijnn.dev/assets/server-manager/run.sh && chmod +x run.sh && sudo ./run.sh
+```
+
+Option 2, a non-automatic setup:
 ```bash
 git clone https://your-repository-url.git
 cd server-manager
 ```
-
 ## Step 2: Set Up the Virtual Environment
 
 To isolate your dependencies, create a virtual environment:
