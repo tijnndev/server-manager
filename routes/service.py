@@ -99,11 +99,12 @@ def add_service():
             file_location=service_dir, # type: ignore
             id="pending", # type: ignore
         )
+        command_list = data.get("command", "").split()
         db.session.add(new_process)
         db.session.commit()
 
         port_id = new_process.port_id
-        print(new_process)
+
         port = 8000 + int(port_id)
 
         dependencies = data.get('dependencies')
@@ -121,12 +122,12 @@ def add_service():
                 f.write("// Entry point for Node.js service\n")
                 f.write("console.log('Node.js service running');\n")
 
-            dockerfile = """# DO NOT TOUCH THIS FILE
+            dockerfile = f"""# DO NOT TOUCH THIS FILE
 FROM node:latest
 WORKDIR /app
 COPY . .
 RUN npm init -y
-CMD ["node", "index.js"]
+CMD {command_list}
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
@@ -145,7 +146,7 @@ WORKDIR /app
 COPY . .
 RUN pip install -r requirements.txt
 EXPOSE {port}
-CMD ["python", "app.py"]
+CMD {command_list}
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
