@@ -75,14 +75,24 @@ echo "$SERVICE_CONTENT" > $SERVICE_PATH
 echo "Reloading systemd..."
 systemctl daemon-reload
 
-echo "If there shows an error after this, edit the /etc/server-manager/.env with the db access info"
-flask db migrate
-flask db upgrade
+read -p "Do you want to edit the .env file? (y/n): " edit_env
+if [ "$edit_env" == "y" ]; then
+    echo "Step 1: Please edit the /etc/server-manager/.env file with the right database credentials to allow the service to create processes"
+    echo "Step 2: Go in to /etc/server-manager/ and execute: source venv/bin/activate"
+    echo "Step 3: Execute the command: flask db migrate"
+    echo ""
+    echo "Final step: start the process:"
+    echo "systemctl enable server-manager"
+    echo "systemctl start server-manager"
+else
+    echo "If there shows an error after this, edit the /etc/server-manager/.env with the db access info"
+    flask db migrate
+    flask db upgrade
 
-# Step 7: Enable and start the service
-echo "Enabling and starting the service..."
-systemctl enable server-manager
-systemctl start server-manager
+    echo "Enabling and starting the service..."
+    systemctl enable server-manager
+    systemctl start server-manager
+fi
 
-# Print a message to indicate successful setup
+
 echo "Server Manager setup complete! The service is now running."
