@@ -139,11 +139,12 @@ CMD ["node", "index.js"]
                 f.write("if __name__ == '__main__':\n")
                 f.write("    print('Python service running')\n")
 
-            dockerfile = """# DO NOT TOUCH THIS FILE
+            dockerfile = f"""# DO NOT TOUCH THIS FILE
 FROM python:3.9-slim
 WORKDIR /app
 COPY . .
 RUN pip install -r requirements.txt
+EXPOSE {port}
 CMD ["python", "app.py"]
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
