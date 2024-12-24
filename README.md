@@ -17,7 +17,7 @@ You will also need access to the MariaDB server for database setup and configura
 ## Step 1: Clone the Repository
 
 Option 1 (RECOMMENDED), install it trough my CDN:
-When using this option, you can normally skip any other step, except for the database setup in the .env file and starting the service!
+When using this option, you can normally jump to step 5 immediately, except for the database setup in the .env file and starting the service!
 ```bash
 curl -O https://tijnn.dev/assets/server-manager/run.sh && chmod +x run.sh && sudo ./run.sh
 ```
@@ -77,7 +77,7 @@ EXIT;
 
 Replace `'your_password'` with a password of your choice. If you prefer no password for the `youruser` user, omit the password.
 
-### Modify Database Configuration in `.env`
+## Step 5: Modify Database Configuration in `.env`
 
 Ensure the `DATABASE_URI` in `.env` points to your MariaDB server with the correct credentials:
 
@@ -86,7 +86,7 @@ DATABASE_URI=mysql+pymysql://myuser:mypassword@localhost:3306/server-monitor
 SECRET_KEY=your_secret_key_here
 ```
 
-## Step 5: Initialize the Database
+## Step 6: Initialize the Database
 
 ### Running Migrations
 
