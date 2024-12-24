@@ -43,7 +43,9 @@ if [ "$import_db" == "y" ]; then
 
     # Step 4.2: Import the database
     echo "Setting up the database..."
-    mysql -u "$db_user" -p"$db_password" -e "CREATE DATABASE IF NOT EXISTS server-monitor;"
+    mysql -u "$db_user" -p"$db_password" -e "CREATE DATABASE IF NOT EXISTS \`server-monitor\`;"
+    flask db migrate
+    flask db upgrade
 else
     echo "Skipping database import."
 fi
