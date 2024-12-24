@@ -22,6 +22,10 @@ git clone https://github.com/tijnndev/server-manager.git /etc/server-manager
 
 cd /etc/server-manager
 
+# Step to copy .env.example to .env
+echo "Copying .env.example to .env..."
+cp .env.example .env
+
 # Step 3: Set up Python virtual environment and install dependencies
 echo "Installing Python dependencies..."
 if [ ! -d "venv" ]; then
@@ -44,8 +48,6 @@ if [ "$import_db" == "y" ]; then
     # Step 4.2: Import the database
     echo "Setting up the database..."
     mysql -u "$db_user" -p"$db_password" -e "CREATE DATABASE IF NOT EXISTS \`server-monitor\`;"
-    flask db migrate
-    flask db upgrade
 else
     echo "Skipping database import."
 fi
@@ -72,6 +74,10 @@ echo "$SERVICE_CONTENT" > $SERVICE_PATH
 # Step 6: Reload systemd to recognize the new service
 echo "Reloading systemd..."
 systemctl daemon-reload
+
+echo "If there shows an error after this, edit the /etc/server-manager/.env with the db access info"
+flask db migrate
+flask db upgrade
 
 # Step 7: Enable and start the service
 echo "Enabling and starting the service..."
