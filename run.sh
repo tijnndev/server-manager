@@ -4,6 +4,26 @@ set -e
 
 echo "Starting server manager setup..."
 
+check_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        echo $NAME
+        if [[ "$NAME" == "Ubuntu" || "$NAME" == "Manjaro Linux" ]]; then
+            return 1
+        else
+            return 0
+        fi
+    else
+        echo "Unable to detect the operating system."
+        return 1
+    fi
+}
+
+if check_os; then
+    echo "This script only supports Ubuntu or Manjaro Linux. Exiting."
+    exit 1
+fi
+
 if [ -d "/etc/server-manager" ]; then
   echo "/etc/server-manager already exists."
   read -p "Do you want to overwrite the existing folder? (y/n): " choice

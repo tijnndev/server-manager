@@ -6,15 +6,17 @@ This guide will help you install, configure, and run the Server Manager applicat
 
 Before proceeding, ensure the following are installed on your system:
 
+- **Ubuntu or Linux Manjaro**
 - **Python 3.9** or newer
 - **pip** (Python's package installer)
 - **Docker** (if you're using containerized deployment)
+- **NPM** (Only if you want to use nodejs servers.)
 
 You will also need access to the MariaDB server for database setup and configuration.
 
 ## Step 1: Clone the Repository
 
-Option 1, install it trough my CDN:
+Option 1 (RECOMMENDED), install it trough my CDN:
 When using this option, you can normally skip any other step, except for the database setup in the .env file and starting the service!
 ```bash
 curl -O https://tijnn.dev/assets/server-manager/run.sh && chmod +x run.sh && sudo ./run.sh
@@ -67,75 +69,41 @@ mysql -u root -p
 Run the following SQL commands to create the database and assign privileges to a user:
 
 ```sql
-CREATE DATABASE server_monitor;
-GRANT ALL PRIVILEGES ON server_monitor.* TO 'root'@'localhost' IDENTIFIED BY 'your_password';
+CREATE DATABASE `server-monitor`;
+GRANT ALL PRIVILEGES ON *.* TO 'youruser'@'localhost' IDENTIFIED BY 'your_password';
 FLUSH PRIVILEGES;
 EXIT;
 ```
 
-Replace `'your_password'` with a password of your choice. If you prefer no password for the `root` user, omit the password.
+Replace `'your_password'` with a password of your choice. If you prefer no password for the `youruser` user, omit the password.
 
-### Modify Database Configuration in `app.py`
+### Modify Database Configuration in `.env`
 
-Ensure the `SQLALCHEMY_DATABASE_URI` in `app.py` points to your MariaDB server with the correct credentials:
+Ensure the `DATABASE_URI` in `.env` points to your MariaDB server with the correct credentials:
 
-```python
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:your_password@localhost/server_monitor'
+```bash
+DATABASE_URI=mysql+pymysql://myuser:mypassword@localhost:3306/server-monitor
+SECRET_KEY=your_secret_key_here
 ```
 
 ## Step 5: Initialize the Database
 
-Once the database is created, initialize it with the following command:
-
-```bash
-flask db init
-```
-
 ### Running Migrations
 
-After initializing the database, run the migrations to create the necessary tables:
+After initializing the database connection, run the migrations to create the necessary tables:
 
 ```bash
 flask db migrate
 flask db upgrade
 ```
 
-This will create the necessary tables and schema in the `server_monitor` database.
-
-## Step 6: Set Up Docker (Optional)
-
-If you are running the app in a Docker container, use the provided `Dockerfile` to build and run the app.
-
-### Build the Docker Image
-
-```bash
-docker build -t server-manager .
-```
-
-### Run the Docker Container
-
-```bash
-docker run -p 8003:8003 server-manager
-```
-
-The app will be accessible at `http://localhost:8003`.
-
-### Important Dockerfile Notes
-
-In the provided `Dockerfile`, the port is set to `8003` using the `EXPOSE` directive:
-
-```dockerfile
-EXPOSE 8003
-```
-
-The Flask app will automatically use the port specified in the Docker container or by the environment variable `FLASK_PORT`. You can change this port by modifying the `FLASK_PORT` environment variable in the Dockerfile or when running the container.
+This will create the necessary tables and schema in the `server-monitor` database.
 
 ## Step 7: Access the Application
 
 Once everything is set up and running, you should be able to access the server manager at the following URL:
 
-- **For Docker-based deployment**: `http://localhost:8003`
-- **For local deployment**: `http://localhost:5000` (if you are not using Docker)
+- **For deployment**: `http://localhost:7001` (if you are not using Docker)
 
 ## Troubleshooting
 
@@ -147,7 +115,7 @@ If you encounter the error:
 sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (1045, "Access denied for user 'root'@'localhost' (using password: NO)")
 ```
 
-Make sure that the MariaDB user `root` has the appropriate privileges and password. You may need to adjust the credentials in `app.py` to match the user you've created. Also make sure the database is already created!
+Make sure that the MariaDB user `root` has the appropriate privileges and password. You may need to adjust the credentials in `.env` to match the user you've created. Also make sure the database is already created!
 
 ### Issue: Docker "Failed to start docker.service"
 
