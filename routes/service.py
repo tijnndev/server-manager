@@ -125,7 +125,7 @@ def add_service():
             dockerfile = f"""# DO NOT TOUCH THIS FILE
 FROM node:latest
 WORKDIR /app
-COPY . .
+COPY . /app
 RUN npm init -y
 CMD {command_list}
 # DO NOT TOUCH THIS FILE"""
@@ -143,7 +143,7 @@ CMD {command_list}
             dockerfile = f"""# DO NOT TOUCH THIS FILE
 FROM python:3.9-slim
 WORKDIR /app
-COPY . .
+COPY . /app
 RUN pip install -r requirements.txt
 EXPOSE {port}
 CMD {command_list}
