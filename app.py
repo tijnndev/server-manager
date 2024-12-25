@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, redirect, request, url_for
+from flask import Flask, render_template, redirect, request, session, url_for
 from flask_dance.contrib.discord import discord, make_discord_blueprint
 from routes.file_manager import file_manager_routes
 from routes.service import service_routes
@@ -52,5 +52,14 @@ def before_request():
     if not discord.authorized and not request.endpoint.startswith('discord'):
         return redirect(url_for('discord.login'))
 
+@app.route('/callback')
+def discord_callback():
+    if discord.authorized:
+        user = discord.get('users/@me').json()
+        session['discord_user'] = user
+        return redirect(url_for('dashboard'))
+    else:
+        return redirect(url_for('discord.login'))
+    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7001)
