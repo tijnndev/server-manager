@@ -205,36 +205,36 @@ CMD {command_list}
     return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id, "port": port})
 
 
-@service_routes.route('/start/<string:name>', methods=['POST'])
-def start_service(name):
-    service = find_process_by_name(name)
-    container_id = "Unknown"
-    if not service:
-        return jsonify({"error": "Service not found"}), 404
+    @service_routes.route('/start/<string:name>', methods=['POST'])
+    def start_service(name):
+        service = find_process_by_name(name)
+        container_id = "Unknown"
+        if not service:
+            return jsonify({"error": "Service not found"}), 404
 
-    try:
-        container_id = service.id
-        if not container_id:
-            return jsonify({"error": "Service ID not found"}), 404
+        try:
+            container_id = service.id
+            if not container_id:
+                return jsonify({"error": "Service ID not found"}), 404
 
-        print(f"Starting Docker container with ID: {container_id}")
-        container = client.containers.get(container_id)
-        
-        if container.status != 'running':
-            container.start()
-            print(f"Container {container_id} started.")
-        else:
-            print(f"Container {container_id} is already running.")
+            print(f"Starting Docker container with ID: {container_id}")
+            container = client.containers.get(container_id)
+            
+            if container.status != 'running':
+                container.start()
+                print(f"Container {container_id} started.")
+            else:
+                print(f"Container {container_id} is already running.")
 
-        return jsonify({"message": f"Service {name} started successfully on container {container_id}."})
+            return jsonify({"message": f"Service {name} started successfully on container {container_id}."})
 
-    except NotFound:
-        return jsonify({"error": f"Container with ID {container_id} not found."}), 404
-    except APIError as e:
-        return jsonify({"error": f"Docker API error: {str(e)}"}), 500
-    except Exception as e:
-        print(e)
-        return jsonify({"error": str(e)}), 500
+        except NotFound:
+            return jsonify({"error": f"Container with ID {container_id} not found."}), 404
+        except APIError as e:
+            return jsonify({"error": f"Docker API error: {str(e)}"}), 500
+        except Exception as e:
+            print(e)
+            return jsonify({"error": str(e)}), 500
 
 
 @service_routes.route('/stop/<string:name>', methods=['POST'])
