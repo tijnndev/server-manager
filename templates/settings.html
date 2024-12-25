@@ -5,7 +5,7 @@
     <h1>Edit Settings for {{ service.name }}</h1>
     
     <!-- Form for updating service settings -->
-    <form method="POST" action="{{ url_for('service.update_settings', name=service.name) }}">
+    <form method="POST" action="{{ url_for('service.settings', name=service.name) }}">
         <div class="form-group">
             <label for="service-name">Service Name</label>
             <input type="text" class="form-control" id="service-name" name="name" value="{{ service.name }}" required>

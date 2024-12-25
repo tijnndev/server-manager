@@ -1,5 +1,5 @@
 # app/routes/service_routes.py
-from flask import Blueprint, jsonify, request, render_template, Response, current_app
+from flask import Blueprint, jsonify, redirect, request, render_template, Response, current_app, url_for
 import os, docker, json, re
 from docker.errors import NotFound, APIError, BuildError, DockerException
 
@@ -384,13 +384,16 @@ def ansi_to_html(ansi_code):
 @service_routes.route('/services/settings/<name>', methods=['GET', 'POST'])
 def settings(name):
     service = find_process_by_name(name)
+    if not service:
+        return render_template('settings.html', service=service)
+    
     if request.method == 'POST':
         # Update the service settings based on the form input
         service.name = request.form['name']
         service.description = request.form['description']
         service.params = request.form['params']
         # Save updated settings
-        save_service(service)
-        flash('Service settings updated successfully!')
+        # save_service(service)
+        print('Service settings updated successfully!')
         return redirect(url_for('service.console', name=service.name))
     return render_template('settings.html', service=service)
