@@ -198,18 +198,16 @@ def edit_file():
     if not os.path.exists(file_path):
         return "File not found", 404
 
-    # Get the file name with extension
     file_name = os.path.basename(file_path)
     print(file_path)
     
     if request.method == 'POST':
-        new_name = request.form['file_name']  # This should include the extension (e.g., config.js)
+        new_name = request.form['file_name']
         new_file_path = os.path.join(os.path.dirname(file_path), new_name)
 
         new_content = request.form['file_code']
         new_content = new_content.replace('\r\n', '\n').replace('\r', '\n')
 
-        # If the file name changed, remove the old file
         if file_path != new_file_path:
             os.remove(file_path)
 

@@ -399,7 +399,10 @@ def settings(name):
 
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
         dockerfile_path = f'{service_dir}/Dockerfile'
-
+        
+        if not service.command:
+            return print("Service command not found")
+        
         if os.path.exists(dockerfile_path):
             with open(dockerfile_path, 'r') as dockerfile:
                 dockerfile_content = dockerfile.readlines()
