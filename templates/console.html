@@ -89,6 +89,7 @@
                 consoleOutput.innerHTML += `Service start command received\n`;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
+                console.log(response)
             } else {
 
                 const errorMessage = await response.text();
