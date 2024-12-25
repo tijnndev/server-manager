@@ -79,7 +79,12 @@
     async function startService(name) {
 
         try {
-            const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
+            const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Set the correct content type
+                }, 
+            });
             if (response.ok) {
                 consoleOutput.innerHTML += `Service start command received\n`;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
