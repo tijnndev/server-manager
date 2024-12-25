@@ -252,13 +252,12 @@ def start_service(name):
         container = client.containers.run(
             image=image_tag,
             name=container_name,
-            command=new_command,
             detach=True,
             auto_remove=False,
             restart_policy={"Name": "always"},
             ports={str(port): port}
         )
-        
+
         print(f"Updating process ID to {container.id}")
         service.update_id(str(container.id))
 
