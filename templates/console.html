@@ -83,8 +83,10 @@
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             updateServiceStatus('running');
         } else {
+
+            const errorMessage = await response.text();
             alert('Failed to start service');
-            console.log(response)
+            console.log(errorMessage)
         }
     }
 
