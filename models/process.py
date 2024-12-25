@@ -38,5 +38,12 @@ class Process(BaseModel):
         return status
 
     def update_id(self, new_id: str):
-        self.id = new_id
-        db.session.commit()
+        try:
+            self.id = new_id
+            db.session.add(self)
+            db.session.commit()
+            print(f"Updated process ID to: {new_id}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Failed to update ID for {self.name}: {e}")
+            raise

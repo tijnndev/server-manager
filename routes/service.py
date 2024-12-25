@@ -258,7 +258,8 @@ def start_service(name):
             restart_policy={"Name": "always"},
             ports={str(port): port}
         )
-
+        
+        print(f"Updating process ID to {container.id}")
         service.update_id(str(container.id))
 
         return jsonify({
