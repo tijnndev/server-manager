@@ -68,6 +68,7 @@ def get_services():
     return jsonify(services)
 
 
+
 @service_routes.route('/add', methods=['POST'])
 def add_service():
     data = request.json
@@ -167,9 +168,10 @@ CMD {command}
         container_name = f"{service_type}_{service_name}"
         try:
             try:
-                # Check if the container exists and stop it
+                # Stop and remove the existing container if running
                 existing_container = client.containers.get(container_name)
-                print(f"Removing existing container: {existing_container.id}")
+                print(f"Stopping and removing existing container: {existing_container.id}")
+                existing_container.stop()
                 existing_container.remove(force=True)
             except NotFound:
                 pass
