@@ -396,6 +396,27 @@ def settings(name):
         service.command = request.form.get('command')
         service.type = request.form.get('type')
         service.params = request.form.get('params', '')
+
+        service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
+        dockerfile_path = f'{service_dir}/Dockerfile'
+
+        if os.path.exists(dockerfile_path):
+            with open(dockerfile_path, 'r') as dockerfile:
+                dockerfile_content = dockerfile.readlines()
+
+            for idx, line in enumerate(dockerfile_content):
+                if line.startswith("CMD") or line.startswith("ENTRYPOINT"):
+                    dockerfile_content[idx] = f'CMD {service.command.split()}\n'
+                    break
+            else:
+                dockerfile_content.append(f'CMD {service.command.split()}\n')
+
+            with open(dockerfile_path, 'w') as dockerfile:
+                dockerfile.writelines(dockerfile_content)
+
+            print(f'Dockerfile for {service.name} updated with new command: {service.command}')
+        else:
+            print(f'Dockerfile for {service.name} not found')
         
         db.session.add(service)
         db.session.commit()
