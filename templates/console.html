@@ -84,6 +84,7 @@
             updateServiceStatus('running');
         } else {
             alert('Failed to start service');
+            console.log(response)
         }
     }
 
@@ -95,6 +96,7 @@
             updateServiceStatus('exited');
         } else {
             alert('Failed to stop service');
+            console.log(response)
         }
     }
 
