@@ -381,20 +381,24 @@ def ansi_to_html(ansi_code):
             return color_map[code]
     return 'black'
 
-@service_routes.route('/services/settings/<name>', methods=['GET', 'POST'])
+@service_routes.route('/settings/<name>', methods=['GET', 'POST'])
 def settings(name):
     service = find_process_by_name(name)
     if not service:
         return render_template('settings.html', service=service)
     
     if request.method == 'POST':
-        # Update the service settings based on the form input
+        # Make sure the form has all the expected keys
         print(request.form)
+        
         service.name = request.form['name']
         service.description = request.form['description']
-        service.params = request.form['params']
-        # Save updated settings
-        # save_service(service)
+        service.command = request.form['command']
+        service.params = request.form.get('params', '')
+        
+        # save_service(service)  # Uncomment when saving the service
+        
         print('Service settings updated successfully!')
         return redirect(url_for('service.console', name=service.name))
+    
     return render_template('settings.html', service=service)
