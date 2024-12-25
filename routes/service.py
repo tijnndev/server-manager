@@ -154,8 +154,23 @@ CMD {command}
 
         else:
             return jsonify({"error": "Unknown service type"}), 400
-
+        
         image_tag = f"{service_name}_image"
+        # Attempt to remove the image after the container is started
+        try:
+            image = client.images.get(image_tag)
+            try:
+                client.images.remove(image=image.id, force=True)
+                print(f"Image {image_tag} removed.")
+            except APIError as e:
+                if "conflict" in str(e).lower():
+                    return jsonify({"error": f"Cannot remove image because it's in use by a container: {str(e)}"}), 409
+                else:
+                    return jsonify({"error": f"Failed to remove image: {str(e)}"}), 500
+        except DockerException as e:
+            print(f"Error retrieving image: {e}")
+            return jsonify({"error": f"Failed to retrieve image: {e}"}), 500
+
         try:
             print(f"Building Docker image for {service_type}")
             client.images.build(path=service_dir, tag=image_tag, nocache=True)
@@ -175,20 +190,7 @@ CMD {command}
             except NotFound:
                 pass
 
-            # Attempt to remove the image after the container is started
-            try:
-                image = client.images.get(image_tag)
-                try:
-                    client.images.remove(image=image.id, force=True)
-                    print(f"Image {image_tag} removed.")
-                except APIError as e:
-                    if "conflict" in str(e).lower():
-                        return jsonify({"error": f"Cannot remove image because it's in use by a container: {str(e)}"}), 409
-                    else:
-                        return jsonify({"error": f"Failed to remove image: {str(e)}"}), 500
-            except DockerException as e:
-                print(f"Error retrieving image: {e}")
-                return jsonify({"error": f"Failed to retrieve image: {e}"}), 500
+            
 
 
             print("Creating and starting container")
