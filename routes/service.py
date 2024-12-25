@@ -391,12 +391,14 @@ def settings(name):
         # Make sure the form has all the expected keys
         print(request.form)
         
-        service.name = request.form['name']
-        service.description = request.form['description']
-        service.command = request.form['command']
+        service.name = request.form.get('name')
+        service.description = request.form.get('description')
+        service.command = request.form.get('command')
+        service.type = request.form.get('type')
         service.params = request.form.get('params', '')
         
-        # save_service(service)  # Uncomment when saving the service
+        db.session.add(service)
+        db.session.commit()
         
         print('Service settings updated successfully!')
         return redirect(url_for('service.console', name=service.name))
