@@ -259,9 +259,7 @@ def start_service(name):
             ports={str(port): port}
         )
 
-        # Update the service record in the database
-        service.id = container.id
-        db.session.commit()
+        service.update_id(str(container.id))
 
         return jsonify({
             "message": f"Service {name} started successfully with updated command.",

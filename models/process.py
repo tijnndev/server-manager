@@ -31,7 +31,12 @@ class Process(BaseModel):
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }
+
     def get_status(self):
         container = client.containers.get(self.id)
         status = container.status
         return status
+
+    def update_id(self, new_id: str):
+        self.id = new_id
+        db.session.commit()
