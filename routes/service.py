@@ -216,7 +216,6 @@ def start_service(name):
         return jsonify({"error": "Service not found"}), 404
 
     try:
-        # Stop and remove any existing container with the same name
         try:
             existing_container = next(
                 (c for c in client.containers.list(all=True) if c.name == container_name), None
@@ -228,7 +227,6 @@ def start_service(name):
         except Exception as e:
             print(f"Error removing old container: {e}")
 
-        # Remove the old image
         try:
             old_image = client.images.get(image_tag)
             client.images.remove(image=old_image.id, force=True)
@@ -236,18 +234,14 @@ def start_service(name):
         except Exception as e:
             print(f"No existing image found for {image_tag}, skipping removal: {e}")
 
-        # Build a new image
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         print(f"Building new Docker image for {name}...")
         client.images.build(path=service_dir, tag=image_tag, nocache=True)
         print(f"Docker image {image_tag} built successfully.")
 
-        # Get the updated command from the request data
-        new_command = service.command
         port_id = service.port_id
         port = 8000 + int(port_id)
 
-        # Start the new container
         print(f"Creating and starting new container: {container_name}")
         container = client.containers.run(
             image=image_tag,
@@ -257,7 +251,7 @@ def start_service(name):
             restart_policy={"Name": "always"},
             ports={str(port): port}
         )
-
+        
         print(f"Updating process ID to {container.id}")
         service.update_id(str(container.id))
 
@@ -386,3 +380,17 @@ def ansi_to_html(ansi_code):
         if code in color_map:
             return color_map[code]
     return 'black'
+
+@service_routes.route('/services/settings/<name>', methods=['GET', 'POST'])
+def settings(name):
+    service = find_process_by_name(name)
+    if request.method == 'POST':
+        # Update the service settings based on the form input
+        service.name = request.form['name']
+        service.description = request.form['description']
+        service.params = request.form['params']
+        # Save updated settings
+        save_service(service)
+        flash('Service settings updated successfully!')
+        return redirect(url_for('service.console', name=service.name))
+    return render_template('settings.html', service=service)
