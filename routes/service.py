@@ -365,7 +365,7 @@ def settings(name):
 
             for idx, line in enumerate(dockerfile_content):
                 if line.startswith("CMD") or line.startswith("ENTRYPOINT"):
-                    dockerfile_content[idx] = f'CMD {service.command.split()}\n'
+                    dockerfile_content[idx] = f'CMD [{" ".join(word.replace("'", "\"") for word in service.command.split())}]\n'
                     break
             else:
                 dockerfile_content.append(f'CMD {service.command.split()}\n')
@@ -390,15 +390,12 @@ def settings(name):
 def rebuild(name):
     service = find_process_by_name(name)
     if not service:
-        return redirect(url_for('service.index'))  # Redirect if service doesn't exist
+        return redirect(url_for('service.index'))
 
-    # Perform the rebuild action (for example, restarting the Docker container, rebuilding the service, etc.)
-    # You can add any logic that rebuilds the service here
-    rebuild_service(service)  # Example function to rebuild the service (this needs to be implemented)
+    rebuild_service(service)
     
     print(f"Service {service.name} rebuild triggered successfully!")
 
-    # Redirect back to the service console or settings page after the rebuild action
     return redirect(url_for('service.console', name=service.name))
 
 
