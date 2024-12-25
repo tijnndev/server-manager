@@ -99,7 +99,7 @@ def add_service():
             file_location=service_dir, # type: ignore
             id="pending", # type: ignore
         )
-        command_list = data.get("command", "").split()
+        command = data.get("command")
         db.session.add(new_process)
         db.session.commit()
 
@@ -127,7 +127,7 @@ FROM node:latest
 WORKDIR /app
 COPY . /app
 RUN npm init -y
-CMD {command_list}
+CMD ["sh", "-c", {command}]
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
@@ -146,7 +146,7 @@ WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
 EXPOSE {port}
-CMD {command_list}
+CMD ["sh", "-c", {command}]
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
@@ -164,7 +164,6 @@ CMD {command_list}
             print(f"Error building Docker image: {e}")
             return jsonify({"error": f"Failed to build Docker image: {e}"}), 500
 
-        command = data.get("command")
         container_name = f"{service_type}_{service_name}"
         try:
             try:
