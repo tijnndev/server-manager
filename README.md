@@ -32,7 +32,7 @@ cd server-manager
 To isolate your dependencies, create a virtual environment:
 
 ```bash
-python3 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate  # For Linux/macOS
 venv\Scripts\activate     # For Windows
 ```

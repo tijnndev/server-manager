@@ -45,7 +45,7 @@ cp .env.example .env
 
 echo "Installing Python dependencies..."
 if [ ! -d "venv" ]; then
-  python3 -m venv venv
+  python3.12 -m venv venv
   echo "Virtual environment created."
 fi
 source venv/bin/activate
