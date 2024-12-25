@@ -208,6 +208,7 @@ CMD {command_list}
 @service_routes.route('/start/<string:name>', methods=['POST'])
 def start_service(name):
     service = find_process_by_name(name)
+    print(service)
     container_name = f"{name}_container"
     image_tag = f"{name}_image"
 
