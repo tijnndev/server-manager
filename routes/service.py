@@ -1,10 +1,11 @@
 # app/routes/service_routes.py
 from flask import Blueprint, jsonify, request, render_template, Response, current_app
 import os, docker, json, re
-from docker.errors import NotFound, APIError, BuildError, DockerException
+from docker.errors import NotFound, APIError, BuildError, DockerException, ImageNotFound
 
 from db import db
 from models.process import Process
+from routes.process import update_process_id
 
 service_routes = Blueprint('service', __name__)
 client = docker.from_env()
@@ -203,49 +204,60 @@ CMD {command}
 
     return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id, "port": port})
 
-
 @service_routes.route('/start/<string:name>', methods=['POST'])
 def start_service(name):
-    service = find_process_by_name(name)
-    container_id = "Unknown"
     service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
     image_tag = f"{name}_image"
-
-    if not service:
-        return jsonify({"error": "Service not found"}), 404
+    container_name = f"{name}_container"
 
     try:
-        print(f"Building Docker image for {name}")
+        # Remove old image
         try:
-            client.images.build(path=service_dir, tag=image_tag, nocache=True)
-            print(f"Docker image for {name} built successfully.")
-        except Exception as build_error:
-            print(f"Failed to build image for {name}: {build_error}")
-            return jsonify({"error": f"Failed to build image for {name}: {build_error}"}), 500
+            old_image = client.images.get(image_tag)
+            client.images.remove(image=old_image.id, force=True)
+            print(f"Old image {image_tag} removed.")
+        except ImageNotFound:
+            print(f"No existing image found for {image_tag}, skipping removal.")
 
-        container_id = service.id
-        if not container_id:
-            return jsonify({"error": "Service ID not found"}), 404
+        # Build new image
+        print(f"Building Docker image for {name}")
+        client.images.build(path=service_dir, tag=image_tag, nocache=True)
+        print(f"Docker image for {name} built successfully.")
 
-        print(f"Starting Docker container with ID: {container_id}")
-        container = client.containers.get(container_id)
+        # Remove old container
+        try:
+            existing_container = client.containers.get(container_name)
+            existing_container.remove(force=True)
+            print(f"Old container {container_name} removed.")
+        except NotFound:
+            print(f"No existing container found for {container_name}, skipping removal.")
+
+        # Create and start new container
+        container = client.containers.run(
+            image=image_tag,
+            name=container_name,
+            detach=True,
+            auto_remove=False,
+            restart_policy={"Name": "always"}
+        )
+        print(f"Container {container_name} started.")
+
+        new_container_id = container.id
+        print(f"Updating database with new container ID: {new_container_id}")
         
-        if container.status != 'running':
-            container.start()
-            print(f"Container {container_id} started.")
-        else:
-            print(f"Container {container_id} is already running.")
+        update_process_id(name, str(new_container_id))
 
-        return jsonify({"message": f"Service {name} started successfully on container {container_id}."})
+        return jsonify({"message": f"Service {name} started successfully."})
 
-    except NotFound:
-        return jsonify({"error": f"Container with ID {container_id} not found."}), 404
-    except APIError as e:
-        return jsonify({"error": f"Docker API error: {str(e)}"}), 500
+    except BuildError as build_error:
+        print(f"Build failed for {name}: {build_error}")
+        return jsonify({"error": f"Failed to build image: {build_error}"}), 500
+    except APIError as api_error:
+        print(f"Docker API error: {api_error}")
+        return jsonify({"error": f"Docker API error: {api_error}"}), 500
     except Exception as e:
-        print(e)
+        print(f"Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 @service_routes.route('/stop/<string:name>', methods=['POST'])
