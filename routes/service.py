@@ -209,7 +209,7 @@ def start_service(name):
     service = find_process_by_name(name)
     container_id = "Unknown"
     service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-    image_tag = f"{name}:latest"  # Define a tag for the service image
+    image_tag = f"{name}_image"
 
     if not service:
         return jsonify({"error": "Service not found"}), 404
@@ -217,7 +217,7 @@ def start_service(name):
     try:
         print(f"Building Docker image for {name}")
         try:
-            client.images.build(path=service_dir, tag=image_tag)
+            client.images.build(path=service_dir, tag=image_tag, nocache=True)
             print(f"Docker image for {name} built successfully.")
         except Exception as build_error:
             print(f"Failed to build image for {name}: {build_error}")
