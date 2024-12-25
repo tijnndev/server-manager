@@ -7,6 +7,10 @@
     <!-- Form for updating service settings -->
     <form method="POST" action="{{ url_for('service.settings', name=service.name) }}">
         <div class="form-group">
+            <label for="service-containerid">Container ID</label>
+            <input type="text" class="form-control" id="service-containerid" name="containerid" value="{{ service.id }}" readonly>
+        </div>
+        <div class="form-group">
             <label for="service-name">Service Name</label>
             <input type="text" class="form-control" id="service-name" name="name" value="{{ service.name }}" required>
         </div>
@@ -15,10 +19,20 @@
             <label for="service-description">Description</label>
             <textarea class="form-control" id="service-description" name="description" rows="3">{{ service.description }}</textarea>
         </div>
-        
         <div class="form-group">
-            <label for="service-params">Parameters</label>
-            <input type="text" class="form-control" id="service-params" name="params" value="{{ service.params }}">
+            <label for="service-port">Port Number</label>
+            <input type="text" class="form-control" id="service-port" name="port" value="{{ service.port_id }}" readonly>
+        </div>
+        <div class="form-group">
+            <label for="service-command">Command</label>
+            <input type="text" class="form-control" id="service-command" name="command" value="{{ service.command }}">
+        </div>
+        <div class="form-group">
+            <label for="service-type" class="form-label">Service Type</label>
+            <select id="service-type" class="form-select">
+                <option value="nodejs">Node.js</option>
+                <option value="python">Python</option>
+            </select>
         </div>
         
         <button type="submit" class="btn btn-primary mt-3">Save Changes</button>
