@@ -211,13 +211,22 @@ def start_service(name):
     container_name = f"{name}_container"
 
     try:
-        # Remove the old container if it exists
-        try:
-            existing_container = client.containers.get(container_name)
+        # Get a list of all running containers
+        running_containers = client.containers.list()
+
+        # Check if a container with the desired name is running
+        existing_container = None
+        for container in running_containers:
+            if container.name == container_name:
+                existing_container = container
+                break
+
+        # If the container is found, stop and remove it
+        if existing_container:
             existing_container.stop()
             existing_container.remove(force=True)
             print(f"Old container {container_name} removed.")
-        except NotFound:
+        else:
             print(f"No existing container found for {container_name}, skipping removal.")
 
         # Remove the old image if it exists
@@ -259,6 +268,7 @@ def start_service(name):
     except Exception as e:
         print(f"Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
