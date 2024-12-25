@@ -211,6 +211,12 @@ def start_service(name):
     container_name = f"{name}_container"
 
     try:
+        try:
+            existing_container = client.containers.get(container_name)
+            existing_container.remove(force=True)
+            print(f"Old container {container_name} removed.")
+        except NotFound:
+            print(f"No existing container found for {container_name}, skipping removal.")
         # Remove old image
         try:
             old_image = client.images.get(image_tag)
@@ -225,12 +231,7 @@ def start_service(name):
         print(f"Docker image for {name} built successfully.")
 
         # Remove old container
-        try:
-            existing_container = client.containers.get(container_name)
-            existing_container.remove(force=True)
-            print(f"Old container {container_name} removed.")
-        except docker.errors.NotFound:
-            print(f"No existing container found for {container_name}, skipping removal.")
+        
 
         # Create and start new container
         container = client.containers.run(
