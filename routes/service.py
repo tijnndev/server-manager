@@ -68,7 +68,6 @@ def get_services():
     return jsonify(services)
 
 
-
 @service_routes.route('/add', methods=['POST'])
 def add_service():
     data = request.json
@@ -176,6 +175,22 @@ CMD {command}
             except NotFound:
                 pass
 
+            # Attempt to remove the image after the container is started
+            try:
+                image = client.images.get(image_tag)
+                try:
+                    client.images.remove(image=image.id, force=True)
+                    print(f"Image {image_tag} removed.")
+                except APIError as e:
+                    if "conflict" in str(e).lower():
+                        return jsonify({"error": f"Cannot remove image because it's in use by a container: {str(e)}"}), 409
+                    else:
+                        return jsonify({"error": f"Failed to remove image: {str(e)}"}), 500
+            except DockerException as e:
+                print(f"Error retrieving image: {e}")
+                return jsonify({"error": f"Failed to retrieve image: {e}"}), 500
+
+
             print("Creating and starting container")
             container = client.containers.run(
                 image_tag,
@@ -204,21 +219,7 @@ CMD {command}
     except DockerException as e:
         return jsonify({"error": f"Failed to create Docker container: {e}"}), 500
 
-    # Attempt to remove the image after the container is started
-    try:
-        image = client.images.get(image_tag)
-        try:
-            client.images.remove(image=image.id, force=True)
-            print(f"Image {image_tag} removed.")
-        except APIError as e:
-            if "conflict" in str(e).lower():
-                return jsonify({"error": f"Cannot remove image because it's in use by a container: {str(e)}"}), 409
-            else:
-                return jsonify({"error": f"Failed to remove image: {str(e)}"}), 500
-    except DockerException as e:
-        print(f"Error retrieving image: {e}")
-        return jsonify({"error": f"Failed to retrieve image: {e}"}), 500
-
+    
     return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id, "port": port})
 
 @service_routes.route('/start/<string:name>', methods=['POST'])
