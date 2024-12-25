@@ -127,7 +127,7 @@ FROM node:latest
 WORKDIR /app
 COPY . /app
 RUN npm init -y
-CMD ["sh", "-c", {command}]
+CMD ["sh", "-c", "{command}"]
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
@@ -146,7 +146,7 @@ WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
 EXPOSE {port}
-CMD ["sh", "-c", {command}]
+CMD ["sh", "-c", "{command}"]
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
