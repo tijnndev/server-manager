@@ -94,17 +94,18 @@ def add_service():
         os.makedirs(service_dir, exist_ok=False)
 
         new_process = Process(
-            name=service_name,  # type: ignore
-            command=data.get("command", ""),  # type: ignore
-            type=data.get("type", ""),  # type: ignore
-            file_location=service_dir,  # type: ignore
-            id="pending",  # type: ignore
+            name=service_name, # type: ignore
+            command=data.get("command", ""), # type: ignore
+            type=data.get("type", ""), # type: ignore
+            file_location=service_dir, # type: ignore
+            id="pending", # type: ignore
         )
         command = data.get("command")
         db.session.add(new_process)
         db.session.commit()
 
         port_id = new_process.port_id
+
         port = 8000 + int(port_id)
 
         dependencies = data.get('dependencies')
@@ -154,23 +155,8 @@ CMD {command}
 
         else:
             return jsonify({"error": "Unknown service type"}), 400
-        
-        image_tag = f"{service_name}_image"
-        # Attempt to remove the image after the container is started
-        try:
-            image = client.images.get(image_tag)
-            try:
-                client.images.remove(image=image.id, force=True)
-                print(f"Image {image_tag} removed.")
-            except APIError as e:
-                if "conflict" in str(e).lower():
-                    return jsonify({"error": f"Cannot remove image because it's in use by a container: {str(e)}"}), 409
-                else:
-                    return jsonify({"error": f"Failed to remove image: {str(e)}"}), 500
-        except DockerException as e:
-            print(f"Error retrieving image: {e}")
-            return jsonify({"error": f"Failed to retrieve image: {e}"}), 500
 
+        image_tag = f"{service_name}_image"
         try:
             print(f"Building Docker image for {service_type}")
             client.images.build(path=service_dir, tag=image_tag, nocache=True)
@@ -182,16 +168,11 @@ CMD {command}
         container_name = f"{service_type}_{service_name}"
         try:
             try:
-                # Stop and remove the existing container if running
                 existing_container = client.containers.get(container_name)
-                print(f"Stopping and removing existing container: {existing_container.id}")
-                existing_container.stop()
+                print(f"Removing existing container: {existing_container.id}")
                 existing_container.remove(force=True)
             except NotFound:
                 pass
-
-            
-
 
             print("Creating and starting container")
             container = client.containers.run(
@@ -201,14 +182,14 @@ CMD {command}
                 volumes={service_dir: {"bind": "/app", "mode": "rw"}},
                 ports={str(port): port},
                 detach=True
-            )  # type: ignore
+            ) # type: ignore
 
             print(f"Container started: {container.id}")
 
             new_process.id = container.id
             db.session.commit()
 
-        except DockerException as e:
+        except DockerException as e: # type: ignore
             print(f"Error starting Docker container: {e}")
             return jsonify({"error": f"Failed to create Docker container: {e}"}), 500
 
@@ -221,7 +202,6 @@ CMD {command}
     except DockerException as e:
         return jsonify({"error": f"Failed to create Docker container: {e}"}), 500
 
-    
     return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id, "port": port})
 
 @service_routes.route('/start/<string:name>', methods=['POST'])
@@ -249,7 +229,7 @@ def start_service(name):
             existing_container = client.containers.get(container_name)
             existing_container.remove(force=True)
             print(f"Old container {container_name} removed.")
-        except NotFound:
+        except docker.errors.NotFound:
             print(f"No existing container found for {container_name}, skipping removal.")
 
         # Create and start new container
