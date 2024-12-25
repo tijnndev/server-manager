@@ -77,16 +77,22 @@
     startConsole();
 
     async function startService(name) {
-        const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
-        if (response.ok) {
-            consoleOutput.innerHTML += `Service start command received\n`;
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            updateServiceStatus('running');
-        } else {
 
-            const errorMessage = await response.text();
-            alert('Failed to start service');
-            console.log(errorMessage)
+        try {
+            const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
+            if (response.ok) {
+                consoleOutput.innerHTML += `Service start command received\n`;
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                updateServiceStatus('running');
+            } else {
+
+                const errorMessage = await response.text();
+                alert('Failed to start service');
+                console.log(errorMessage)
+            }
+        } catch (error) {
+            alert('An error occurred while stopping the service');
+            console.error('Fetch error:', error);
         }
     }
 
