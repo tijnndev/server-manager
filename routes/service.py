@@ -365,7 +365,7 @@ def settings(name):
 
             for idx, line in enumerate(dockerfile_content):
                 if line.startswith("CMD") or line.startswith("ENTRYPOINT"):
-                    dockerfile_content[idx] = f'CMD [{" ".join(word.replace("'", "\"") for word in service.command.split())}]\n'
+                    dockerfile_content[idx] = f'CMD [{", ".join([f"\"{word}\"" for word in service.command.split()])}]\n'
                     break
             else:
                 dockerfile_content.append(f'CMD {service.command.split()}\n')
