@@ -208,67 +208,24 @@ CMD {command_list}
 @service_routes.route('/start/<string:name>', methods=['POST'])
 def start_service(name):
     service = find_process_by_name(name)
-    print(service)
-    container_name = f"{name}_container"
-    image_tag = f"{name}_image"
-
     if not service:
         return jsonify({"error": "Service not found"}), 404
 
     try:
-        try:
-            existing_container = next(
-                (c for c in client.containers.list(all=True) if c.name == container_name), None
-            )
-            if existing_container:
-                print(f"Stopping and removing existing container: {container_name}")
-                existing_container.stop()
-                existing_container.remove(force=True)
-        except Exception as e:
-            print(f"Error removing old container: {e}")
-
-        try:
-            old_image = client.images.get(image_tag)
-            client.images.remove(image=old_image.id, force=True)
-            print(f"Old image {image_tag} removed.")
-        except Exception as e:
-            print(f"No existing image found for {image_tag}, skipping removal: {e}")
-
-        service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        print(f"Building new Docker image for {name}...")
-        client.images.build(path=service_dir, tag=image_tag, nocache=True)
-        print(f"Docker image {image_tag} built successfully.")
-
-        port_id = service.port_id
-        port = 8000 + int(port_id)
-
-        print(f"Creating and starting new container: {container_name}")
-        container = client.containers.run(
-            image=image_tag,
-            name=container_name,
-            detach=True,
-            auto_remove=False,
-            restart_policy={"Name": "always"},
-            ports={str(port): port}
-        )
-        
-        print(f"Updating process ID to {container.id}")
-        service.update_id(str(container.id))
+        container_id = rebuild_service(service)
 
         return jsonify({
             "message": f"Service {name} started successfully with updated command.",
-            "container_id": container.id
+            "container_id": container_id
         })
 
     except BuildError as build_error:
-        print(f"Build failed for {name}: {build_error}")
         return jsonify({"error": f"Failed to build image: {build_error}"}), 500
     except APIError as api_error:
-        print(f"Docker API error: {api_error}")
         return jsonify({"error": f"Docker API error: {api_error}"}), 500
     except Exception as e:
-        print(f"Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
@@ -381,14 +338,13 @@ def ansi_to_html(ansi_code):
             return color_map[code]
     return 'black'
 
-@service_routes.route('/settings/<name>', methods=['GET', 'POST'])
+@service_routes.route('/settings/<string:name>', methods=['GET', 'POST'])
 def settings(name):
     service = find_process_by_name(name)
     if not service:
         return render_template('settings.html', service=service)
     
     if request.method == 'POST':
-        # Make sure the form has all the expected keys
         print(request.form)
         
         service.name = request.form.get('name')
@@ -399,7 +355,7 @@ def settings(name):
 
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
         dockerfile_path = f'{service_dir}/Dockerfile'
-        
+
         if not service.command:
             return print("Service command not found")
         
@@ -428,3 +384,74 @@ def settings(name):
         return redirect(url_for('service.console', name=service.name))
     
     return render_template('settings.html', service=service)
+
+
+@service_routes.route('/rebuild/<name>', methods=['POST'])
+def rebuild(name):
+    service = find_process_by_name(name)
+    if not service:
+        return redirect(url_for('service.index'))  # Redirect if service doesn't exist
+
+    # Perform the rebuild action (for example, restarting the Docker container, rebuilding the service, etc.)
+    # You can add any logic that rebuilds the service here
+    rebuild_service(service)  # Example function to rebuild the service (this needs to be implemented)
+    
+    print(f"Service {service.name} rebuild triggered successfully!")
+
+    # Redirect back to the service console or settings page after the rebuild action
+    return redirect(url_for('service.console', name=service.name))
+
+
+def rebuild_service(service):
+    container_name = f"{service.name}_container"
+    image_tag = f"{service.name}_image"
+    
+    try:
+        try:
+            existing_container = next(
+                (c for c in client.containers.list(all=True) if c.name == container_name), None
+            )
+            if existing_container:
+                print(f"Stopping and removing existing container: {container_name}")
+                existing_container.stop()
+                existing_container.remove(force=True)
+        except Exception as e:
+            print(f"Error removing old container: {e}")
+
+        try:
+            old_image = client.images.get(image_tag)
+            client.images.remove(image=old_image.id, force=True)
+            print(f"Old image {image_tag} removed.")
+        except Exception as e:
+            print(f"No existing image found for {image_tag}, skipping removal: {e}")
+
+        service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
+        print(f"Building new Docker image for {service.name}...")
+        client.images.build(path=service_dir, tag=image_tag, nocache=True)
+        print(f"Docker image {image_tag} built successfully.")
+
+        port = 8000 + int(service.port_id)
+        print(f"Creating and starting new container: {container_name}")
+        container = client.containers.run(
+            image=image_tag,
+            name=container_name,
+            detach=True,
+            auto_remove=False,
+            restart_policy={"Name": "always"},
+            ports={str(port): port}
+        )
+        
+        print(f"Updating process ID to {container.id}")
+        service.update_id(str(container.id))
+
+        return container.id
+
+    except BuildError as build_error:
+        print(f"Build failed for {service.name}: {build_error}")
+        raise build_error
+    except APIError as api_error:
+        print(f"Docker API error: {api_error}")
+        raise api_error
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        raise e

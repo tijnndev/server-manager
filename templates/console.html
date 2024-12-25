@@ -43,23 +43,20 @@
 
     async function startConsole() {
         const eventSource = new EventSource(`/services/console/{{ service.name }}/logs`);
-        const seenMessages = new Set(); // Set to track unique messages
+        const seenMessages = new Set();
 
         eventSource.onmessage = function(event) {
             const message = event.data;
 
-            // Check if the message has already been processed
             if (!seenMessages.has(message)) {
-                consoleOutput.innerHTML += message + '\n';  // Add new message to the console
+                consoleOutput.innerHTML += message + '\n';
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
 
-                // Add the message to the seenMessages set to avoid duplicates
                 seenMessages.add(message);
             }
         };
 
         eventSource.onerror = function(error) {
-            // Handle any errors if necessary
             // consoleOutput.innerHTML += "Error: Unable to stream logs.\n";
         };
     }
