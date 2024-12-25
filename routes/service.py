@@ -389,6 +389,7 @@ def settings(name):
     
     if request.method == 'POST':
         # Update the service settings based on the form input
+        print(request.form)
         service.name = request.form['name']
         service.description = request.form['description']
         service.params = request.form['params']
