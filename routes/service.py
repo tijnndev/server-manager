@@ -211,25 +211,13 @@ def start_service(name):
     container_name = f"{name}_container"
 
     try:
-        # Get a list of all running containers
-        running_containers = client.containers.list()
-
-        # Check if a container with the desired name is running
-        existing_container = None
-        for container in running_containers:
-            if container.name == container_name:
-                existing_container = container
-                break
-
-        # If the container is found, stop and remove it
-        if existing_container:
-            existing_container.stop()
+        try:
+            existing_container = client.containers.get(container_name)
             existing_container.remove(force=True)
             print(f"Old container {container_name} removed.")
-        else:
+        except NotFound:
             print(f"No existing container found for {container_name}, skipping removal.")
-
-        # Remove the old image if it exists
+        # Remove old image
         try:
             old_image = client.images.get(image_tag)
             client.images.remove(image=old_image.id, force=True)
@@ -237,12 +225,15 @@ def start_service(name):
         except ImageNotFound:
             print(f"No existing image found for {image_tag}, skipping removal.")
 
-        # Build a new image
+        # Build new image
         print(f"Building Docker image for {name}")
         client.images.build(path=service_dir, tag=image_tag, nocache=True)
         print(f"Docker image for {name} built successfully.")
 
-        # Create and start a new container using the newly built image
+        # Remove old container
+        
+
+        # Create and start new container
         container = client.containers.run(
             image=image_tag,
             name=container_name,
@@ -268,8 +259,6 @@ def start_service(name):
     except Exception as e:
         print(f"Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
-
-
 
 
 @service_routes.route('/stop/<string:name>', methods=['POST'])
