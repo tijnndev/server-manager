@@ -90,6 +90,8 @@
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
                 console.log(response)
+                const errorMessage = await response.text();
+                console.log(errorMessage)
             } else {
 
                 const errorMessage = await response.text();
