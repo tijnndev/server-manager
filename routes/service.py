@@ -158,7 +158,7 @@ CMD {command_list}
         image_tag = f"{service_name}_image"
         try:
             print(f"Building Docker image for {service_type}")
-            client.images.build(path=service_dir, tag=image_tag)
+            client.images.build(path=service_dir, tag=image_tag, nocache=True)
 
         except BuildError as e:
             print(f"Error building Docker image: {e}")
