@@ -127,7 +127,7 @@ FROM node:latest
 WORKDIR /app
 COPY . .
 RUN npm init -y
-CMD test
+CMD {command_list}
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
