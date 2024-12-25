@@ -242,11 +242,7 @@ def start_service(name):
         print(f"Docker image {image_tag} built successfully.")
 
         # Get the updated command from the request data
-        data = request.json
-        if not data or 'command' not in data:
-            return jsonify({"error": "Command not provided in the request"}), 400
-
-        new_command = data['command']
+        new_command = service.command
         port_id = service.port_id
         port = 8000 + int(port_id)
 
