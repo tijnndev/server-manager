@@ -211,13 +211,16 @@ def start_service(name):
     container_name = f"{name}_container"
 
     try:
+        # Remove the old container if it exists
         try:
             existing_container = client.containers.get(container_name)
+            existing_container.stop()
             existing_container.remove(force=True)
             print(f"Old container {container_name} removed.")
         except NotFound:
             print(f"No existing container found for {container_name}, skipping removal.")
-        # Remove old image
+
+        # Remove the old image if it exists
         try:
             old_image = client.images.get(image_tag)
             client.images.remove(image=old_image.id, force=True)
@@ -225,15 +228,12 @@ def start_service(name):
         except ImageNotFound:
             print(f"No existing image found for {image_tag}, skipping removal.")
 
-        # Build new image
+        # Build a new image
         print(f"Building Docker image for {name}")
         client.images.build(path=service_dir, tag=image_tag, nocache=True)
         print(f"Docker image for {name} built successfully.")
 
-        # Remove old container
-        
-
-        # Create and start new container
+        # Create and start a new container using the newly built image
         container = client.containers.run(
             image=image_tag,
             name=container_name,
@@ -259,6 +259,7 @@ def start_service(name):
     except Exception as e:
         print(f"Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 @service_routes.route('/stop/<string:name>', methods=['POST'])
