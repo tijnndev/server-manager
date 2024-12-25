@@ -21,7 +21,7 @@
         </div>
         <div class="form-group">
             <label for="service-port">Port Number</label>
-            <input type="text" class="form-control" id="service-port" name="port" value="{{ service.port_id }}" readonly>
+            <input type="text" class="form-control" id="service-port" name="port" value="{{ 8000 + service.port_id }}" readonly>
         </div>
         <div class="form-group">
             <label for="service-command">Command</label>
@@ -30,8 +30,8 @@
         <div class="form-group">
             <label for="service-type" class="form-label">Service Type</label>
             <select id="service-type" class="form-select">
-                <option value="nodejs">Node.js</option>
-                <option value="python">Python</option>
+                <option value="nodejs" {% if service.type == "nodejs "%} selected {% endif %}>Node.js</option>
+                <option value="python" {% if service.type == "python "%} selected {% endif %}>Python</option>
             </select>
         </div>
         
