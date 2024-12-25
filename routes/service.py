@@ -208,10 +208,21 @@ CMD {command}
 def start_service(name):
     service = find_process_by_name(name)
     container_id = "Unknown"
+    service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+    image_tag = f"{name}:latest"  # Define a tag for the service image
+
     if not service:
         return jsonify({"error": "Service not found"}), 404
 
     try:
+        print(f"Building Docker image for {name}")
+        try:
+            client.images.build(path=service_dir, tag=image_tag)
+            print(f"Docker image for {name} built successfully.")
+        except Exception as build_error:
+            print(f"Failed to build image for {name}: {build_error}")
+            return jsonify({"error": f"Failed to build image for {name}: {build_error}"}), 500
+
         container_id = service.id
         if not container_id:
             return jsonify({"error": "Service ID not found"}), 404
@@ -234,6 +245,7 @@ def start_service(name):
     except Exception as e:
         print(e)
         return jsonify({"error": str(e)}), 500
+
 
 
 @service_routes.route('/stop/<string:name>', methods=['POST'])
