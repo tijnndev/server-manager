@@ -1,11 +1,10 @@
 # app/routes/service_routes.py
 from flask import Blueprint, jsonify, request, render_template, Response, current_app
 import os, docker, json, re
-from docker.errors import NotFound, APIError, BuildError, DockerException, ImageNotFound
+from docker.errors import NotFound, APIError, BuildError, DockerException
 
 from db import db
 from models.process import Process
-from routes.process import update_process_id
 
 service_routes = Blueprint('service', __name__)
 client = docker.from_env()
@@ -100,7 +99,7 @@ def add_service():
             file_location=service_dir, # type: ignore
             id="pending", # type: ignore
         )
-        command = data.get("command")
+        command_list = data.get("command", "").split()
         db.session.add(new_process)
         db.session.commit()
 
@@ -128,7 +127,7 @@ FROM node:latest
 WORKDIR /app
 COPY . /app
 RUN npm init -y
-CMD {command}
+CMD {command_list}
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
@@ -147,7 +146,7 @@ WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
 EXPOSE {port}
-CMD {command}
+CMD {command_list}
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
@@ -165,6 +164,7 @@ CMD {command}
             print(f"Error building Docker image: {e}")
             return jsonify({"error": f"Failed to build Docker image: {e}"}), 500
 
+        command = data.get("command")
         container_name = f"{service_type}_{service_name}"
         try:
             try:
@@ -204,60 +204,36 @@ CMD {command}
 
     return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id, "port": port})
 
+
 @service_routes.route('/start/<string:name>', methods=['POST'])
 def start_service(name):
-    service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-    image_tag = f"{name}_image"
-    container_name = f"{name}_container"
+    service = find_process_by_name(name)
+    container_id = "Unknown"
+    if not service:
+        return jsonify({"error": "Service not found"}), 404
 
     try:
-        try:
-            existing_container = client.containers.get(container_name)
-            existing_container.remove(force=True)
-            print(f"Old container {container_name} removed.")
-        except NotFound:
-            print(f"No existing container found for {container_name}, skipping removal.")
-        # Remove old image
-        try:
-            old_image = client.images.get(image_tag)
-            client.images.remove(image=old_image.id, force=True)
-            print(f"Old image {image_tag} removed.")
-        except ImageNotFound:
-            print(f"No existing image found for {image_tag}, skipping removal.")
+        container_id = service.id
+        if not container_id:
+            return jsonify({"error": "Service ID not found"}), 404
 
-        # Build new image
-        print(f"Building Docker image for {name}")
-        client.images.build(path=service_dir, tag=image_tag, nocache=True)
-        print(f"Docker image for {name} built successfully.")
-
-        # Remove old container
+        print(f"Starting Docker container with ID: {container_id}")
+        container = client.containers.get(container_id)
         
+        if container.status != 'running':
+            container.start()
+            print(f"Container {container_id} started.")
+        else:
+            print(f"Container {container_id} is already running.")
 
-        # Create and start new container
-        container = client.containers.run(
-            image=image_tag,
-            name=container_name,
-            detach=True,
-            auto_remove=False,
-            restart_policy={"Name": "always"}
-        )
-        print(f"Container {container_name} started.")
+        return jsonify({"message": f"Service {name} started successfully on container {container_id}."})
 
-        new_container_id = container.id
-        print(f"Updating database with new container ID: {new_container_id}")
-        
-        update_process_id(name, str(new_container_id))
-
-        return jsonify({"message": f"Service {name} started successfully."})
-
-    except BuildError as build_error:
-        print(f"Build failed for {name}: {build_error}")
-        return jsonify({"error": f"Failed to build image: {build_error}"}), 500
-    except APIError as api_error:
-        print(f"Docker API error: {api_error}")
-        return jsonify({"error": f"Docker API error: {api_error}"}), 500
+    except NotFound:
+        return jsonify({"error": f"Container with ID {container_id} not found."}), 404
+    except APIError as e:
+        return jsonify({"error": f"Docker API error: {str(e)}"}), 500
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(e)
         return jsonify({"error": str(e)}), 500
 
 
