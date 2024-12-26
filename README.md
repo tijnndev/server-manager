@@ -84,6 +84,9 @@ Ensure the `DATABASE_URI` in `.env` points to your MariaDB server with the corre
 ```bash
 DATABASE_URI=mysql+pymysql://myuser:mypassword@localhost:3306/server-monitor
 SECRET_KEY=your_secret_key_here
+DISCORD_CLIENT_ID=your_discord_client_id
+DISCORD_CLIENT_SECRET=your_discord_client_secret
+DISCORD_REDIRECT_URI=http://localhost:7001/discord_login/callback
 ```
 
 ## Step 6: Initialize the Database

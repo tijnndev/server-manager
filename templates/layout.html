@@ -49,7 +49,7 @@ ondragover="handleDragOver(event)"
                     </li>
                 </ul>
             </div>
-            <button class="btn btn-primary ms-4" onclick="logout()">Logout</button>
+            <a class="btn btn-primary ms-4" href="{{ url_for('logout') }}">Logout</a>
         </div>
     </nav>
     {% block content %}
