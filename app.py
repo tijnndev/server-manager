@@ -1,5 +1,6 @@
 import os
 from flask import Flask, render_template, redirect, request, session, url_for
+from models.user import User
 from routes.file_manager import file_manager_routes
 from routes.service import service_routes
 from flask_migrate import Migrate
@@ -37,20 +38,29 @@ def dashboard():
 
 @app.before_request
 def before_request():
-    if not session.get('user') and request.endpoint not in ['login', 'static']:
+    if 'username' not in session or 'user_id' not in session:
         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
-        session['user'] = {'username': username}
-        return redirect(url_for('dashboard'))
+        password = request.form.get('password')
+
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            session['username'] = user.username
+            return redirect(url_for('dashboard'))
+        else:
+            return render_template('login.html', error="Invalid username or password")
+
     return render_template('login.html')
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
+    session.clear()
     return redirect(url_for('login'))
 
 if __name__ == "__main__":
