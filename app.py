@@ -51,7 +51,7 @@ def dashboard():
 def before_request():
     print(request.endpoint)
     print(request.endpoint not in ['login', 'static'])
-    if 'username' not in session or 'user_id' not in session and request.endpoint not in ['login', 'static']:
+    if ('username' not in session or 'user_id' not in session) and request.endpoint not in ['login', 'static']:
         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
