@@ -5,6 +5,7 @@ from routes.file_manager import file_manager_routes
 from routes.service import service_routes
 from flask_migrate import Migrate
 from routes.process import process_routes
+from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
 
@@ -19,8 +20,16 @@ app.secret_key = os.getenv('SECRET_KEY')
 db.init_app(app)
 migrate = Migrate(app, db)
 
+def create_admin_user():
+    if User.query.count() == 0:
+        admin = User(username='admin', password=generate_password_hash('JGR6jek5R6ivZTF^6b'))
+        db.session.add(admin)
+        db.session.commit()
+        print("Admin user created successfully!")
+
 with app.app_context():
     db.create_all()
+    create_admin_user()
 
 BASE_DIR = os.path.dirname(__file__)
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
@@ -29,6 +38,8 @@ SERVICES_DIRECTORY = 'active-servers'
 app.register_blueprint(process_routes, url_prefix='/process')
 app.register_blueprint(service_routes, url_prefix='/services')
 app.register_blueprint(file_manager_routes, url_prefix='/files')
+
+
 
 ## WEB
 @app.route('/')
