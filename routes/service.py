@@ -111,14 +111,16 @@ def add_service():
         port = 8000 + int(port_id)
 
         dependencies = data.get('dependencies')
+        service_type = data.get("type")
+        dependency_list = []
         if dependencies:
             dependency_list = dependencies.split(',')
-            requirements_path = os.path.join(service_dir, 'requirements.txt')
-            with open(requirements_path, 'w') as f:
-                for dep in dependency_list:
-                    f.write(dep.strip() + '\n')
+            if service_type == "python":
+                requirements_path = os.path.join(service_dir, 'requirements.txt')
+                with open(requirements_path, 'w') as f:
+                    for dep in dependency_list:
+                        f.write(dep.strip() + '\n')
 
-        service_type = data.get("type")
         if service_type == "nodejs":
             file_path = os.path.join(service_dir, "index.js")
             with open(file_path, "w") as f:
@@ -129,7 +131,7 @@ def add_service():
 FROM node:latest
 WORKDIR /app
 COPY . /app
-RUN npm init -y
+RUN npm i { ' '.join(dependency_list) if dependency_list else 'init' }
 CMD {command_list}
 # DO NOT TOUCH THIS FILE"""
             dockerfile_path = os.path.join(service_dir, "Dockerfile")
@@ -229,7 +231,7 @@ def delete(name):
         db.session.delete(service)
         db.session.commit()
 
-        return jsonify({"message": "Service and container deleted successfully"}), 200
+        return redirect('/')
 
     except Exception as e:
         print(f"Error deleting service: {e}")
