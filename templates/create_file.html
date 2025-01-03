@@ -5,18 +5,8 @@
         <h1>Create New File with Code</h1>
         <form action="{{ url_for('files.create_file', location=location) }}" method="POST">
             <div class="mb-3">
-                <label for="file_name" class="form-label">File Name (without extension)</label>
+                <label for="file_name" class="form-label">File Name (with extension)</label>
                 <input type="text" class="form-control" id="file_name" name="file_name" required oninput="validateFileName()">
-            </div>
-
-            <div class="mb-3">
-                <label for="file_type" class="form-label">File Type</label>
-                <select id="file_type" class="form-control" name="file_type" onchange="changeEditorMode()">
-                    <option value="python" selected>Python (.py)</option>
-                    <option value="javascript">JavaScript (.js)</option>
-                    <option value="html">HTML (.html)</option>
-                    <option value="css">CSS (.css)</option>
-                </select>
             </div>
 
             <div class="mb-3">
@@ -38,44 +28,13 @@
         var editor = ace.edit("editor");
         editor.setTheme("ace/theme/github");
 
-        var fileType = document.getElementById("file_type").value;
-        setEditorMode(fileType);
-
-        function changeEditorMode() {
-            var selectedType = document.getElementById("file_type").value;
-            setEditorMode(selectedType);
-        }
-
-        async function setEditorMode(fileType) {
-            editor.session.setMode(`ace/mode/${fileType}`);
-        }
-
         document.querySelector("form").addEventListener("submit", function() {
             document.getElementById("file_code").value = editor.getValue();
-            var fileType = document.getElementById("file_type").value;
-            var fileName = document.getElementById("file_name").value;
-            var fileExtension = getFileExtension(fileType);
-            document.getElementById("file_name").value = fileName + fileExtension;
         });
 
         function validateFileName() {
             var fileName = document.getElementById("file_name").value;
-            document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9/-]/g, '');
-        }
-
-        function getFileExtension(fileType) {
-            switch(fileType) {
-                case 'python':
-                    return '.py';
-                case 'javascript':
-                    return '.js';
-                case 'html':
-                    return '.html';
-                case 'css':
-                    return '.css';
-                default:
-                    return '';
-            }
+            document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9_.-]/g, '');
         }
     </script>
 {% endblock content %}
