@@ -1,4 +1,5 @@
 # app/routes/service_routes.py
+import shutil
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, current_app, url_for
 import os, docker, json, re
 from docker.errors import NotFound, APIError, BuildError, DockerException
@@ -205,6 +206,34 @@ CMD {command_list}
         return jsonify({"error": f"Failed to create Docker container: {e}"}), 500
 
     return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id, "port": port})
+
+@service_routes.route('/delete/<name>', methods=['POST'])
+def delete_service(name):
+    try:
+        service = Process.query.filter_by(name=name).first()
+        if not service:
+            return jsonify({"error": "Service not found"}), 404
+        
+        try:
+            container = client.containers.get(service.id)
+            container.remove(force=True)
+            print(f"Container {service.id} removed successfully")
+        except NotFound:
+            print(f"Container {service.id} not found. Skipping removal.")
+        
+        service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+        if os.path.exists(service_dir):
+            shutil.rmtree(service_dir)
+            print(f"Service directory {service_dir} removed successfully")
+        
+        db.session.delete(service)
+        db.session.commit()
+
+        return jsonify({"message": "Service and container deleted successfully"}), 200
+
+    except Exception as e:
+        print(f"Error deleting service: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @service_routes.route('/start/<string:name>', methods=['POST'])
