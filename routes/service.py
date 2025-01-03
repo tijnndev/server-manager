@@ -208,7 +208,7 @@ CMD {command_list}
     return jsonify({"message": "Service added and running in Docker container", "directory": service_dir, "container_id": container.id, "port": port})
 
 @service_routes.route('/delete/<name>', methods=['POST'])
-def delete_service(name):
+def delete(name):
     try:
         service = Process.query.filter_by(name=name).first()
         if not service:
