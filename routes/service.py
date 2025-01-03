@@ -100,7 +100,7 @@ def add_service():
             id="pending", # type: ignore
         )
         # command_list = data.get("command", "").split() UNCOMMENT IF NOT WORKING CORRECTLY
-        command_list = [cmd.replace("'", '"') for cmd in data.get("command", "").split()]
+        command_list = json.dumps(data.get("command", "").split())
 
         db.session.add(new_process)
         db.session.commit()
