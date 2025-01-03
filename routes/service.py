@@ -99,7 +99,9 @@ def add_service():
             file_location=service_dir, # type: ignore
             id="pending", # type: ignore
         )
-        command_list = data.get("command", "").split()
+        # command_list = data.get("command", "").split() UNCOMMENT IF NOT WORKING CORRECTLY
+        command_list = [cmd.replace("'", '"') for cmd in data.get("command", "").split()]
+
         db.session.add(new_process)
         db.session.commit()
 
