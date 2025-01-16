@@ -26,11 +26,14 @@
         </span>
     </div>
 
+    <div class="text-dark mb-4">
+        Uptime: 
+        <span id="service-uptime">Fetching uptime...</span>
+    </div>
+
     <div class="console-output" id="console-output"></div>
 
     <div class="mt-3">
-        <!-- <input type="text" id="command-input" class="form-control" placeholder="Enter command..." />
-        <button class="btn btn-primary mt-2" onclick="sendCommand()">Send Command</button> -->
         <button class="btn btn-success mt-2 " onclick="startService('{{ service.name }}')">Start</button>
         <button class="btn btn-danger mt-2" onclick="stopService('{{ service.name }}')">Stop</button>
         <button class="btn btn-warning mt-2" onclick="restartService('{{ service.name }}')">Restart</button>
@@ -40,6 +43,7 @@
 <script>
     const consoleOutput = document.getElementById('console-output');
     const commandInput = document.getElementById('command-input');
+    const uptimeElement = document.getElementById('service-uptime');
 
     async function startConsole() {
         const eventSource = new EventSource(`/services/console/{{ service.name }}/logs`);
@@ -61,50 +65,41 @@
         };
     }
 
-
-    // async function sendCommand() {
-    //     const command = commandInput.value.trim();
-    //     if (!command) {
-    //         alert("Please enter a command.");
-    //         return;
-    //     }
-
-    //     const response = await fetch(`/services/console/{{ service.name }}/send`, {
-    //         method: 'POST',
-    //         headers: { 'Content-Type': 'application/json' },
-    //         body: JSON.stringify({ command })
-    //     });
-
-    //     if (response.ok) {
-    //         const data = await response.json();
-    //         consoleOutput.innerHTML += `> ${command}\n${data.output}\n`;
-    //         commandInput.value = '';
-    //     } else {
-    //         const errorData = await response.json();
-    //         consoleOutput.innerHTML += `Error: ${errorData.error}\n`;
-    //     }
-    // }
+    // Function to fetch uptime every second
+    async function fetchUptime() {
+        setInterval(async () => {
+            try {
+                const response = await fetch(`/services/console/{{ service.name }}/uptime`);
+                if (response.ok) {
+                    const data = await response.json();
+                    uptimeElement.innerText = data.uptime;
+                } else {
+                    console.error('Failed to fetch uptime');
+                }
+            } catch (error) {
+                console.error('Error fetching uptime:', error);
+            }
+        }, 1000); // Fetch uptime every second
+    }
 
     startConsole();
+    fetchUptime(); // Start fetching uptime
 
     async function startService(name) {
-
         try {
             const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json', // Set the correct content type
+                    'Content-Type': 'application/json', 
                 }, 
             });
             if (response.ok) {
                 consoleOutput.innerHTML += `Service start command received\n`;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
-                console.log(response)
                 const errorMessage = await response.text();
                 console.log(errorMessage)
             } else {
-
                 const errorMessage = await response.text();
                 alert('Failed to start service');
                 console.log(errorMessage)
@@ -165,6 +160,5 @@
             statusLabel.innerText = 'Exited';
         }
     }
-
 </script>
 {% endblock content %}

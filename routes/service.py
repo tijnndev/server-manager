@@ -299,14 +299,39 @@ def find_process_by_id(process_id):
     with current_app.app_context():
         return Process.query.get(process_id)
 
+def calculate_uptime(startup_date):
+    from datetime import datetime
+
+    startup_datetime = datetime.fromisoformat(startup_date[:-1])
+    current_time = datetime.now()
+    uptime = current_time - startup_datetime
+    return str(uptime)
 
 @service_routes.route('/console/<string:name>', methods=['GET'])
 def console(name):
     service = find_process_by_name(name)
+
     if not service:
         return jsonify({"error": "Service not found"}), 404
     
+
+    container = client.containers.get(service.id)
+
+    startup_date = container.attrs['State']['StartedAt']
+    
     return render_template('console.html', service=service)
+
+@service_routes.route('/services/console/<service_name>/uptime')
+def get_uptime(service_name):
+    process = find_process_by_name(service_name)
+    container = client.containers.get(process.id)
+
+    startup_date = container.attrs['State']['StartedAt']
+    
+
+    uptime = calculate_uptime(startup_date)
+    return jsonify({'uptime': uptime})
+
 
 @service_routes.route('/console/<string:name>/logs', methods=['GET'])
 def stream_logs(name):
