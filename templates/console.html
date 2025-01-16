@@ -99,7 +99,6 @@
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
                 const errorMessage = await response.text();
-                console.log(errorMessage)
             } else {
                 const errorMessage = await response.text();
                 alert('Failed to start service');
@@ -132,6 +131,7 @@
         const stopResponse = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
         if (stopResponse.ok) {
             consoleOutput.innerHTML += `Service stopped successfully.\n`;
+            updateServiceStatus('restarting');
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             
             setTimeout(async () => {
@@ -157,6 +157,10 @@
             statusText.classList.remove('text-danger');
             statusText.classList.add('text-success');
             statusLabel.innerText = 'Running';
+        } else if (status === 'restarting') {
+            statusText.classList.remove('text-success');
+            statusText.classList.add('text-warning');
+            statusLabel.innerText = 'Restarting';
         } else {
             statusText.classList.remove('text-success');
             statusText.classList.add('text-danger');
