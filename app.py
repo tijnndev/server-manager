@@ -50,9 +50,7 @@ def dashboard():
 
 @app.before_request
 def before_request():
-    print(request.endpoint)
-    print(request.endpoint not in ['login', 'static'])
-    if ('username' not in session or 'user_id' not in session) and request.endpoint not in ['login', 'static']:
+    if ('username' not in session or 'user_id' not in session) and request.endpoint not in ['login', 'static', 'webhook']:
         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -95,7 +93,7 @@ def webhook():
 
     if event == "push":
         script_path = os.path.join(BASE_DIR, 'updater.sh')
-        
+
         try:
             subprocess.run(['chmod', '+x', script_path], check=True)
         except subprocess.CalledProcessError as e:
