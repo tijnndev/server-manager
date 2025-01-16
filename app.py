@@ -100,7 +100,7 @@ def webhook():
             return jsonify({"error": f"Failed to set script permissions: {e}"}), 500
         
         try:
-            subprocess.run(['bash', script_path], check=True)
+            subprocess.call([script_path])
             return jsonify({"message": "Script executed successfully!"}), 200
         except subprocess.CalledProcessError as e:
             return jsonify({"error": f"Script execution failed: {e}"}), 500
