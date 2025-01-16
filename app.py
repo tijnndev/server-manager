@@ -95,7 +95,7 @@ def webhook():
         script_path = os.path.join(BASE_DIR, 'updater.sh')
 
         try:
-            subprocess.run(['chmod', '+x', script_path], check=True)
+            os.chmod(script_path, 0o755)  
         except subprocess.CalledProcessError as e:
             return jsonify({"error": f"Failed to set script permissions: {e}"}), 500
         
