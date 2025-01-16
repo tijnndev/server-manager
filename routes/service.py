@@ -339,15 +339,23 @@ def console(name):
 @service_routes.route('/console/<service_name>/uptime')
 def get_uptime(service_name):
     process = find_process_by_name(service_name)
-    container = client.containers.get(process.id)
-    if container.status == 'exited' or container.status == 'paused':
+
+    try:
+        container = client.containers.get(process.id)
+        
+        if container.status == 'exited' or container.status == 'paused':
+            return jsonify({'uptime': '0w 0d 0h 0m 0s'})
+
+        startup_date = container.attrs['State']['StartedAt']
+        uptime = calculate_uptime(startup_date)
+        return jsonify({'uptime': uptime})
+
+    except NotFound:
         return jsonify({'uptime': '0w 0d 0h 0m 0s'})
-
-    startup_date = container.attrs['State']['StartedAt']
-    
-
-    uptime = calculate_uptime(startup_date)
-    return jsonify({'uptime': uptime})
+    except APIError as e:
+        return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': f"Docker API error: {str(e)}"})
+    except Exception as e:
+        return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': str(e)})
 
 
 @service_routes.route('/console/<string:name>/logs', methods=['GET'])
