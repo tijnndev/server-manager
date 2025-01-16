@@ -179,7 +179,16 @@
     }
 
     function checkStatus() {
-        console.log(`{{ service.get_status() }}`)
+        let status = `{{ service.get_status() }}`
+        if(status == "running") {
+            changeStartButton(true);
+            changeStopButton(false);
+            enableRestartButton(false);
+        } else if(status == "exited") {
+            changeStartButton(false);
+            changeStopButton(true);
+            disableRestartButton(true);
+        }
     }
     checkStatus()
 
