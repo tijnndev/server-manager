@@ -1,6 +1,6 @@
-{% extends 'layout.html' %}
+{% extends 'service/service_layout.html' %}
 
-{% block content %}
+{% block service_content %}
 <style>
     .console-output {
         background-color: #333;
@@ -15,24 +15,6 @@
 </style>
 
 <div class="container mt-4">
-    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/services/console/{{ service.name }}">Console</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('service.settings', name=service.name) }}">Settings</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#logs">Logs</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#uptime">Uptime</a>
-                    </li>
-                </ul>
-            </div>
-    </nav>
     
     <h1 class="">Console for {{ service.name }}</h1>
     
@@ -227,4 +209,4 @@
         changeRestartButton(state);
     }
 </script>
-{% endblock content %}
+{% endblock service_content %}
