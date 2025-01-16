@@ -336,7 +336,7 @@ def console(name):
     if not service:
         return jsonify({"error": "Service not found"}), 404
     
-    return render_template('console.html', service=service)
+    return render_template('service/console.html', service=service)
 
 @service_routes.route('/console/<service_name>/uptime')
 def get_uptime(service_name):
@@ -427,7 +427,7 @@ def ansi_to_html(ansi_code):
 def settings(name):
     service = find_process_by_name(name)
     if not service:
-        return render_template('settings.html', service=service)
+        return render_template('service/settings.html', service=service)
     
     if request.method == 'POST':
         print(request.form)
