@@ -3,7 +3,7 @@ import shutil
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, current_app, url_for
 import os, docker, json, re
 from docker.errors import NotFound, APIError, BuildError, DockerException
-
+from datetime import datetime
 from db import db
 from models.process import Process
 
@@ -300,12 +300,38 @@ def find_process_by_id(process_id):
         return Process.query.get(process_id)
 
 def calculate_uptime(startup_date):
-    from datetime import datetime
-
-    startup_datetime = datetime.fromisoformat(startup_date[:-1])
+    # Convert the startup date to a datetime object
+    startup_datetime = datetime.fromisoformat(startup_date[:-1])  # Remove the 'Z' and convert
     current_time = datetime.now()
+
+    # Calculate the time difference
     uptime = current_time - startup_datetime
-    return str(uptime)
+
+    # Get the number of seconds in the uptime
+    seconds = int(uptime.total_seconds())
+
+    # Calculate weeks, days, hours, minutes, and seconds
+    weeks = seconds // (7 * 24 * 3600)
+    days = (seconds % (7 * 24 * 3600)) // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+
+    # Format the uptime string
+    uptime_str = ''
+    if weeks > 0:
+        uptime_str += f"{weeks}w "
+    if days > 0:
+        uptime_str += f"{days}d "
+    if hours > 0:
+        uptime_str += f"{hours}h "
+    if minutes > 0:
+        uptime_str += f"{minutes}m "
+    if seconds > 0:
+        uptime_str += f"{seconds}s"
+
+    # Clean up any extra spaces
+    return uptime_str.strip()
 
 @service_routes.route('/console/<string:name>', methods=['GET'])
 def console(name):
