@@ -321,7 +321,7 @@ def console(name):
     
     return render_template('console.html', service=service)
 
-@service_routes.route('/services/console/<service_name>/uptime')
+@service_routes.route('/console/<service_name>/uptime')
 def get_uptime(service_name):
     process = find_process_by_name(service_name)
     container = client.containers.get(process.id)
