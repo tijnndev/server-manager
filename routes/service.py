@@ -315,7 +315,7 @@ def calculate_uptime(startup_date):
 
     uptime_str = ''
 
-    uptime_str += f"{weeks}w {days} d{hours}h {minutes}m {seconds}s"
+    uptime_str += f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
     # if weeks > 0:
     #     uptime_str += f"{weeks}w "
     # if days > 0:
