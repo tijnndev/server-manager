@@ -74,6 +74,7 @@
                     uptimeElement.innerText = data.uptime;
                 } else {
                     console.error('Failed to fetch uptime');
+                    console.log(await response.text())
                 }
             } catch (error) {
                 console.error('Error fetching uptime:', error);
