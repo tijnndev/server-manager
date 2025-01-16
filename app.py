@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, redirect, request, session, url_for
+from flask import Flask, render_template, redirect, request, session, url_for, jsonify
 from models.user import User
 from routes.file_manager import file_manager_routes
 from routes.service import service_routes
@@ -8,6 +8,7 @@ from routes.process import process_routes
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
+import subprocess
 
 load_dotenv()
 
@@ -75,6 +76,38 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET")
+    signature = request.headers.get('X-Hub-Signature-256')
+    
+    if secret and signature:
+        from hashlib import sha256
+        import hmac
+        payload = request.get_data()
+        computed_signature = "sha256=" + hmac.new(secret.encode(), payload, sha256).hexdigest()
+        if not hmac.compare_digest(computed_signature, signature):
+            return jsonify({"error": "Invalid signature"}), 403
+
+    event = request.headers.get('X-GitHub-Event')
+    payload = request.json
+
+    if event == "push":
+        script_path = os.path.join(BASE_DIR, 'updater.sh')
+        
+        try:
+            subprocess.run(['chmod', '+x', script_path], check=True)
+        except subprocess.CalledProcessError as e:
+            return jsonify({"error": f"Failed to set script permissions: {e}"}), 500
+        
+        try:
+            subprocess.run(['bash', script_path], check=True)
+            return jsonify({"message": "Script executed successfully!"}), 200
+        except subprocess.CalledProcessError as e:
+            return jsonify({"error": f"Script execution failed: {e}"}), 500
+
+    return jsonify({"message": "Unhandled event"}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7001)
