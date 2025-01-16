@@ -300,24 +300,19 @@ def find_process_by_id(process_id):
         return Process.query.get(process_id)
 
 def calculate_uptime(startup_date):
-    # Convert the startup date to a datetime object
-    startup_datetime = datetime.fromisoformat(startup_date[:-1])  # Remove the 'Z' and convert
+    startup_datetime = datetime.fromisoformat(startup_date[:-1])
     current_time = datetime.now()
 
-    # Calculate the time difference
     uptime = current_time - startup_datetime
 
-    # Get the number of seconds in the uptime
     seconds = int(uptime.total_seconds())
 
-    # Calculate weeks, days, hours, minutes, and seconds
     weeks = seconds // (7 * 24 * 3600)
     days = (seconds % (7 * 24 * 3600)) // 86400
     hours = (seconds % 86400) // 3600
     minutes = (seconds % 3600) // 60
     seconds = seconds % 60
 
-    # Format the uptime string
     uptime_str = ''
     if weeks > 0:
         uptime_str += f"{weeks}w "
@@ -330,7 +325,6 @@ def calculate_uptime(startup_date):
     if seconds > 0:
         uptime_str += f"{seconds}s"
 
-    # Clean up any extra spaces
     return uptime_str.strip()
 
 @service_routes.route('/console/<string:name>', methods=['GET'])
@@ -340,17 +334,14 @@ def console(name):
     if not service:
         return jsonify({"error": "Service not found"}), 404
     
-
-    container = client.containers.get(service.id)
-
-    startup_date = container.attrs['State']['StartedAt']
-    
     return render_template('console.html', service=service)
 
 @service_routes.route('/console/<service_name>/uptime')
 def get_uptime(service_name):
     process = find_process_by_name(service_name)
     container = client.containers.get(process.id)
+    if container.status == 'exited' or container.status == 'paused':
+        return jsonify({'uptime': '0w 0d 0h 0m 0s'})
 
     startup_date = container.attrs['State']['StartedAt']
     
