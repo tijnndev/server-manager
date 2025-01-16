@@ -162,7 +162,7 @@
             statusLabel.innerText = 'Running';
             changeStartButton(true);
             changeStopButton(false);
-            enableRestartButton(false);
+            changeRestartButton(false);
         } else if (status === 'restarting') {
             statusText.classList.remove('text-success', 'text-danger');
             statusText.classList.add('text-warning');
@@ -174,7 +174,7 @@
             statusLabel.innerText = 'Exited';
             changeStartButton(false);
             changeStopButton(true);
-            disableRestartButton(true);
+            changeRestartButton(true);
         }
     }
 
@@ -187,7 +187,7 @@
         } else if(status == "exited") {
             changeStartButton(false);
             changeStopButton(true);
-            disableRestartButton(true);
+            changeRestartButton(true);
         }
     }
     checkStatus()
