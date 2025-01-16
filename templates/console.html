@@ -87,6 +87,7 @@
 
     async function startService(name) {
         try {
+            consoleOutput.innerHTML += `Service start command received\n`;
             const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, {
                 method: 'POST',
                 headers: {
@@ -94,7 +95,7 @@
                 }, 
             });
             if (response.ok) {
-                consoleOutput.innerHTML += `Service start command received\n`;
+                consoleOutput.innerHTML += `Service started\n`;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
                 const errorMessage = await response.text();
@@ -111,9 +112,10 @@
     }
 
     async function stopService(name) {
+        consoleOutput.innerHTML += `Service stop command received\n`;
         const response = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
         if (response.ok) {
-            consoleOutput.innerHTML += `Service stop command received\n`;
+            consoleOutput.innerHTML += `Service stopped\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             updateServiceStatus('exited');
         } else {
