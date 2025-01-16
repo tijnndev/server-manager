@@ -314,16 +314,18 @@ def calculate_uptime(startup_date):
     seconds = seconds % 60
 
     uptime_str = ''
-    if weeks > 0:
-        uptime_str += f"{weeks}w "
-    if days > 0:
-        uptime_str += f"{days}d "
-    if hours > 0:
-        uptime_str += f"{hours}h "
-    if minutes > 0:
-        uptime_str += f"{minutes}m "
-    if seconds > 0:
-        uptime_str += f"{seconds}s"
+
+    uptime_str += f"{weeks}w {days} d{hours}h {minutes}m {seconds}s"
+    # if weeks > 0:
+    #     uptime_str += f"{weeks}w "
+    # if days > 0:
+    #     uptime_str += f"{days}d "
+    # if hours > 0:
+    #     uptime_str += f"{hours}h "
+    # if minutes > 0:
+    #     uptime_str += f"{minutes}m "
+    # if seconds > 0:
+    #     uptime_str += f"{seconds}s"
 
     return uptime_str.strip()
 
