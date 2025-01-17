@@ -156,6 +156,6 @@ def send_webhook_message(webhook_url, event):
         print(f"Error sending webhook message: {e}")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=7001)
     run_event_listener()
+    app.run(host="0.0.0.0", port=7001)
 
