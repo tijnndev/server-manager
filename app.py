@@ -68,6 +68,7 @@ def handle_event(event):
 
 def start_listening_for_events():
     while True:
+        time.sleep(1)
         for event in client.events(decode=True):
             handle_event(event)
             break
