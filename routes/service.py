@@ -541,13 +541,13 @@ def rebuild_service(service):
 
 @service_routes.route('/services/discord/<string:name>', methods=['GET', 'POST'])
 def discord(name):
+    process = find_process_by_name(name)
     if request.method == 'POST':
-        process = find_process_by_name(name)
         webhook_url = request.form.get('webhook_url')
         events = request.form.getlist('events')
 
         if webhook_url:
-            integration = DiscordIntegration.query.filter_by(service_name=name).first()
+            integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
             if not integration:
                 integration = DiscordIntegration(service_id=process.id, webhook_url=webhook_url, events=events)
             else:
@@ -560,5 +560,5 @@ def discord(name):
         else:
             print("Webhook URL is required!", "danger")
 
-    integration = DiscordIntegration.query.filter_by(service_name=name).first()
+    integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
     return render_template('service/discord.html', service_name=name, integration=integration)
