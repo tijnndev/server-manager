@@ -118,8 +118,9 @@ def webhook():
 
 def start_listening_for_events():
     def handle_event(event):
+        print("test", "success")
         if 'Actor' in event and 'Attributes' in event['Actor']:
-            print("test")
+            print("test1", "success")
             container_name_in_event = event['Actor']['Attributes'].get('name', '')
             
             integration = DiscordIntegration.query.filter_by(service_id=container_name_in_event).first()
@@ -132,9 +133,11 @@ def start_listening_for_events():
             
     for event in client.events(decode=True):
         handle_event(event)
+        print("test3", "success")
 
 def run_event_listener():
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
+    print("test2", "success")
     event_listener_thread.start()
 
 def send_webhook_message(webhook_url, event):
