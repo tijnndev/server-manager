@@ -6,6 +6,7 @@ from docker.errors import NotFound, APIError, BuildError, DockerException
 from datetime import datetime
 from db import db
 from models.process import Process
+from models.discord_integration import DiscordIntegration
 
 service_routes = Blueprint('service', __name__)
 client = docker.from_env()
@@ -537,3 +538,26 @@ def rebuild_service(service):
     except Exception as e:
         print(f"Unexpected error: {e}")
         raise e
+
+@service_routes.route('/services/discord/<string:name>', methods=['GET', 'POST'])
+def discord(name):
+    if request.method == 'POST':
+        webhook_url = request.form.get('webhook_url')
+        events = request.form.getlist('events')
+
+        if webhook_url:
+            integration = DiscordIntegration.query.filter_by(service_name=name).first()
+            if not integration:
+                integration = DiscordIntegration(service_name=name, webhook_url=webhook_url, events=events)
+            else:
+                integration.webhook_url = webhook_url
+                integration.events = events
+
+            db.session.add(integration)
+            db.session.commit()
+            print("Discord integration updated successfully!", "success")
+        else:
+            print("Webhook URL is required!", "danger")
+
+    integration = DiscordIntegration.query.filter_by(service_name=name).first()
+    return render_template('service/discord.html', service_name=name, integration=integration)

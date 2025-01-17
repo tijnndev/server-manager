@@ -1,0 +1,33 @@
+{% extends 'service_layout.html' %}
+
+{% block service_content %}
+<div class="container mt-4">
+    <h2>Discord Integration for {{ service_name }}</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="webhook_url" class="form-label">Discord Webhook URL</label>
+            <input type="url" class="form-control" id="webhook_url" name="webhook_url" 
+                   value="{{ integration.webhook_url if integration else '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="events" class="form-label">Events</label>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="event_start" name="events" value="start"
+                       {% if integration and 'start' in integration.events %} checked {% endif %}>
+                <label class="form-check-label" for="event_start">Start</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="event_stop" name="events" value="stop"
+                       {% if integration and 'stop' in integration.events %} checked {% endif %}>
+                <label class="form-check-label" for="event_stop">Stop</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="event_restart" name="events" value="restart"
+                       {% if integration and 'restart' in integration.events %} checked {% endif %}>
+                <label class="form-check-label" for="event_restart">Restart</label>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+</div>
+{% endblock service_content %}
