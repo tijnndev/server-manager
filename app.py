@@ -1,16 +1,23 @@
 import os
+import threading
+
+import requests
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g
 from models.user import User
 from routes.file_manager import file_manager_routes
 from routes.service import service_routes
 from flask_migrate import Migrate
 from routes.process import process_routes
+from models.discord_integration import DiscordIntegration
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
+import docker
 import subprocess
 
 load_dotenv()
+
+client = docker.from_env()
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -108,5 +115,47 @@ def webhook():
 
     return jsonify({"message": "Unhandled event"}), 200
 
+
+def start_listening_for_events():
+    def handle_event(event):
+        if 'Actor' in event and 'Attributes' in event['Actor']:
+            container_name_in_event = event['Actor']['Attributes'].get('name', '')
+            
+            # Query the DiscordIntegration table for the container name
+            integration = DiscordIntegration.query.filter_by(service_id=container_name_in_event).first()
+            
+            if integration:
+                print(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
+
+                # Check if the action is in the events list
+                if event['Action'] in integration.events_list:
+                    send_webhook_message(integration.webhook_url, event)
+            
+    # Listen to Docker events
+    for event in client.events(decode=True):
+        handle_event(event)
+
+# Run the event listener in a separate thread on app startup
+def run_event_listener():
+    event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
+    event_listener_thread.start()
+
+def send_webhook_message(webhook_url, event):
+    """Send a message to the provided Discord webhook URL."""
+    data = {
+        "content": f"Event triggered: {event['Action']} for container {event['Actor']['Attributes'].get('name', 'Unknown')}"
+    }
+
+    try:
+        response = requests.post(webhook_url, json=data)
+        if response.status_code == 204:
+            print("Webhook message sent successfully!")
+        else:
+            print(f"Failed to send webhook: {response.status_code} - {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending webhook message: {e}")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7001)
+    run_event_listener()
+

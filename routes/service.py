@@ -554,9 +554,6 @@ def discord(name):
                 integration.webhook_url = webhook_url
                 integration.events_list = events
 
-
-            listen_to_container_events(process.id)
-
             db.session.add(integration)
             db.session.commit()
             print("Discord integration updated successfully!", "success")
@@ -565,52 +562,3 @@ def discord(name):
 
     integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
     return render_template('service/discord.html', service=process, integration=integration)
-
-def listen_to_container_events(container_id):
-    def handle_event(event):
-        # Fetch the container name by ID
-        container_name = find_process_by_id(container_id).name
-
-        # Query the DiscordIntegration table for the given container (service)
-        integration = DiscordIntegration.query.filter_by(service_id=container_id).first()
-
-        # Check if the integration exists and handle it accordingly
-        if integration:
-            # Check if the event is related to the specific container
-            if 'Actor' in event and 'Attributes' in event['Actor']:
-                container_name_in_event = event['Actor']['Attributes'].get('name', '')
-                if container_name_in_event == container_name:
-                    print(f"Event for {container_name}:")
-                    print(f"Type: {event['Type']}")
-                    print(f"Action: {event['Action']}")
-
-                    # Check if the action is one we care about and whether it's in the list of events
-                    if event['Action'] == 'start' or event['Action'] == 'stop':
-                        # Check if the event is in the integration events list
-                        if 'power' in integration.events_list:
-                            send_webhook_message(integration.webhook_url, event)
-
-                    if event['Action'] == 'start':
-                        print(f"Container {container_name} has started.")
-                    elif event['Action'] == 'stop':
-                        print(f"Container {container_name} has stopped.")
-
-    # Listen to Docker events and filter by container
-    for event in client.events(decode=True):
-        handle_event(event)
-
-
-def send_webhook_message(webhook_url, event):
-    """Send a message to the provided Discord webhook URL."""
-    data = {
-        "content": f"Power event triggered: {event['Action']} for container {event['Actor']['Attributes'].get('name', 'Unknown')}"
-    }
-
-    try:
-        response = requests.post(webhook_url, json=data)
-        if response.status_code == 204:
-            print("Webhook message sent successfully!")
-        else:
-            print(f"Failed to send webhook: {response.status_code} - {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"Error sending webhook message: {e}")
