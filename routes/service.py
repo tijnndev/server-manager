@@ -468,7 +468,7 @@ def settings(name):
         print('Service settings updated successfully!')
         return redirect(url_for('service.console', name=service.name))
     
-    return render_template('settings.html', service=service)
+    return render_template('service/settings.html', service=service)
 
 
 @service_routes.route('/rebuild/<name>', methods=['POST'])
