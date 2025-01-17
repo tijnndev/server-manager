@@ -57,6 +57,8 @@
             } else {
                 console.log(response)
                 alert('Failed to add service');
+                const responseData = await response.json();
+                console.log(responseData)
             }
         }
     </script>
