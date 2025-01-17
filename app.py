@@ -38,22 +38,33 @@ def create_admin_user():
         db.session.commit()
         print("Admin user created successfully!")
 
+processed_events = {}
+
+EVENT_EXPIRATION_TIME = 30
+
 def handle_event(event):
-        if 'Actor' in event and 'Attributes' in event['Actor']:
-            container_name_in_event = event['Actor']['Attributes'].get('name', '').split("_")[0]
-            with app.app_context():
-                process = find_process_by_name(container_name_in_event)
-                if process == None or event["Type"] != "container":
-                    return
+    if 'Actor' in event and 'Attributes' in event['Actor']:
+        container_name_in_event = event['Actor']['Attributes'].get('name', '').split("_")[0]
+        container_id = event['Actor']['ID']  # Unique container ID for each event
 
-                integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
+        current_time = time.time()
+        event_key = f"{container_id}_{event['Action']}"
 
-                if integration:
-                    print(event['Action'])
-                    # logging.critical("Handling event: %s", event)
-                    # logging.debug(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
-                    # if event['Action'] in integration.events_list:
-                    send_webhook_message(integration.webhook_url, event)
+        if event_key in processed_events and current_time - processed_events[event_key] < EVENT_EXPIRATION_TIME:
+            return
+
+        processed_events[event_key] = current_time
+
+        with app.app_context():
+            process = find_process_by_name(container_name_in_event)
+            if process == None or event["Type"] != "container":
+                return
+
+            integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
+
+            if integration and event['Action'] in integration.events_list:
+                send_webhook_message(integration.webhook_url, event)
+
 
 def start_listening_for_events():
     while True:
@@ -61,6 +72,7 @@ def start_listening_for_events():
             handle_event(event)
             break
 
+                    
 def run_event_listener():
     print("initialised event listener")
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
