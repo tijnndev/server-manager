@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, redirect, request, session, url_for, jsonify
+from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g
 from models.user import User
 from routes.file_manager import file_manager_routes
 from routes.service import service_routes
@@ -50,6 +50,7 @@ def dashboard():
 
 @app.before_request
 def before_request():
+    g.page = request.endpoint
     if ('username' not in session or 'user_id' not in session) and request.endpoint not in ['login', 'static', 'webhook']:
         return redirect(url_for('login'))
 
