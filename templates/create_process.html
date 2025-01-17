@@ -46,7 +46,7 @@
             const command = document.getElementById('service-command').value;
             const dependencies = document.getElementById('service-dependencies').value;
             const type = document.getElementById('service-type').value;
-            const response = await fetch('{{ url_for('service.add_service') }}', {
+            const response = await fetch('/service/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, command, type, dependencies })
