@@ -542,13 +542,14 @@ def rebuild_service(service):
 @service_routes.route('/services/discord/<string:name>', methods=['GET', 'POST'])
 def discord(name):
     if request.method == 'POST':
+        process = find_process_by_name(name)
         webhook_url = request.form.get('webhook_url')
         events = request.form.getlist('events')
 
         if webhook_url:
             integration = DiscordIntegration.query.filter_by(service_name=name).first()
             if not integration:
-                integration = DiscordIntegration(service_name=name, webhook_url=webhook_url, events=events)
+                integration = DiscordIntegration(service_id=process.id, webhook_url=webhook_url, events=events)
             else:
                 integration.webhook_url = webhook_url
                 integration.events_list = events
