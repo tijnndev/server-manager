@@ -52,8 +52,8 @@ def handle_event(event):
                     print(event['Action'])
                     # logging.critical("Handling event: %s", event)
                     # logging.debug(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
-                    if event['Action'] in integration.events_list:
-                        send_webhook_message(integration.webhook_url, event)
+                    # if event['Action'] in integration.events_list:
+                    send_webhook_message(integration.webhook_url, event)
 
 def start_listening_for_events():
     while True:
