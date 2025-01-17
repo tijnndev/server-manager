@@ -561,4 +561,4 @@ def discord(name):
             print("Webhook URL is required!", "danger")
 
     integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
-    return render_template('service/discord.html', service_name=name, integration=integration)
+    return render_template('service/discord.html', service=process, integration=integration)
