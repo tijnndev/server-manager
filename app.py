@@ -39,31 +39,42 @@ def create_admin_user():
         print("Admin user created successfully!")
 
 processed_events = {}
-
+processed_events_lock = threading.Lock()
 EVENT_EXPIRATION_TIME = 30
 
 def handle_event(event):
     if 'Actor' in event and 'Attributes' in event['Actor']:
         container_name_in_event = event['Actor']['Attributes'].get('name', '').split("_")[0]
-        container_id = event['Actor']['ID']  # Unique container ID for each event
+        container_id = event['Actor']['ID']
 
         current_time = time.time()
         event_key = f"{container_id}_{event['Action']}"
 
-        if event_key in processed_events and current_time - processed_events[event_key] < EVENT_EXPIRATION_TIME:
-            return
+        with processed_events_lock:
+            # Check if event was processed recently
+            if event_key in processed_events:
+                last_event_time = processed_events[event_key]
+                if current_time - last_event_time < EVENT_EXPIRATION_TIME:
+                    print(f"Skipping duplicate event: {event_key}")
+                    return  # Skip duplicate event within the cooldown period
 
-        processed_events[event_key] = current_time
+            # Update processed events immediately
+            processed_events[event_key] = current_time
 
+        # print(f"Event processed: {event_key}")
+
+        # Process the event if needed
         with app.app_context():
             process = find_process_by_name(container_name_in_event)
-            if process == None or event["Type"] != "container":
+            if process is None or event["Type"] != "container":
+                # print(f"Invalid process or not a container event: {event}")
                 return
 
             integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
-
             if integration and event['Action'] in integration.events_list:
+                # print(f"Sending webhook for event: {event['Action']}")
                 send_webhook_message(integration.webhook_url, event)
+
 
 
 def start_listening_for_events():
@@ -74,12 +85,10 @@ def start_listening_for_events():
 
                     
 def run_event_listener():
-    print("initialised event listener")
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
     event_listener_thread.start()
 
 def send_webhook_message(webhook_url, event):
-    """Send a message to the provided Discord webhook URL."""
     data = {
         "content": f"Event triggered: {event['Action']} for container {event['Actor']['Attributes'].get('name', 'Unknown')}"
     }
@@ -87,6 +96,7 @@ def send_webhook_message(webhook_url, event):
     try:
         response = requests.post(webhook_url, json=data)
         if response.status_code == 204:
+            # print(event)
             print("Webhook message sent successfully!")
         else:
             print(f"Failed to send webhook: {response.status_code} - {response.text}")
@@ -180,5 +190,5 @@ logging.basicConfig(level=logging.CRITICAL)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=7001, debug=True)
+    app.run(host="0.0.0.0", port=7001, debug=False)
 
