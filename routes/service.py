@@ -551,7 +551,7 @@ def discord(name):
                 integration = DiscordIntegration(service_name=name, webhook_url=webhook_url, events=events)
             else:
                 integration.webhook_url = webhook_url
-                integration.events = events
+                integration.events_list = events
 
             db.session.add(integration)
             db.session.commit()
