@@ -12,7 +12,7 @@ from models.discord_integration import DiscordIntegration
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
-import docker
+import docker, logging
 import subprocess
 
 load_dotenv()
@@ -116,24 +116,30 @@ def webhook():
     return jsonify({"message": "Unhandled event"}), 200
 
 
+logging.basicConfig(level=logging.DEBUG)
+
 def start_listening_for_events():
     def handle_event(event):
-        print("test", "success")
+        logging.debug("Handling event: %s", event)
         if 'Actor' in event and 'Attributes' in event['Actor']:
-            print("test1", "success")
             container_name_in_event = event['Actor']['Attributes'].get('name', '')
-            
             integration = DiscordIntegration.query.filter_by(service_id=container_name_in_event).first()
             
             if integration:
-                print(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
-
+                logging.debug(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
                 if event['Action'] in integration.events_list:
                     send_webhook_message(integration.webhook_url, event)
-            
+    
+    try:
+        client.ping()
+        logging.debug("Connected to Docker successfully")
+    except docker.errors.DockerException as e:
+        logging.error("Failed to connect to Docker: %s", e)
+        return
+    
     for event in client.events(decode=True):
         handle_event(event)
-        print("test3", "success")
+        logging.debug("Finished processing event")
 
 def run_event_listener():
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
