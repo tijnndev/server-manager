@@ -333,7 +333,7 @@ def calculate_uptime(startup_date):
 @service_routes.route('/console/<string:name>', methods=['GET'])
 def console(name):
     service = find_process_by_name(name)
-
+    
     if not service:
         return jsonify({"error": "Service not found"}), 404
     
@@ -495,7 +495,7 @@ def rebuild_service(service):
                 (c for c in client.containers.list(all=True) if c.name == container_name), None
             )
             if existing_container:
-                print(f"Stopping and removing existing container: {container_name}")
+                # print(f"Stopping and removing existing container: {container_name}")
                 existing_container.stop()
                 existing_container.remove(force=True)
         except Exception as e:
@@ -509,12 +509,13 @@ def rebuild_service(service):
             print(f"No existing image found for {image_tag}, skipping removal: {e}")
 
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
-        print(f"Building new Docker image for {service.name}...")
+        # print(f"Building new Docker image for {service.name}...")
         client.images.build(path=service_dir, tag=image_tag, nocache=True)
-        print(f"Docker image {image_tag} built successfully.")
+        # print(f"Docker image {image_tag} built successfully.")
 
         port = 8000 + int(service.port_id)
-        print(f"Creating and starting new container: {container_name}")
+        # print(f"Creating and starting new container: {container_name}")
+
         container = client.containers.run(
             image=image_tag,
             name=container_name,
@@ -524,7 +525,7 @@ def rebuild_service(service):
             ports={str(port): port}
         )
         
-        print(f"Updating process ID to {container.id}")
+        # print(f"Updating process ID to {container.id}")
         service.update_id(str(container.id))
 
         return container.id
@@ -539,7 +540,7 @@ def rebuild_service(service):
         print(f"Unexpected error: {e}")
         raise e
 
-@service_routes.route('/services/discord/<string:name>', methods=['GET', 'POST'])
+@service_routes.route('/discord/<string:name>', methods=['GET', 'POST'])
 def discord(name):
     process = find_process_by_name(name)
     if request.method == 'POST':

@@ -1,5 +1,7 @@
+import datetime
 import os
 import threading
+import time
 
 import requests
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g
@@ -14,6 +16,7 @@ from db import db
 from dotenv import load_dotenv
 import docker, logging
 import subprocess
+from routes.service import find_process_by_name
 
 load_dotenv()
 
@@ -116,34 +119,33 @@ def webhook():
     return jsonify({"message": "Unhandled event"}), 200
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.CRITICAL)
+
+def handle_event(event):
+        if 'Actor' in event and 'Attributes' in event['Actor']:
+            container_name_in_event = event['Actor']['Attributes'].get('name', '').split("_")[0]
+            with app.app_context():
+                process = find_process_by_name(container_name_in_event)
+                if process == None or event["Type"] != "container":
+                    return
+
+                integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
+
+                if integration:
+                    print(event['Action'])
+                    # logging.critical("Handling event: %s", event)
+                    # logging.debug(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
+                    if event['Action'] in integration.events_list:
+                        send_webhook_message(integration.webhook_url, event)
 
 def start_listening_for_events():
-    def handle_event(event):
-        logging.debug("Handling event: %s", event)
-        if 'Actor' in event and 'Attributes' in event['Actor']:
-            container_name_in_event = event['Actor']['Attributes'].get('name', '')
-            integration = DiscordIntegration.query.filter_by(service_id=container_name_in_event).first()
-            
-            if integration:
-                logging.debug(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
-                if event['Action'] in integration.events_list:
-                    send_webhook_message(integration.webhook_url, event)
-    
-    try:
-        client.ping()
-        logging.debug("Connected to Docker successfully")
-    except docker.errors.DockerException as e:
-        logging.error("Failed to connect to Docker: %s", e)
-        return
-    
-    for event in client.events(decode=True):
-        handle_event(event)
-        logging.debug("Finished processing event")
+    while True:
+        for event in client.events(decode=True):
+            handle_event(event)
+            break
 
 def run_event_listener():
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
-    print("test2", "success")
     event_listener_thread.start()
 
 def send_webhook_message(webhook_url, event):
@@ -163,5 +165,5 @@ def send_webhook_message(webhook_url, event):
 
 if __name__ == "__main__":
     run_event_listener()
-    app.run(host="0.0.0.0", port=7001)
+    app.run(host="0.0.0.0", port=7001, debug=True)
 
