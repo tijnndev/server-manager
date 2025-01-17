@@ -119,23 +119,20 @@ def webhook():
 def start_listening_for_events():
     def handle_event(event):
         if 'Actor' in event and 'Attributes' in event['Actor']:
+            print("test")
             container_name_in_event = event['Actor']['Attributes'].get('name', '')
             
-            # Query the DiscordIntegration table for the container name
             integration = DiscordIntegration.query.filter_by(service_id=container_name_in_event).first()
             
             if integration:
                 print(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
 
-                # Check if the action is in the events list
                 if event['Action'] in integration.events_list:
                     send_webhook_message(integration.webhook_url, event)
             
-    # Listen to Docker events
     for event in client.events(decode=True):
         handle_event(event)
 
-# Run the event listener in a separate thread on app startup
 def run_event_listener():
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
     event_listener_thread.start()
