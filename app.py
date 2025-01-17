@@ -38,7 +38,51 @@ def create_admin_user():
         db.session.commit()
         print("Admin user created successfully!")
 
+def handle_event(event):
+        if 'Actor' in event and 'Attributes' in event['Actor']:
+            container_name_in_event = event['Actor']['Attributes'].get('name', '').split("_")[0]
+            with app.app_context():
+                process = find_process_by_name(container_name_in_event)
+                if process == None or event["Type"] != "container":
+                    return
+
+                integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
+
+                if integration:
+                    print(event['Action'])
+                    # logging.critical("Handling event: %s", event)
+                    # logging.debug(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
+                    if event['Action'] in integration.events_list:
+                        send_webhook_message(integration.webhook_url, event)
+
+def start_listening_for_events():
+    while True:
+        for event in client.events(decode=True):
+            handle_event(event)
+            break
+
+def run_event_listener():
+    print("initialised event listener")
+    event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
+    event_listener_thread.start()
+
+def send_webhook_message(webhook_url, event):
+    """Send a message to the provided Discord webhook URL."""
+    data = {
+        "content": f"Event triggered: {event['Action']} for container {event['Actor']['Attributes'].get('name', 'Unknown')}"
+    }
+
+    try:
+        response = requests.post(webhook_url, json=data)
+        if response.status_code == 204:
+            print("Webhook message sent successfully!")
+        else:
+            print(f"Failed to send webhook: {response.status_code} - {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending webhook message: {e}")
+
 with app.app_context():
+    run_event_listener()
     db.create_all()
     create_admin_user()
 
@@ -121,49 +165,8 @@ def webhook():
 
 logging.basicConfig(level=logging.CRITICAL)
 
-def handle_event(event):
-        if 'Actor' in event and 'Attributes' in event['Actor']:
-            container_name_in_event = event['Actor']['Attributes'].get('name', '').split("_")[0]
-            with app.app_context():
-                process = find_process_by_name(container_name_in_event)
-                if process == None or event["Type"] != "container":
-                    return
 
-                integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
-
-                if integration:
-                    print(event['Action'])
-                    # logging.critical("Handling event: %s", event)
-                    # logging.debug(f"Event for {container_name_in_event}: {event['Type']} - {event['Action']}")
-                    if event['Action'] in integration.events_list:
-                        send_webhook_message(integration.webhook_url, event)
-
-def start_listening_for_events():
-    while True:
-        for event in client.events(decode=True):
-            handle_event(event)
-            break
-
-def run_event_listener():
-    event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
-    event_listener_thread.start()
-
-def send_webhook_message(webhook_url, event):
-    """Send a message to the provided Discord webhook URL."""
-    data = {
-        "content": f"Event triggered: {event['Action']} for container {event['Actor']['Attributes'].get('name', 'Unknown')}"
-    }
-
-    try:
-        response = requests.post(webhook_url, json=data)
-        if response.status_code == 204:
-            print("Webhook message sent successfully!")
-        else:
-            print(f"Failed to send webhook: {response.status_code} - {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"Error sending webhook message: {e}")
 
 if __name__ == "__main__":
-    run_event_listener()
     app.run(host="0.0.0.0", port=7001, debug=True)
 
