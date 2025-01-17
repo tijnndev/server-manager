@@ -13,7 +13,7 @@
                         <a class="nav-link {% if "settings" in g.page %} active {% endif %}" href="{{ url_for('service.settings', name=service.name) }}">Settings</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#logs">Logs</a>
+                        <a class="nav-link" href="/files/manage?location={{ service.name }}">File Manager</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#uptime">Uptime</a>
