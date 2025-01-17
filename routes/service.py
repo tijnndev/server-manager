@@ -549,7 +549,7 @@ def discord(name):
         if webhook_url:
             integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
             if not integration:
-                integration = DiscordIntegration(service_id=process.id, webhook_url=webhook_url, events=events)
+                integration = DiscordIntegration(service_id=process.id, webhook_url=webhook_url, events=json.dumps(events))
             else:
                 integration.webhook_url = webhook_url
                 integration.events_list = events

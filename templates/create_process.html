@@ -56,10 +56,9 @@
                 alert('Service added successfully');
             } else {
                 console.log(response)
-                alert('Failed to add service');
                 const responseData = await response.json();
-                console.log(responseData)
-            }
+                alert('Failed to add service :' + responseData);
+                }
         }
     </script>
 {% endblock content %}
