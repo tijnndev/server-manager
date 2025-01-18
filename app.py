@@ -1,10 +1,4 @@
-import datetime
-import os
-import threading
-import time
-import redis
-
-import requests
+import redis, os, time, threading, requests, docker, logging, subprocess, signal, sys
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g
 from models.user import User
 from routes.file_manager import file_manager_routes
@@ -15,8 +9,6 @@ from models.discord_integration import DiscordIntegration
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
-import docker, logging
-import subprocess
 from routes.service import find_process_by_name
 
 load_dotenv()
@@ -52,19 +44,16 @@ def handle_event(event):
         event_key = f"{container_id}_{event['Action']}"
 
         with processed_events_lock:
-            # Check if event was processed recently
             if event_key in processed_events:
                 last_event_time = processed_events[event_key]
                 if current_time - last_event_time < EVENT_EXPIRATION_TIME:
                     print(f"Skipping duplicate event: {event_key}")
-                    return  # Skip duplicate event within the cooldown period
+                    return
 
-            # Update processed events immediately
             processed_events[event_key] = current_time
 
         # print(f"Event processed: {event_key}")
 
-        # Process the event if needed
         with app.app_context():
             process = find_process_by_name(container_name_in_event)
             if process is None or event["Type"] != "container":
@@ -127,7 +116,6 @@ def is_first_worker():
     return str(current_pid) == lock_owner
 
 with app.app_context():
-
     if is_first_worker():
         run_event_listener()
     db.create_all()
@@ -212,7 +200,17 @@ def webhook():
 
 logging.basicConfig(level=logging.CRITICAL)
 
+def cleanup_redis_key(*args):
+    lock_owner = redis_client.get(REDIS_LOCK_KEY)
+    if lock_owner == str(os.getpid()):
+        redis_client.delete(REDIS_LOCK_KEY)
+        print(f"Redis lock key {REDIS_LOCK_KEY} removed for PID: {os.getpid()}")
+    else:
+        print(f"PID {os.getpid()} does not own the lock key; no action taken.")
+    sys.exit(0)
 
+signal.signal(signal.SIGTERM, cleanup_redis_key)
+signal.signal(signal.SIGINT, cleanup_redis_key)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7001, debug=False)
