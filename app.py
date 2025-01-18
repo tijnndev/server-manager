@@ -2,6 +2,7 @@ import datetime
 import os
 import threading
 import time
+import redis
 
 import requests
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g
@@ -85,6 +86,7 @@ def start_listening_for_events():
 
                     
 def run_event_listener():
+    print('Listening event')
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
     event_listener_thread.start()
 
@@ -103,8 +105,31 @@ def send_webhook_message(webhook_url, event):
     except requests.exceptions.RequestException as e:
         print(f"Error sending webhook message: {e}")
 
+redis_client = redis.StrictRedis(
+    host=os.getenv('REDIS_HOST', 'localhost'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    decode_responses=True
+)
+
+REDIS_LOCK_KEY = "first_worker_lock"
+LOCK_TTL = 3600
+
+def is_first_worker():
+    current_pid = os.getpid()
+
+    is_first = redis_client.set(REDIS_LOCK_KEY, current_pid, nx=True, ex=LOCK_TTL)
+    if is_first:
+        print(f"First worker detected with PID: {current_pid}")
+        return True
+
+    lock_owner = redis_client.get(REDIS_LOCK_KEY)
+    print(f"Current worker PID: {current_pid}, First worker PID: {lock_owner}")
+    return str(current_pid) == lock_owner
+
 with app.app_context():
-    run_event_listener()
+
+    if is_first_worker():
+        run_event_listener()
     db.create_all()
     create_admin_user()
 
