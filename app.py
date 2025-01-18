@@ -201,12 +201,9 @@ def webhook():
 logging.basicConfig(level=logging.CRITICAL)
 
 def cleanup_redis_key(*args):
-    lock_owner = redis_client.get(REDIS_LOCK_KEY)
-    if lock_owner == str(os.getpid()):
-        redis_client.delete(REDIS_LOCK_KEY)
-        print(f"Redis lock key {REDIS_LOCK_KEY} removed for PID: {os.getpid()}")
-    else:
-        print(f"PID {os.getpid()} does not own the lock key; no action taken.")
+    # lock_owner = redis_client.get(REDIS_LOCK_KEY)
+    redis_client.delete(REDIS_LOCK_KEY)
+    print(f"Redis lock key {REDIS_LOCK_KEY} removed for PID: {os.getpid()}")
     sys.exit(0)
 
 signal.signal(signal.SIGTERM, cleanup_redis_key)
