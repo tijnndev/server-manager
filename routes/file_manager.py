@@ -22,10 +22,10 @@ def file_manager():
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
     except ValueError:
-        return render_template('file_manager.html', files=[], error="Invalid path.", current_location="/")
+        return render_template('service/file_manager.html', files=[], error="Invalid path.", current_location="/")
 
     if not os.path.exists(current_location):
-        return render_template('file_manager.html', files=[], error="Location does not exist.", current_location="/")
+        return render_template('service/file_manager.html', files=[], error="Location does not exist.", current_location="/")
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
     files = [
@@ -45,15 +45,15 @@ def file_manager():
                 uploaded_file.save(file_path)
                 success_message = "File uploaded successfully!"
                 return render_template(
-                    'file_manager.html',
+                    'service/file_manager.html',
                     files=files,
                     success=success_message,
                     current_location=relative_location
                 )
             except ValueError:
-                return render_template('file_manager.html', files=[], error="Invalid upload path.", current_location=relative_location)
+                return render_template('service/file_manager.html', files=[], error="Invalid upload path.", current_location=relative_location)
 
-    return render_template('file_manager.html', files=files, current_location=relative_location, page_title="File Manager")
+    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager")
 
 
 @file_manager_routes.route('/file-manager/delete', methods=['POST'])

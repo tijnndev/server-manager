@@ -210,5 +210,5 @@ signal.signal(signal.SIGTERM, cleanup_redis_key)
 signal.signal(signal.SIGINT, cleanup_redis_key)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=7001, debug=False)
+    app.run(host="0.0.0.0", port=7001, debug=True)
 
