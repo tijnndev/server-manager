@@ -101,7 +101,7 @@
                     console.error('Error:', error)
                     console.log(error)
                 });
-            if (response.ok) {
+            if (response && response.ok) {
                 consoleOutput.innerHTML += `Service started\n`;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
