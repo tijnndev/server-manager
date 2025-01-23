@@ -107,9 +107,8 @@
                 updateServiceStatus('running');
                 const errorMessage = await response.text();
             } else {
-                const errorMessage = await response.text();
                 alert('Failed to start service');
-                console.log(errorMessage)
+                console.log(response)
             }
         } catch (error) {
             alert('An error occurred while stopping the service');
