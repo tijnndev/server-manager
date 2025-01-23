@@ -95,7 +95,7 @@ def add_service():
         os.makedirs(service_dir, exist_ok=False)
 
         new_process = Process(
-            name=service_name,
+            name=service_name, # type: ignore
             command=data.get("command", ""), # type: ignore
             type=data.get("type", ""), # type: ignore
             file_location=service_dir, # type: ignore
