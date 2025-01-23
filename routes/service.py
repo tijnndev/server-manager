@@ -95,7 +95,7 @@ def add_service():
         os.makedirs(service_dir, exist_ok=False)
 
         new_process = Process(
-            name=service_name, # type: ignore
+            name=service_name,
             command=data.get("command", ""), # type: ignore
             type=data.get("type", ""), # type: ignore
             file_location=service_dir, # type: ignore
@@ -317,16 +317,6 @@ def calculate_uptime(startup_date):
     uptime_str = ''
 
     uptime_str += f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
-    # if weeks > 0:
-    #     uptime_str += f"{weeks}w "
-    # if days > 0:
-    #     uptime_str += f"{days}d "
-    # if hours > 0:
-    #     uptime_str += f"{hours}h "
-    # if minutes > 0:
-    #     uptime_str += f"{minutes}m "
-    # if seconds > 0:
-    #     uptime_str += f"{seconds}s"
 
     return uptime_str.strip()
 
