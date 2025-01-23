@@ -198,7 +198,7 @@ def webhook():
     return jsonify({"message": "Unhandled event"}), 200
 
 
-logging.basicConfig(level=logging.CRITICAL)
+# logging.basicConfig(level=logging.INFO)
 
 def cleanup_redis_key(*args):
     # lock_owner = redis_client.get(REDIS_LOCK_KEY)

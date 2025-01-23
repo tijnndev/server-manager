@@ -509,12 +509,12 @@ def rebuild_service(service):
             print(f"No existing image found for {image_tag}, skipping removal: {e}")
 
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
-        # print(f"Building new Docker image for {service.name}...")
+        print(f"Building new Docker image for {service.name}...")
         client.images.build(path=service_dir, tag=image_tag, nocache=True)
-        # print(f"Docker image {image_tag} built successfully.")
+        print(f"Docker image {image_tag} built successfully.")
 
         port = 8000 + int(service.port_id)
-        # print(f"Creating and starting new container: {container_name}")
+        print(f"Creating and starting new container: {container_name}")
 
         container = client.containers.run(
             image=image_tag,
@@ -525,7 +525,7 @@ def rebuild_service(service):
             ports={str(port): port}
         )
         
-        # print(f"Updating process ID to {container.id}")
+        print(f"Updating process ID to {container.id}")
         service.update_id(str(container.id))
 
         return container.id
