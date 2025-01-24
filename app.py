@@ -9,7 +9,7 @@ from models.discord_integration import DiscordIntegration
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
-from routes.service import find_process_by_name
+from utils import find_process_by_name
 
 load_dotenv()
 

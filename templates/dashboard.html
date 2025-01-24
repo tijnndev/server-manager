@@ -40,7 +40,7 @@
                     <div class="server-card card p-3">
                         <div class="card-body">
                             <h5 class="card-title">${name}</h5>
-                            <p class="server-status text-${service.status === 'running' ? 'success' : 'danger'}">${service.status}</p>
+                            <p class="server-status text-${service.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${service.status}</p>
                             <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
                         </div>
                     </div>
