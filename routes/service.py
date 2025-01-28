@@ -331,7 +331,6 @@ def stream_logs(name):
 
 
 def colorize_log(log):
-    # Replace ANSI escape codes with HTML styles
     ansi_escape = re.compile(r'\033\[(\d+(;\d+)*)m')
     log = ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log)
     log = log.replace('\033[0m', '</span>')
@@ -339,7 +338,6 @@ def colorize_log(log):
 
 
 def ansi_to_html(ansi_code):
-    # Map ANSI codes to HTML colors (this is a placeholder; you need a full mapping for all ANSI codes)
     color_map = {
         "31": "red",
         "32": "green",
@@ -348,7 +346,6 @@ def ansi_to_html(ansi_code):
         "35": "magenta",
         "36": "cyan",
         "37": "white",
-        # Add other mappings as needed
     }
     return color_map.get(ansi_code.split(';')[0], "black")
 
@@ -413,17 +410,14 @@ def settings(name):
         compose_file_path = os.path.join(service_dir, 'docker-compose.yml')
 
         if os.path.exists(compose_file_path):
-            # Load the existing docker-compose.yml file
             with open(compose_file_path, 'r') as compose_file:
                 compose_data = yaml.safe_load(compose_file)
 
-            # Update the command for the service
             if name in compose_data.get('services', {}):
                 compose_data['services'][name]['command'] = service.command.split()
             else:
                 return f"Service '{name}' not found in docker-compose.yml", 404
 
-            # Write the updated docker-compose.yml file
             with open(compose_file_path, 'w') as compose_file:
                 yaml.safe_dump(compose_data, compose_file, default_flow_style=False)
 
