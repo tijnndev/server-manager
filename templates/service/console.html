@@ -85,7 +85,7 @@
 
     async function startService(name) {
         try {
-            consoleOutput.innerHTML += `Service start command received\n`;
+            consoleOutput.innerHTML += `broodcode-bot-1  | Service start command received\n`;
             const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, {
                 method: 'POST',
                 headers: {
@@ -97,7 +97,7 @@
                 console.log(error)
             });
             if (response && response.ok) {
-                consoleOutput.innerHTML += `Service started\n`;
+                consoleOutput.innerHTML += `broodcode-bot-1  | Service started\n`;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
             } else {
@@ -112,10 +112,10 @@
     }
 
     async function stopService(name) {
-        consoleOutput.innerHTML += `Service stop command received\n`;
+        consoleOutput.innerHTML += `broodcode-bot-1  | Service stop command received\n`;
         const response = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
         if (response.ok) {
-            consoleOutput.innerHTML += `Service stopped\n`;
+            consoleOutput.innerHTML += `broodcode-bot-1  | Service stopped\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             updateServiceStatus('exited');
         } else {
@@ -126,19 +126,19 @@
     }
 
     async function restartService(name) {
-        consoleOutput.innerHTML += `Restarting service...\n`;
+        consoleOutput.innerHTML += `broodcode-bot-1  | Restarting service...\n`;
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
         updateServiceStatus('restarting');
         
         const stopResponse = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
         if (stopResponse.ok) {
-            consoleOutput.innerHTML += `Service stopped successfully.\n`;
+            consoleOutput.innerHTML += `broodcode-bot-1  | Service stopped successfully.\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             
             setTimeout(async () => {
                 const startResponse = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
                 if (startResponse.ok) {
-                    consoleOutput.innerHTML += `Service started successfully.\n`;
+                    consoleOutput.innerHTML += `broodcode-bot-1  | Service started successfully.\n`;
                     consoleOutput.scrollTop = consoleOutput.scrollHeight;
                     updateServiceStatus('running');
                 } else {

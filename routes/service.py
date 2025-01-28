@@ -1,15 +1,14 @@
-# app/routes/service_routes.py
-import shutil, requests
-import time
+import shutil
+import time, yaml
 import subprocess
-from flask import Blueprint, jsonify, redirect, request, render_template, Response, current_app, url_for
+from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for
 import os, docker, json, re
 from docker.errors import NotFound, APIError, BuildError, DockerException
 from datetime import datetime
 from db import db
 from models.process import Process
 from models.discord_integration import DiscordIntegration
-from utils import find_process_by_name, find_process_by_id, get_service_status
+from utils import find_process_by_name, get_service_status
 
 service_routes = Blueprint('service', __name__)
 client = docker.from_env()
@@ -187,16 +186,14 @@ def start_service(name):
         return jsonify({"error": "Service not found"}), 404
 
     try:
-        # Change to the directory where the docker-compose.yml file is located
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
         
-        # Start the service
         subprocess.run(['docker-compose', 'up', '-d'], check=True)
 
-        time.sleep(2)  # Adjust the sleep time as necessary
+        time.sleep(2)
 
         client = docker.from_env()
-        container_name = f"{name}_container"  # Adjust this based on your service name and index
+        container_name = f"{name}_container"
         container = client.containers.get(container_name)
         return jsonify({"message": f"Service {name} started successfully.", "status": container.status, "ok": True})
 
@@ -205,6 +202,7 @@ def start_service(name):
     except docker.errors.NotFound:
         return jsonify({"error": f"Container '{container_name}' not found.", "ok": False}), 404
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e), "ok": False}), 500
 
 
@@ -256,15 +254,9 @@ def console(name):
     response = get_service_status(service.name)
 
     if isinstance(response, tuple):
-        json_data = response[0].get_json()  # Get the Response object and then call get_json()
+        json_data = response[0].get_json()
     else:
         json_data = response.get_json()
-
-    if(name =="broodcode-bot"):
-        print(json_data)
-
-    # json_data = response.get_json()
-    
     return render_template('service/console.html', service=service, service_status=json_data["status"])
 
 @service_routes.route('/console/<service_name>/uptime')
@@ -311,24 +303,55 @@ def stream_logs(name):
         return jsonify({"error": "Service not found"}), 404
 
     try:
-        container = client.containers.get(service.id)
-        logs = container.logs(stream=True, follow=True, tail=50)
-        
-        def colorize_log(log):
-            log = log.decode('utf-8')
-            
-            log = re.sub(r'\033\[([0-9;]+)m', lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log)
-            log = log.replace('\033[0m', '</span>')
-            
-            return log
-        
+        service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+
+        logs_command = ['docker-compose', 'logs', '-f', '--tail', '50']
+        process = subprocess.Popen(
+            logs_command,
+            cwd=service_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
         def generate():
-            for log in logs:
-                yield f"data: {colorize_log(log)}\n\n"
-        
+            try:
+                for line in process.stdout:
+                    yield f"data: {colorize_log(line)}\n\n"
+            except Exception as e:
+                print(f"Error while streaming logs: {e}")
+            finally:
+                process.terminate()
+                process.wait()
+
         return Response(generate(), content_type='text/event-stream')
-    except NotFound:
-        return jsonify({"error": "Container not found"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def colorize_log(log):
+    # Replace ANSI escape codes with HTML styles
+    ansi_escape = re.compile(r'\033\[(\d+(;\d+)*)m')
+    log = ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log)
+    log = log.replace('\033[0m', '</span>')
+    return log
+
+
+def ansi_to_html(ansi_code):
+    # Map ANSI codes to HTML colors (this is a placeholder; you need a full mapping for all ANSI codes)
+    color_map = {
+        "31": "red",
+        "32": "green",
+        "33": "yellow",
+        "34": "blue",
+        "35": "magenta",
+        "36": "cyan",
+        "37": "white",
+        # Add other mappings as needed
+    }
+    return color_map.get(ansi_code.split(';')[0], "black")
+
 
 @service_routes.route('/console/<string:name>/send', methods=['POST'])
 def send_command(name):
@@ -374,8 +397,6 @@ def settings(name):
         return render_template('service/settings.html', service=service)
     
     if request.method == 'POST':
-        print(request.form)
-        
         service.name = request.form.get('name')
         service.description = request.form.get('description')
         service.command = request.form.get('command')
@@ -387,6 +408,29 @@ def settings(name):
 
         if not service.command:
             return print("Service command not found")
+        
+        service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
+        compose_file_path = os.path.join(service_dir, 'docker-compose.yml')
+
+        if os.path.exists(compose_file_path):
+            # Load the existing docker-compose.yml file
+            with open(compose_file_path, 'r') as compose_file:
+                compose_data = yaml.safe_load(compose_file)
+
+            # Update the command for the service
+            if name in compose_data.get('services', {}):
+                compose_data['services'][name]['command'] = service.command.split()
+            else:
+                return f"Service '{name}' not found in docker-compose.yml", 404
+
+            # Write the updated docker-compose.yml file
+            with open(compose_file_path, 'w') as compose_file:
+                yaml.safe_dump(compose_data, compose_file, default_flow_style=False)
+
+            print(f"docker-compose.yml for {service.name} updated with new command: {service.command}")
+        else:
+            print(f"docker-compose.yml for {service.name} not found")
+            return f"docker-compose.yml for {service.name} not found", 404
         
         if os.path.exists(dockerfile_path):
             with open(dockerfile_path, 'r') as dockerfile:
