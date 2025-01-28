@@ -1,6 +1,7 @@
 # Server Manager Installation Guide
 
-This guide will help you install, configure, and run the Server Manager application on your server. Please follow the steps below to ensure a smooth setup process.
+This guide will help you install, configure, and run the Server Manager application on your Ubuntu server. Please follow the steps below to ensure a smooth setup process.
+This manager is currently under development, I am currently rewriting the whole backend to use docker-compose in stead of normal docker. View the different branches to see my status. Please create an issue if you find any bugs or ideas for new features.
 
 ## Prerequisites
 
