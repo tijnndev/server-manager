@@ -74,9 +74,6 @@ if [ "$use_nodejs" == "y" ]; then
   else
     echo "npm is already installed."
   fi
-
-  echo "Running npm install..."
-  npm install
 else
   echo "Skipping Node.js setup."
 fi

@@ -140,7 +140,7 @@ CMD ["sh", "-c", "$COMMAND"]
             f.write(dockerfile_content)
 
         os.chdir(service_dir)
-        os.system('docker-compose up -d')
+        os.system('/usr/bin/docker-compose up -d')
 
         return jsonify({"message": "Service added and running in Docker container", "directory": service_dir})
 
@@ -215,7 +215,7 @@ def stop_service(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('docker-compose down')
+        os.system('/usr/bin/docker-compose down')
 
         return jsonify({"message": f"Service {name} stopped successfully."})
 
@@ -461,7 +461,7 @@ def rebuild(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('docker-compose build')
+        os.system('/usr/bin/docker-compose build')
 
         return jsonify({"message": f"Service {name} rebuilt successfully!"})
 
