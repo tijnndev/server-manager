@@ -257,10 +257,11 @@ def console(name):
         json_data = response[0].get_json()
     else:
         json_data = response.get_json()
-    
-    if not json_data or not json_data["status"]:
-        json_data["status"] = "Failed"
-    return render_template('service/console.html', service=service, service_status=json_data["status"])
+    try:
+        status = json_data["status"]
+    except KeyError:
+        status = "Failed"
+    return render_template('service/console.html', service=service, service_status=status)
 
 @service_routes.route('/console/<service_name>/uptime')
 def get_uptime(service_name):
