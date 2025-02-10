@@ -20,8 +20,8 @@
     
     <div class="text-dark mb-4">
         Status: 
-        <span class="server-status text-{{ 'success' if service.get_status() == 'running' else 'danger' }}">
-            <span class="server-status-label">{{ service.get_status() | capitalize }}</span>
+        <span class="server-status text-{{ 'success' if service_status == 'Running' else 'danger' }}">
+            <span class="server-status-label">{{ service_status | capitalize }}</span>
         </span>
     </div>
 
@@ -61,10 +61,6 @@
                 seenMessages.add(message);
             }
         };
-
-        eventSource.onerror = function(error) {
-            // consoleOutput.innerHTML += "Error: Unable to stream logs.\n";
-        };
     }
 
     async function fetchUptime() {
@@ -89,23 +85,21 @@
 
     async function startService(name) {
         try {
-            consoleOutput.innerHTML += `Service start command received\n`;
+            consoleOutput.innerHTML += `broodcode-bot-1  | Service start command received\n`;
             const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json', 
                 }, 
-            }).then(response => {console.log(response); response.json()})
-                .then(data => console.log(data))
-                .catch(error =>  {
-                    console.error('Error:', error)
-                    console.log(error)
-                });
+            }).then(response => response.json())
+            .catch(error =>  {
+                console.error('Error:', error)
+                console.log(error)
+            });
             if (response && response.ok) {
-                consoleOutput.innerHTML += `Service started\n`;
+                consoleOutput.innerHTML += `broodcode-bot-1  | Service started\n`;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 updateServiceStatus('running');
-                const errorMessage = await response.text();
             } else {
                 alert('Failed to start service');
                 console.log(response)
@@ -118,10 +112,10 @@
     }
 
     async function stopService(name) {
-        consoleOutput.innerHTML += `Service stop command received\n`;
+        consoleOutput.innerHTML += `broodcode-bot-1  | Service stop command received\n`;
         const response = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
         if (response.ok) {
-            consoleOutput.innerHTML += `Service stopped\n`;
+            consoleOutput.innerHTML += `broodcode-bot-1  | Service stopped\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             updateServiceStatus('exited');
         } else {
@@ -132,19 +126,19 @@
     }
 
     async function restartService(name) {
-        consoleOutput.innerHTML += `Restarting service...\n`;
+        consoleOutput.innerHTML += `broodcode-bot-1  | Restarting service...\n`;
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
         updateServiceStatus('restarting');
         
         const stopResponse = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
         if (stopResponse.ok) {
-            consoleOutput.innerHTML += `Service stopped successfully.\n`;
+            consoleOutput.innerHTML += `broodcode-bot-1  | Service stopped successfully.\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             
             setTimeout(async () => {
                 const startResponse = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
                 if (startResponse.ok) {
-                    consoleOutput.innerHTML += `Service started successfully.\n`;
+                    consoleOutput.innerHTML += `broodcode-bot-1  | Service started successfully.\n`;
                     consoleOutput.scrollTop = consoleOutput.scrollHeight;
                     updateServiceStatus('running');
                 } else {
@@ -183,12 +177,12 @@
     }
 
     function checkStatus() {
-        let status = `{{ service.get_status() }}`
-        if(status == "running") {
+        let status = `{{ service_status }}`
+        if(status == "Running") {
             changeStartButton(true);
             changeStopButton(false);
             changeRestartButton(false);
-        } else if(status == "exited") {
+        } else if(status == "Exited") {
             changeStartButton(false);
             changeStopButton(true);
             changeRestartButton(true);

@@ -33,16 +33,6 @@ class Process(BaseModel):
             "updated_at": self.updated_at
         }
 
-    def get_status(self):
-        try:
-
-            container = client.containers.get(self.id)
-            status = container.status
-            return status
-        except docker.errors.NotFound:
-            return "Exited"
-
-
     def update_id(self, new_id: str):
         try:
             integration = DiscordIntegration.query.filter_by(service_id=self.id).first()
