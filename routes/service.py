@@ -140,7 +140,7 @@ CMD ["sh", "-c", "$COMMAND"]
             f.write(dockerfile_content)
 
         os.chdir(service_dir)
-        os.system('/usr/bin/docker-compose up -d')
+        os.system('/etc/server-manager/venv/bin/docker-compose up -d')
 
         return jsonify({"message": "Service added and running in Docker container", "directory": service_dir})
 
@@ -188,7 +188,7 @@ def start_service(name):
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
         
-        subprocess.run(['/usr/bin/docker-compose', 'up', '-d'], check=True)
+        subprocess.run(['/etc/server-manager/venv/bin/docker-compose', 'up', '-d'], check=True)
 
         time.sleep(2)
 
@@ -215,7 +215,7 @@ def stop_service(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('/usr/bin/docker-compose down')
+        os.system('/etc/server-manager/venv/bin/docker-compose down')
 
         return jsonify({"message": f"Service {name} stopped successfully."})
 
@@ -274,7 +274,7 @@ def get_uptime(service_name):
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, service_name)
         os.chdir(service_dir)
 
-        result = subprocess.run(['/usr/bin/docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
+        result = subprocess.run(['/etc/server-manager/venv/bin/docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
 
         if not container_id:
@@ -309,7 +309,7 @@ def stream_logs(name):
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        logs_command = ['/usr/bin/docker-compose', 'logs', '-f', '--tail', '50']
+        logs_command = ['/etc/server-manager/venv/bin/docker-compose', 'logs', '-f', '--tail', '50']
         process = subprocess.Popen(
             logs_command,
             cwd=service_dir,
@@ -465,7 +465,7 @@ def rebuild(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('/usr/bin/docker-compose build')
+        os.system('/etc/server-manager/venv/bin/docker-compose build')
 
         return jsonify({"message": f"Service {name} rebuilt successfully!"})
 
