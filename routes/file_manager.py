@@ -240,6 +240,7 @@ def unzip_file():
         return redirect(request.referrer)
     
     try:
+        print(zip_path)
         full_zip_path = sanitize_path(ACTIVE_SERVERS_DIR, zip_path)
         extract_dir = os.path.splitext(full_zip_path)[0]
         
