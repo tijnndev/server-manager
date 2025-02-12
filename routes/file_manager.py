@@ -44,7 +44,7 @@ def file_manager():
             try:
                 file_path = sanitize_path(current_location, uploaded_file.filename)
                 uploaded_file.save(file_path)
-                
+                print(uploaded_file.filename.lower())
                 if uploaded_file.filename.lower().endswith('.zip'):
                     extract_path = os.path.splitext(file_path)[0]
                     with zipfile.ZipFile(file_path, 'r') as zip_ref:
