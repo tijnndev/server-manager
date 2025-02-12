@@ -44,7 +44,7 @@ def load_services():
     return services
 
 @nginx_routes.route('/<name>', methods=['GET'])
-def get_services(name):
+def nginx(name):
     nginx_file_path = f'/etc/nginx/sites-available/{name}'
 
     if os.path.exists(nginx_file_path):

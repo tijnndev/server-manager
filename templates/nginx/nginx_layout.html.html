@@ -19,7 +19,7 @@
                         <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('service.discord', name=service.name) }}">Discord</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('nginx.', name=service.name) }}">Discord</a>
+                        <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('nginx.nginx', name=service.name) }}">Discord</a>
                     </li>
                 </ul>
             </div>
