@@ -29,13 +29,9 @@ def load_services():
     for process in processes:
         response = get_service_status(process.name)
 
-        # Check if the response contains an error
-        print(response)
         if "error" in response:
-            # Handle error
             print(f"Error fetching status for {process.name}: {response['error']}")
         else:
-            # Handle the successful response
             services[process.name] = {
                 "id": process.id,
                 "type": process.type,
