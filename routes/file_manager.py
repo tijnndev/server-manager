@@ -44,7 +44,6 @@ def file_manager():
             try:
                 file_path = sanitize_path(current_location, uploaded_file.filename)
                 uploaded_file.save(file_path)
-                print(uploaded_file.filename.lower())
                 if uploaded_file.filename.lower().endswith('.zip'):
                     extract_path = os.path.splitext(file_path)[0]
                     with zipfile.ZipFile(file_path, 'r') as zip_ref:
@@ -186,6 +185,13 @@ def upload_file():
         try:
             file_path = sanitize_path(target_path, uploaded_file.filename)
             uploaded_file.save(file_path)
+            if uploaded_file.filename.lower().endswith('.zip'):
+                extract_path = os.path.splitext(file_path)[0]
+                with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                    zip_ref.extractall(extract_path)
+                os.remove(file_path)
+            
+            return jsonify({'success': True})
         except ValueError:
             return jsonify({'error': 'Invalid file path'}), 400
 
