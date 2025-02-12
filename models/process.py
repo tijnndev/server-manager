@@ -3,8 +3,6 @@ from models.base_model import BaseModel
 import docker
 from models.discord_integration import DiscordIntegration
 
-client = docker.from_env()
-
 class Process(BaseModel):
     __tablename__ = 'processes'
 
