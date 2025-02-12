@@ -26,6 +26,7 @@ def get_service_status(name):
         result = subprocess.run(['docker-compose', 'ps', '--services', '--filter', f"id={container_id}"], capture_output=True, text=True)
 
         if result.returncode != 0:
+            print(result)
             return {"error": "Failed to get service status from docker-compose."}
 
         # Check for the status in the output
