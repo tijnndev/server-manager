@@ -3,6 +3,14 @@
 {% block nginx_content %}
 <div class="container mt-4">
     <h2>NGINX Configuration for {{ service.name }}</h2>
+
+
+    <div class="mb-3">
+        <label for="domain_name" class="form-label">Domain Name</label>
+        <input type="text" class="form-control" id="domain_name" name="domain_name" placeholder="Enter your domain name" required>
+    </div>
+
+    <form method="POST">
     
     {% if nginx_content %}
         <div class="alert alert-info" role="alert">
@@ -10,7 +18,6 @@
             <pre>{{ nginx_content }}</pre>
         </div>
 
-        <form method="POST">
             {% if cert_exists %}
                 <button type="submit" name="action" value="renew_cert" class="btn btn-primary">Renew Certificate</button>
                 <button type="submit" name="action" value="delete_cert" class="btn btn-danger">Delete Certificate</button>
@@ -21,11 +28,6 @@
         </form>
 
     {% else %}
-        <form method="POST">
-            <div class="mb-3">
-                <label for="domain_name" class="form-label">Domain Name</label>
-                <input type="text" class="form-control" id="domain_name" name="domain_name" placeholder="Enter your domain name" required>
-            </div>
             <button type="submit" name="action" value="create_nginx" class="btn btn-warning">Create NGINX</button>
         </form>
     {% endif %}
