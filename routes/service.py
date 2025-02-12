@@ -270,21 +270,23 @@ def stream_logs(name):
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        # Log command to fetch Docker logs
-        logs_command = ['//usr/local/bin/docker-compose', 'logs', '-f', '--tail', '50']
+        # Use docker-compose exec to interact with the specific container
+        logs_command = [
+            '//usr/local/bin/docker-compose', 'exec', name, 'tail', '-n', '50', '-f', '/var/log/app.log'
+        ]
 
+        # You can change '/var/log/app.log' to the correct log file inside the container
         process = subprocess.Popen(
             logs_command,
             cwd=service_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1  # Set buffer size to line-buffered for real-time output
+            bufsize=1
         )
 
         def generate():
             try:
-                # Read stdout line-by-line to stream it immediately
                 for line in process.stdout:
                     yield f"data: {colorize_log(line)}\n\n"
             except Exception as e:
