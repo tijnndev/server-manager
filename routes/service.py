@@ -179,11 +179,9 @@ def start_service(name):
         return jsonify({"message": f"Service {name} started successfully.", "status": get_service_status(service.name), "ok": True})
 
     except subprocess.CalledProcessError as e:
-        # Ensure stderr is a string (it may be a byte string)
         error_message = e.stderr.decode() if isinstance(e.stderr, bytes) else str(e.stderr)
         return jsonify({"error": error_message, "ok": False}), 500
     except Exception as e:
-        # Capture the general exception
         error_message = str(e)
         return jsonify({"error": error_message, "ok": False}), 500
 

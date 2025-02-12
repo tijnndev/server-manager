@@ -84,32 +84,39 @@
     fetchUptime();
 
     async function startService(name) {
-        try {
-            consoleOutput.innerHTML += `broodcode-bot-1  | Service start command received\n`;
-            const response = await fetch(`{{ url_for('service.start_service', name="") }}` + name, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json', 
-                }, 
-            }).then(response => response.json())
-            .catch(error =>  {
-                console.error('Error:', error)
-                console.log(error)
-            });
-            if (response && response.ok) {
-                consoleOutput.innerHTML += `broodcode-bot-1  | Service started\n`;
-                consoleOutput.scrollTop = consoleOutput.scrollHeight;
-                updateServiceStatus('running');
-            } else {
-                alert('Failed to start service');
-                console.log(response)
-            }
-        } catch (error) {
-            alert('An error occurred while stopping the service');
-            console.error('Fetch error:', error);
-            console.log(error)
+    try {
+        consoleOutput.innerHTML += `broodcode-bot-1  | Service start command received\n`;
+        
+        const response = await fetch(`{{ url_for('service.start_service', name="") }}${name}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const errorResponse = await response.json(); // Ensure to handle error responses
+            alert(`Failed to start service: ${errorResponse.error}`);
+            console.log(errorResponse);
+            return;
         }
+
+        const responseData = await response.json(); // Parse the JSON only when the response is okay
+        if (responseData && responseData.ok) {
+            consoleOutput.innerHTML += `broodcode-bot-1  | Service started\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            updateServiceStatus('running');
+        } else {
+            alert('Failed to start service');
+            console.log(responseData);
+        }
+    } catch (error) {
+        alert('An error occurred while starting the service');
+        console.error('Fetch error:', error);
+        console.log(error);
     }
+}
+
 
     async function stopService(name) {
         consoleOutput.innerHTML += `broodcode-bot-1  | Service stop command received\n`;
