@@ -43,6 +43,8 @@ def load_services():
 
     return services
 
+import socket
+
 @nginx_routes.route('/<name>', methods=['GET', 'POST'])
 def nginx(name):
     process = find_process_by_name(name)
@@ -50,6 +52,7 @@ def nginx(name):
     nginx_enabled_path = f'/etc/nginx/sites-enabled/{name}'
 
     if request.method == 'POST':
+        local_ip = socket.gethostbyname(socket.gethostname())
         domain_name = request.form.get('domain_name', f'{name}.com')
         
         default_nginx_content = f"""server {{
@@ -57,7 +60,7 @@ def nginx(name):
     server_name {domain_name};
 
     location / {{
-        proxy_pass http://localhost:{process.port_id + 8000}/;
+        proxy_pass http://{local_ip}:{process.port_id + 8000}/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
