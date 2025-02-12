@@ -12,38 +12,35 @@ ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 def get_service_status(name):
     service = find_process_by_name(name)
     if not service:
-        return {"error": "Service not found"}, 404
+        return {"error": "Service not found"}
 
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         os.chdir(service_dir)
 
-        result = subprocess.run(['docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
+        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
 
         container_id = result.stdout.strip()
 
         if not container_id:
             return {"service": name, "status": "Exited"}
 
-        container = client.containers.get(container_id)
+        result = subprocess.run(['docker-compose', 'ps', '--services', '--filter', f"id={container_id}"], capture_output=True, text=True)
 
-        status = None
+        if result.returncode != 0:
+            return {"error": "Failed to get service status from docker-compose."}
 
-        print(container.status)
-
-        if(container.status != "running"):
-            status = "Exited"
+        # Check for the status in the output
+        if "Up" in result.stdout:
+            return {"service": name, "status": "Running"}
         else:
-            status = "Running"
-
-        return {"service": name, "status": status}
+            return {"service": name, "status": "Exited"}
 
     except subprocess.CalledProcessError as e:
-        return {"error": f"Failed to get service status: {e.stderr}"}, 500
-    except NotFound:
-        return {"error": "Container not found."}, 404
+        return {"error": f"Failed to get service status: {e.stderr}"}
     except Exception as e:
-        return {"error": str(e)}, 500
+        return {"error": str(e)}
+
     
 def find_process_by_name(name):
     with current_app.app_context():
