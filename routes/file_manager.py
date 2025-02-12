@@ -2,7 +2,7 @@ import os
 import zipfile
 import shutil
 import time
-from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for
+from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for, flash
 
 file_manager_routes = Blueprint('files', __name__)
 
@@ -58,7 +58,7 @@ def file_manager():
             except ValueError:
                 flash("Invalid upload path.", "danger")
     
-    return render_template('service/file_manager.html', files=files, current_location=relative_location)
+    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager")
 
 
 @file_manager_routes.route('/file-manager/delete', methods=['POST'])
