@@ -16,21 +16,23 @@ def get_service_status(name):
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         os.chdir(service_dir)
 
+        # Get the container ID using 'docker-compose ps -q' (quiet mode to only output the container ID)
         result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
-
         container_id = result.stdout.strip()
 
         if not container_id:
             return {"service": name, "status": "Exited"}
 
-        result = subprocess.run(['docker-compose', 'ps', '--services', '--filter', f"id={container_id}"], capture_output=True, text=True)
+        # Get container's status using 'docker inspect' to retrieve its state
+        result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], capture_output=True, text=True)
 
         if result.returncode != 0:
-            print(result)
-            return {"error": "Failed to get service status from docker-compose."}
+            return {"error": "Failed to get service status from docker inspect."}
 
-        # Check for the status in the output
-        if "Up" in result.stdout:
+        # Retrieve the status and determine whether the container is running or exited
+        container_status = result.stdout.strip()
+
+        if container_status == 'running':
             return {"service": name, "status": "Running"}
         else:
             return {"service": name, "status": "Exited"}
