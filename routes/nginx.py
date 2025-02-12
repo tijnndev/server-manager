@@ -97,7 +97,7 @@ def nginx(name):
 
         elif action == "delete_cert":
             subprocess.run(["sudo", "certbot", "delete", "--cert-name", domain_name, "--non-interactive"])
-
+            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
         elif action == "remove_nginx":
             if os.path.exists(nginx_enabled_path):
                 os.remove(nginx_enabled_path)
