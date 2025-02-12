@@ -58,6 +58,7 @@ def nginx(name):
         process.domain = domain_name
         db.session.add(process)
         db.session.commit()
+        print("Succesfully updated the domain")
         cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
 
         if action == "create_nginx":
