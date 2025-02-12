@@ -45,6 +45,8 @@ def load_services():
 
 @nginx_routes.route('/<name>', methods=['GET'])
 def nginx(name):
+
+    process = find_process_by_name(name)
     nginx_file_path = f'/etc/nginx/sites-available/{name}'
 
     if os.path.exists(nginx_file_path):
@@ -52,7 +54,7 @@ def nginx(name):
             nginx_content = file.read()
         return render_template('nginx/index.html', nginx_content=nginx_content)
     else:
-        return render_template('nginx/index.html', nginx_content=None)
+        return render_template('nginx/index.html', service=process, nginx_content=None)
 
 
 @nginx_routes.route('/add', methods=['POST'])
