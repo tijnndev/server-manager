@@ -92,7 +92,7 @@ def nginx(name):
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
         
         elif action == "renew_cert":
-            subprocess.run(["sudo", "certbot", "renew"])
+            subprocess.run(["sudo", "certbot", "renew", "--cert-name", domain_name, "--non-interactive"])
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
 
         elif action == "delete_cert":
