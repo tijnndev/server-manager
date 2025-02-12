@@ -38,15 +38,6 @@ def load_services():
                 "name": process.name,
                 "status": response["status"]
             }
-        except NotFound:
-            services[process.name] = {
-                "id": process.id,
-                "type": process.type,
-                "command": process.command,
-                "file_location": process.file_location,
-                "name": process.name,
-                "status": "Not Found"
-            }
         except Exception as e:
             print(f"Error fetching status for {process.name}: {e}")
             services[process.name] = {
