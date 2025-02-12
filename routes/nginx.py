@@ -54,11 +54,10 @@ def nginx(name):
 
     if request.method == 'POST':
         action = request.form.get("action")
-        print(request.form)
+        domain_name = request.form.get("domain_name", f'{name}.com')
 
         if action == "create_nginx":
             local_ip = socket.gethostbyname(socket.gethostname())
-            domain_name = request.form.get('domain_name', f'{name}.com')
 
             default_nginx_content = f"""server {{
     listen 80;
@@ -83,7 +82,7 @@ def nginx(name):
             return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
 
         elif action == "add_cert":
-            subprocess.run(["sudo", "certbot", "--nginx", "-d", name])
+            subprocess.run(["sudo", "certbot", "--nginx", "-d", domain_name])
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
         
         elif action == "renew_cert":
@@ -91,7 +90,7 @@ def nginx(name):
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
 
         elif action == "delete_cert":
-            subprocess.run(["sudo", "certbot", "delete", "--cert-name", name])
+            subprocess.run(["sudo", "certbot", "delete", "--cert-name", domain_name])
 
         elif action == "remove_nginx":
             if os.path.exists(nginx_enabled_path):
