@@ -98,6 +98,23 @@ def nginx(name):
         elif action == "delete_cert":
             subprocess.run(["sudo", "certbot", "delete", "--cert-name", domain_name, "--non-interactive"])
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+
+            local_ip = socket.gethostbyname(socket.gethostname())
+            default_nginx_content = f"""server {{
+    listen 80;
+    server_name {domain_name};
+
+    location / {{
+        proxy_pass http://{local_ip}:{process.port_id + 8000}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+}}"""
+            
+            with open(nginx_file_path, 'w') as file:
+                file.write(default_nginx_content)
         elif action == "remove_nginx":
             if os.path.exists(nginx_enabled_path):
                 os.remove(nginx_enabled_path)
