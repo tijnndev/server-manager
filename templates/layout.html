@@ -101,6 +101,7 @@ ondragover="handleDragOver(event)"
                     })
                     .catch(error => {
                         console.error('Error uploading files:', error);
+                        console.log(error)
                         alert('An error occurred while uploading files.');
                     });
             }
