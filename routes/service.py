@@ -229,12 +229,8 @@ def console(name):
     
     response = get_service_status(service.name)
 
-    if isinstance(response, tuple):
-        json_data = response[0].get_json()
-    else:
-        json_data = response.get_json()
     try:
-        status = json_data["status"]
+        status = response["status"]
     except KeyError:
         status = "Failed"
     return render_template('service/console.html', service=service, service_status=status)
