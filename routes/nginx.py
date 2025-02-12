@@ -48,17 +48,17 @@ import socket
 @nginx_routes.route('/<name>', methods=['GET', 'POST'])
 def nginx(name):
     process = find_process_by_name(name)
-    nginx_file_path = f'/etc/nginx/sites-available/{name}'
-    nginx_enabled_path = f'/etc/nginx/sites-enabled/{name}'
-    cert_path = f'/etc/letsencrypt/live/{name}/fullchain.pem'
+    nginx_file_path = f'/etc/nginx/sites-available/{process.domain}'
+    nginx_enabled_path = f'/etc/nginx/sites-enabled/{process.domain}'
+    cert_path = f'/etc/letsencrypt/live/{process.domain}/fullchain.pem'
 
     if request.method == 'POST':
         action = request.form.get("action")
-        domain_name = request.form.get("domain_name", f'{name}.com')
+        domain_name = request.form.get("domain_name", process.domain)
         process.domain = domain_name
         db.session.add(process)
         db.session.commit()
-        print("Succesfully updated the domain")
+
         cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
 
         if action == "create_nginx":
