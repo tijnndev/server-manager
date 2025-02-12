@@ -28,8 +28,7 @@ def load_services():
 
     for process in processes:
         try:
-            response = get_service_status(process.name).get_json()
-            print(response)
+            response = get_service_status(process.name)
             services[process.name] = {
                 "id": process.id,
                 "type": process.type,
