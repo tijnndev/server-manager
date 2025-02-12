@@ -189,7 +189,7 @@ def upload_file():
                 extract_path = os.path.splitext(file_path)[0]
                 with zipfile.ZipFile(file_path, 'r') as zip_ref:
                     zip_ref.extractall(extract_path)
-                os.remove(file_path)
+                # os.remove(file_path)
             
             return jsonify({'success': True})
         except ValueError:
