@@ -1,5 +1,7 @@
-import time, os, shutil
-from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for
+import os
+import zipfile
+import shutil
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 
 file_manager_routes = Blueprint('files', __name__)
 
@@ -7,14 +9,12 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 TRASH_DIR = os.path.join(BASE_DIR, '.trash')
 
-
 def sanitize_path(base, target):
     """Ensure target path stays within the base directory."""
     normalized_path = os.path.abspath(os.path.normpath(os.path.join(base, target)))
     if not normalized_path.startswith(base):
         raise ValueError("Path traversal detected.")
     return normalized_path
-
 
 @file_manager_routes.route('/manage', methods=['GET', 'POST'])
 def file_manager():
@@ -43,17 +43,21 @@ def file_manager():
             try:
                 file_path = sanitize_path(current_location, uploaded_file.filename)
                 uploaded_file.save(file_path)
-                success_message = "File uploaded successfully!"
-                return render_template(
-                    'service/file_manager.html',
-                    files=files,
-                    success=success_message,
-                    current_location=relative_location
-                )
+                
+                if uploaded_file.filename.lower().endswith('.zip'):
+                    extract_path = os.path.splitext(file_path)[0]
+                    with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                        zip_ref.extractall(extract_path)
+                    os.remove(file_path)
+                    flash("ZIP file extracted successfully!", "success")
+                else:
+                    flash("File uploaded successfully!", "success")
+                
+                return redirect(url_for('files.file_manager', location=relative_location))
             except ValueError:
-                return render_template('service/file_manager.html', files=[], error="Invalid upload path.", current_location=relative_location)
-
-    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager")
+                flash("Invalid upload path.", "danger")
+    
+    return render_template('service/file_manager.html', files=files, current_location=relative_location)
 
 
 @file_manager_routes.route('/file-manager/delete', methods=['POST'])
