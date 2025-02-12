@@ -1,10 +1,8 @@
 from flask import jsonify, current_app
-import os, subprocess, docker
+import os, subprocess
 from docker.errors import NotFound
 from models.process import Process
 
-
-client = docker.from_env()
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
