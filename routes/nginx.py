@@ -43,18 +43,43 @@ def load_services():
 
     return services
 
-@nginx_routes.route('/<name>', methods=['GET'])
+@nginx_routes.route('/<name>', methods=['GET', 'POST'])
 def nginx(name):
-
     process = find_process_by_name(name)
     nginx_file_path = f'/etc/nginx/sites-available/{name}'
+
+    if request.method == 'POST':
+        # Retrieve the domain name from the form if it is provided
+        domain_name = request.form.get('domain_name', f'{name}.com')  # Default to name.com if not provided
+        
+        # Create default NGINX configuration with the domain name
+        default_nginx_content = f"""server {{
+    listen 80;
+    server_name {domain_name};
+
+    location / {{
+        proxy_pass http://127.0.0.1:{process.port_id + 8000}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+}}"""
+        
+        # Save the configuration to the file
+        with open(nginx_file_path, 'w') as file:
+            file.write(default_nginx_content.replace("{{ name }}", name))
+        
+        # Return the template with the new NGINX content
+        return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
 
     if os.path.exists(nginx_file_path):
         with open(nginx_file_path, 'r') as file:
             nginx_content = file.read()
-        return render_template('nginx/index.html', nginx_content=nginx_content)
+        return render_template('nginx/index.html', service=process, nginx_content=nginx_content)
     else:
         return render_template('nginx/index.html', service=process, nginx_content=None)
+
 
 
 @nginx_routes.route('/add', methods=['POST'])

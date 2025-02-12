@@ -10,7 +10,13 @@
             <pre>{{ nginx_content }}</pre>
         </div>
     {% else %}
-        <a href="#" class="btn btn-warning" role="button">Create NGINX</a>
+        <form method="POST">
+            <div class="mb-3">
+                <label for="domain_name" class="form-label">Domain Name</label>
+                <input type="text" class="form-control" id="domain_name" name="domain_name" placeholder="Enter your domain name" required>
+            </div>
+            <button type="submit" class="btn btn-warning">Create NGINX</button>
+        </form>
     {% endif %}
 
     <form method="POST">
