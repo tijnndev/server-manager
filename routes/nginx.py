@@ -55,6 +55,9 @@ def nginx(name):
     if request.method == 'POST':
         action = request.form.get("action")
         domain_name = request.form.get("domain_name", f'{name}.com')
+        process.domain = domain_name
+        db.session.add(process)
+        db.session.commit()
         cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
 
         if action == "create_nginx":

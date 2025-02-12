@@ -12,6 +12,7 @@ class Process(BaseModel):
     type = db.Column(db.String(50), nullable=False)
     file_location = db.Column(db.String(255), nullable=False)
     description = db.Column(db.String(255), nullable=True)
+    domain = db.Column(db.String(255), nullable=True)
     dependencies = db.Column(db.JSON, nullable=True)
     port_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
