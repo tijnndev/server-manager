@@ -23,7 +23,7 @@ def get_service_status(name):
         container_id = result.stdout.strip()
 
         if not container_id:
-            return jsonify({"service": name, "status": "Exited"})
+            return {"service": name, "status": "Exited"}
 
         container = client.containers.get(container_id)
 
