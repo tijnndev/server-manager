@@ -231,3 +231,23 @@ def edit_file():
         file_content = f.read()
 
     return render_template('edit_file.html', file_path=file_path, file_content=file_content, file_name=file_name)
+
+@file_manager_routes.route('/unzip', methods=['POST'])
+def unzip_file():
+    zip_path = request.form.get('zip_path')
+    if not zip_path or not zip_path.endswith('.zip'):
+        flash("Invalid ZIP file.", "danger")
+        return redirect(request.referrer)
+    
+    try:
+        full_zip_path = sanitize_path(ACTIVE_SERVERS_DIR, zip_path)
+        extract_dir = os.path.splitext(full_zip_path)[0]
+        
+        with zipfile.ZipFile(full_zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
+        
+        flash("ZIP file extracted successfully.", "success")
+    except Exception as e:
+        flash(f"Error extracting ZIP file: {str(e)}", "danger")
+    
+    return redirect(request.referrer)
