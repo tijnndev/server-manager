@@ -88,7 +88,7 @@ def nginx(name):
             return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
 
         elif action == "add_cert":
-            subprocess.run(["sudo", "certbot", "--nginx", "-d", domain_name])
+            subprocess.run(["sudo", "certbot", "--nginx", "-d", domain_name, "--non-interactive"])
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
         
         elif action == "renew_cert":
