@@ -27,8 +27,14 @@ def load_services():
     processes = Process.query.all()
 
     for process in processes:
-        try:
-            response = get_service_status(process.name)
+        response = get_service_status(process.name)
+
+        # Check if the response contains an error
+        if "error" in response:
+            # Handle error
+            print(f"Error fetching status for {process.name}: {response['error']}")
+        else:
+            # Handle the successful response
             services[process.name] = {
                 "id": process.id,
                 "type": process.type,
@@ -36,16 +42,6 @@ def load_services():
                 "file_location": process.file_location,
                 "name": process.name,
                 "status": response["status"]
-            }
-        except Exception as e:
-            print(f"Error fetching status for {process.name}: {e}")
-            services[process.name] = {
-                "id": process.id,
-                "type": process.type,
-                "command": process.command,
-                "file_location": process.file_location,
-                "name": process.name,
-                "status": "Error"
             }
 
     return services

@@ -12,7 +12,7 @@ ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 def get_service_status(name):
     service = find_process_by_name(name)
     if not service:
-        return jsonify({"error": "Service not found"}), 404
+        return {"error": "Service not found"}, 404
 
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
@@ -36,16 +36,14 @@ def get_service_status(name):
         else:
             status = "Running"
 
-        # print(status)
-
-        return jsonify({"service": name, "status": status})
+        return {"service": name, "status": status}
 
     except subprocess.CalledProcessError as e:
-        return jsonify({"error": f"Failed to get service status: {e.stderr}"}), 500
+        return {"error": f"Failed to get service status: {e.stderr}"}, 500
     except NotFound:
-        return jsonify({"error": "Container not found."}), 404
+        return {"error": "Container not found."}, 404
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}, 500
     
 def find_process_by_name(name):
     with current_app.app_context():
