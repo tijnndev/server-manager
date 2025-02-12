@@ -1,4 +1,5 @@
-import redis, os, time, threading, requests, docker, logging, subprocess, signal, sys
+import json
+import redis, os, time, threading, requests, logging, subprocess, signal, sys
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g
 from models.user import User
 from routes.file_manager import file_manager_routes
@@ -12,8 +13,6 @@ from dotenv import load_dotenv
 from utils import find_process_by_name
 
 load_dotenv()
-
-client = docker.from_env()
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -69,8 +68,13 @@ def handle_event(event):
 
 def start_listening_for_events():
     while True:
-        for event in client.events(decode=True):
-            handle_event(event)
+        result = subprocess.run(["docker", "events", "--format", "{{json .}}"], capture_output=True, text=True)
+        for line in result.stdout.splitlines():
+            try:
+                event = json.loads(line)
+                handle_event(event)
+            except json.JSONDecodeError:
+                continue
         time.sleep(1)
 
                     
@@ -201,7 +205,6 @@ def webhook():
 # logging.basicConfig(level=logging.INFO)
 
 def cleanup_redis_key(*args):
-    # lock_owner = redis_client.get(REDIS_LOCK_KEY)
     redis_client.delete(REDIS_LOCK_KEY)
     print(f"Redis lock key {REDIS_LOCK_KEY} removed for PID: {os.getpid()}")
     sys.exit(0)

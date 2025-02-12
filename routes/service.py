@@ -2,8 +2,7 @@ import shutil
 import time, yaml
 import subprocess
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for
-import os, docker, json, re
-from docker.errors import NotFound, APIError, BuildError, DockerException
+import os, json, re
 from datetime import datetime
 from db import db
 from models.process import Process
@@ -11,10 +10,8 @@ from models.discord_integration import DiscordIntegration
 from utils import find_process_by_name, get_service_status
 
 service_routes = Blueprint('service', __name__)
-client = docker.from_env()
 
 SERVICES_DIRECTORY = 'active-servers'
-SERVICES_FILE = 'services.json'
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 
@@ -62,10 +59,6 @@ def load_services():
             }
 
     return services
-
-def save_services(services):
-    with open(SERVICES_FILE, 'w') as f:
-        json.dump(services, f, indent=4)
 
 @service_routes.route('/', methods=['GET'])
 def get_services():
@@ -155,16 +148,17 @@ def delete(name):
         service = Process.query.filter_by(name=name).first()
         if not service:
             return jsonify({"error": "Service not found"}), 404
-        
-        try:
-            container = client.containers.get(service.id)
-            container.remove(force=True)
-            print(f"Container {service.id} removed successfully")
-        except NotFound:
-            print(f"Container {service.id} not found. Skipping removal.")
-        
+
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         if os.path.exists(service_dir):
+            try:
+                os.chdir(service_dir)
+                subprocess.run(['/usr/local/bin/docker-compose', 'down'], check=True)
+                print(f"Service {name} stopped and removed successfully via docker-compose")
+            except subprocess.CalledProcessError as e:
+                print(f"Error stopping service {name}: {e}")
+                return jsonify({"error": "Failed to stop service via docker-compose"}), 500
+
             shutil.rmtree(service_dir)
             print(f"Service directory {service_dir} removed successfully")
         
@@ -191,15 +185,10 @@ def start_service(name):
 
         time.sleep(2)
 
-        client = docker.from_env()
-        container_name = f"{name}_container"
-        container = client.containers.get(container_name)
-        return jsonify({"message": f"Service {name} started successfully.", "status": container.status, "ok": True})
+        return jsonify({"message": f"Service {name} started successfully.", "status": get_service_status(service.name), "ok": True})
 
     except subprocess.CalledProcessError as e:
         return jsonify({"error": e.stderr, "ok": False}), 500
-    except docker.errors.NotFound:
-        return jsonify({"error": f"Container '{container_name}' not found.", "ok": False}), 404
     except Exception as e:
         print(e)
         return jsonify({"error": str(e), "ok": False}), 500
@@ -265,7 +254,6 @@ def console(name):
 @service_routes.route('/console/<service_name>/uptime')
 def get_uptime(service_name):
     process = find_process_by_name(service_name)
-
     if not process:
         return jsonify({'error': 'Service not found'}), 404
 
@@ -273,30 +261,24 @@ def get_uptime(service_name):
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, service_name)
         os.chdir(service_dir)
 
-        result = subprocess.run(['//usr/local/bin/docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
+        result = subprocess.run(['docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
 
         if not container_id:
             return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': 'Service is not running.'})
 
-        container = client.containers.get(container_id)
+        result = subprocess.run(['docker', 'inspect', '--format', '{{.State.StartedAt}}', container_id],
+                                capture_output=True, text=True, check=True)
+        startup_date = result.stdout.strip()
 
-        if container.status == 'exited' or container.status == 'paused':
-            return jsonify({'uptime': '0w 0d 0h 0m 0s'})
-
-        startup_date = container.attrs['State']['StartedAt']
         uptime = calculate_uptime(startup_date)
         return jsonify({'uptime': uptime})
 
     except subprocess.CalledProcessError as e:
-        print(e.stderr)
         return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': f"Failed to get service status: {e.stderr}"})
-    except NotFound:
-        return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': 'Container not found.'})
-    except APIError as e:
-        return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': f"Docker API error: {str(e)}"})
     except Exception as e:
         return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': str(e)})
+
 
 
 @service_routes.route('/console/<string:name>/logs', methods=['GET'])
@@ -353,24 +335,22 @@ def ansi_to_html(ansi_code):
     return color_map.get(ansi_code.split(';')[0], "black")
 
 
-@service_routes.route('/console/<string:name>/send', methods=['POST'])
-def send_command(name):
-    service = find_process_by_name(name)
-    if not service or not request.json:
-        return jsonify({"error": "Service not found"}), 404
+# @service_routes.route('/console/<string:name>/send', methods=['POST'])
+# def send_command(name):
+#     service = find_process_by_name(name)
+#     if not service or not request.json:
+#         return jsonify({"error": "Service not found"}), 404
 
-    command = request.json.get('command')
-    if not command:
-        return jsonify({"error": "No command provided"}), 400
+#     command = request.json.get('command')
+#     if not command:
+#         return jsonify({"error": "No command provided"}), 400
 
-    try:
-        container = client.containers.get(service.id)
-        exec_id = container.exec_run(command, tty=True, stdin=True)
-        return jsonify({"message": "Command executed", "output": exec_id.output.decode('utf-8')})
-    except NotFound:
-        return jsonify({"error": "Container not found"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#     try:
+#         container = client.containers.get(service.id)
+#         exec_id = container.exec_run(command, tty=True, stdin=True)
+#         return jsonify({"message": "Command executed", "output": exec_id.output.decode('utf-8')})
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
     
 def ansi_to_html(ansi_code):
     """Map ANSI codes to HTML colors."""
@@ -471,61 +451,6 @@ def rebuild(name):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-def rebuild_service(service):
-    container_name = f"{service.name}_container"
-    image_tag = f"{service.name}_image"
-    
-    try:
-        try:
-            existing_container = next(
-                (c for c in client.containers.list(all=True) if c.name == container_name), None
-            )
-            if existing_container:
-                # print(f"Stopping and removing existing container: {container_name}")
-                existing_container.stop()
-                existing_container.remove(force=True)
-        except Exception as e:
-            print(f"Error removing old container: {e}")
-
-        try:
-            old_image = client.images.get(image_tag)
-            client.images.remove(image=old_image.id, force=True)
-            print(f"Old image {image_tag} removed.")
-        except Exception as e:
-            print(f"No existing image found for {image_tag}, skipping removal: {e}")
-
-        service_dir = os.path.join(ACTIVE_SERVERS_DIR, service.name)
-        print(f"Building new Docker image for {service.name}...")
-        client.images.build(path=service_dir, tag=image_tag, nocache=True)
-        print(f"Docker image {image_tag} built successfully.")
-
-        port = 8000 + int(service.port_id)
-        print(f"Creating and starting new container: {container_name}")
-
-        container = client.containers.run(
-            image=image_tag,
-            name=container_name,
-            detach=True,
-            auto_remove=False,
-            restart_policy={"Name": "always"},
-            ports={str(port): port}
-        )
-        
-        print(f"Updating process ID to {container.id}")
-        service.update_id(str(container.id))
-
-        return container.id
-
-    except BuildError as build_error:
-        print(f"Build failed for {service.name}: {build_error}")
-        raise build_error
-    except APIError as api_error:
-        print(f"Docker API error: {api_error}")
-        raise api_error
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        raise e
 
 @service_routes.route('/discord/<string:name>', methods=['GET', 'POST'])
 def discord(name):
