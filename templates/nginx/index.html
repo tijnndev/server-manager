@@ -2,22 +2,32 @@
 
 {% block nginx_content %}
 <div class="container mt-4">
-    <h2>Discord Integration for {{ service.name }}</h2>
+    <h2>NGINX Configuration for {{ service.name }}</h2>
     
     {% if nginx_content %}
         <div class="alert alert-info" role="alert">
             <h4 class="alert-heading">NGINX Configuration</h4>
             <pre>{{ nginx_content }}</pre>
         </div>
+
+        <form method="POST">
+            {% if cert_exists %}
+                <button type="submit" name="action" value="renew_cert" class="btn btn-primary">Renew Certificate</button>
+                <button type="submit" name="action" value="delete_cert" class="btn btn-danger">Delete Certificate</button>
+            {% else %}
+                <button type="submit" name="action" value="add_cert" class="btn btn-success">Add Certificates</button>
+            {% endif %}
+            <button type="submit" name="action" value="remove_nginx" class="btn btn-warning">Remove Nginx</button>
+        </form>
+
     {% else %}
         <form method="POST">
             <div class="mb-3">
                 <label for="domain_name" class="form-label">Domain Name</label>
                 <input type="text" class="form-control" id="domain_name" name="domain_name" placeholder="Enter your domain name" required>
             </div>
-            <button type="submit" class="btn btn-warning">Create NGINX</button>
+            <button type="submit" name="action" value="create_nginx" class="btn btn-warning">Create NGINX</button>
         </form>
     {% endif %}
-
 </div>
-{% endblock nginx_content %}
+{% endblock %}

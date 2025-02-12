@@ -50,12 +50,16 @@ def nginx(name):
     process = find_process_by_name(name)
     nginx_file_path = f'/etc/nginx/sites-available/{name}'
     nginx_enabled_path = f'/etc/nginx/sites-enabled/{name}'
+    cert_path = f'/etc/letsencrypt/live/{name}/fullchain.pem'
 
     if request.method == 'POST':
-        local_ip = socket.gethostbyname(socket.gethostname())
-        domain_name = request.form.get('domain_name', f'{name}.com')
-        
-        default_nginx_content = f"""server {{
+        action = request.form.get("action")
+
+        if action == "create_nginx":
+            local_ip = socket.gethostbyname(socket.gethostname())
+            domain_name = request.form.get('domain_name', f'{name}.com')
+
+            default_nginx_content = f"""server {{
     listen 80;
     server_name {domain_name};
 
@@ -67,22 +71,42 @@ def nginx(name):
         proxy_set_header X-Forwarded-Proto $scheme;
     }}
 }}"""
-        
-        # Save the configuration to the file
-        with open(nginx_file_path, 'w') as file:
-            file.write(default_nginx_content.replace("{{ name }}", name))
-        
-        if not os.path.exists(nginx_enabled_path):
-            os.symlink(nginx_file_path, nginx_enabled_path)
+            
+            with open(nginx_file_path, 'w') as file:
+                file.write(default_nginx_content)
+            
+            if not os.path.exists(nginx_enabled_path):
+                os.symlink(nginx_file_path, nginx_enabled_path)
 
-        return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
+            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+            return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
 
+        elif action == "add_cert":
+            subprocess.run(["sudo", "certbot", "--nginx", "-d", name])
+            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+        
+        elif action == "renew_cert":
+            subprocess.run(["sudo", "certbot", "renew"])
+            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+
+        elif action == "delete_cert":
+            subprocess.run(["sudo", "certbot", "delete", "--cert-name", name])
+
+        elif action == "remove_nginx":
+            if os.path.exists(nginx_enabled_path):
+                os.remove(nginx_enabled_path)
+            if os.path.exists(nginx_file_path):
+                os.remove(nginx_file_path)
+            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+    
+    cert_exists = os.path.exists(cert_path)
+    
+    nginx_content = None
     if os.path.exists(nginx_file_path):
         with open(nginx_file_path, 'r') as file:
             nginx_content = file.read()
-        return render_template('nginx/index.html', service=process, nginx_content=nginx_content)
-    else:
-        return render_template('nginx/index.html', service=process, nginx_content=None)
+
+    return render_template('nginx/index.html', service=process, nginx_content=nginx_content, cert_exists=cert_exists)
 
 
 
