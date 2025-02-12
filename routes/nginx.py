@@ -47,12 +47,11 @@ def load_services():
 def nginx(name):
     process = find_process_by_name(name)
     nginx_file_path = f'/etc/nginx/sites-available/{name}'
+    nginx_enabled_path = f'/etc/nginx/sites-enabled/{name}'
 
     if request.method == 'POST':
-        # Retrieve the domain name from the form if it is provided
-        domain_name = request.form.get('domain_name', f'{name}.com')  # Default to name.com if not provided
+        domain_name = request.form.get('domain_name', f'{name}.com')
         
-        # Create default NGINX configuration with the domain name
         default_nginx_content = f"""server {{
     listen 80;
     server_name {domain_name};
@@ -70,7 +69,9 @@ def nginx(name):
         with open(nginx_file_path, 'w') as file:
             file.write(default_nginx_content.replace("{{ name }}", name))
         
-        # Return the template with the new NGINX content
+        if not os.path.exists(nginx_enabled_path):
+            os.symlink(nginx_file_path, nginx_enabled_path)
+
         return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
 
     if os.path.exists(nginx_file_path):
