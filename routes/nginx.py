@@ -54,6 +54,7 @@ def nginx(name):
 
     if request.method == 'POST':
         action = request.form.get("action")
+        print(request.form)
 
         if action == "create_nginx":
             local_ip = socket.gethostbyname(socket.gethostname())
