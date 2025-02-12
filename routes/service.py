@@ -30,6 +30,7 @@ def load_services():
         response = get_service_status(process.name)
 
         # Check if the response contains an error
+        print(response)
         if "error" in response:
             # Handle error
             print(f"Error fetching status for {process.name}: {response['error']}")
