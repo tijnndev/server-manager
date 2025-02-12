@@ -270,29 +270,34 @@ def stream_logs(name):
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
+        # Log command to fetch Docker logs
         logs_command = ['//usr/local/bin/docker-compose', 'logs', '-f', '--tail', '50']
+
         process = subprocess.Popen(
             logs_command,
             cwd=service_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            bufsize=1  # Set buffer size to line-buffered for real-time output
         )
 
         def generate():
             try:
+                # Read stdout line-by-line to stream it immediately
                 for line in process.stdout:
                     yield f"data: {colorize_log(line)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
             finally:
-                process.terminate()
+                process.terminate()  # Ensure process is terminated after streaming
                 process.wait()
 
         return Response(generate(), content_type='text/event-stream')
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 def colorize_log(log):

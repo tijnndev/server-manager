@@ -53,12 +53,9 @@
 
         eventSource.onmessage = function(event) {
             const message = event.data;
-
-            if (!seenMessages.has(message)) {
+            if (message.trim()) {
                 consoleOutput.innerHTML += message + '\n';
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
-
-                seenMessages.add(message);
             }
         };
     }
