@@ -271,7 +271,7 @@ def stream_logs(name):
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
         # Log command to fetch Docker logs
-        logs_command = ['//usr/local/bin/docker-compose', 'logs', '--tail', '50']
+        logs_command = ['//usr/local/bin/docker-compose', 'logs', "-f" '--tail', '50']
 
         process = subprocess.Popen(
             logs_command,
