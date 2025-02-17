@@ -1,6 +1,6 @@
 {% extends 'service/service_layout.html' %}
 
-{% block content %}
+{% block service_content %}
     <div class="container mt-5">
         <h1>Create New File with Code</h1>
         <form action="{{ url_for('files.create_file', name=service.name, location=location) }}" method="POST">
@@ -37,4 +37,4 @@
             document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9_.-]/g, '');
         }
     </script>
-{% endblock content %}
+{% endblock service_content %}
