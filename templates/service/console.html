@@ -59,14 +59,15 @@
         eventSource.onmessage = function(event) {
             if (!isPageActive) return;
 
-            const message = event.data;
-            if (message.trim()) {
+            const message = event.data.trim();
+            if (message && !seenMessages.has(message)) {
+                seenMessages.add(message);
                 consoleOutput.innerHTML += message + '\n';
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
             }
         };
-
     }
+
 
     async function fetchUptime() {
         // setInterval(async () => {
