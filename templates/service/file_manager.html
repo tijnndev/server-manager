@@ -105,7 +105,7 @@
     <div class="row">
         <div class="col-12">
             <h4 class="file-bar">
-                <a href="{{ url_for('files.file_manager') }}" class="btn">
+                <a href="{{ url_for('files.file_manager', name=service.name) }}" class="btn">
                     <span>home</span>
                 </a>
                 <span>/</span>
@@ -113,7 +113,7 @@
                 {% for i in range(path_parts|length) %}
                     {% set part = path_parts[i] %}
                     {% if part != "." %}
-                        <a href="{{ url_for('files.file_manager', location='/'.join(path_parts[:i+1])) }}" class="btn">
+                        <a href="{{ url_for('files.file_manager', name=service.name, location='/'.join(path_parts[:i+1])) }}" class="btn">
                             <span>{{ part }}</span>
                         </a>
                         {% if not loop.last %}
@@ -135,7 +135,7 @@
                 {% set regular_files = files | selectattr('is_directory', 'equalto', false) | sort(attribute='name') %}
 
                 {% for file in directories %}
-                <a href="{{ url_for('files.file_manager', location=file.path) }}">
+                <a href="{{ url_for('files.file_manager', name=service.name, location=file.path) }}">
                     <li class="list-group-item d-flex justify-content-between">
                         <div>
                             <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
@@ -184,7 +184,7 @@
     <hr>
 
     <h4 class="mt-4">Upload a New File</h4>
-    <form action="{{ url_for('files.file_manager', location=current_location) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('files.file_manager', name=service.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
         <div class="mb-3">
             <label for="file" class="form-label">Select file to upload</label>
             <input type="file" name="file" class="form-control" required>
