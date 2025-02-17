@@ -6,17 +6,22 @@ from utils import find_process_by_name, get_service_status
 
 git_routes = Blueprint('git', __name__)
 
-# Route to view all git integrations
 @git_routes.route('/<name>', methods=['GET'])
 def git(name):
     process = find_process_by_name(name)
     integrations = GitIntegration.query.all()
-    return render_template('git/index.html', service=process, integrations=integrations)
+    show_add_repo_button = len(integrations) == 0  # Show the button if no integrations exist
+    return render_template('git/index.html', service=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
+
+# Route to display the form for adding a new Git repository
+@git_routes.route('/add_form', methods=['GET'])
+def add_git_form():
+    return render_template('git/add_form.html')
 
 # Route to add a new Git repository integration
 @git_routes.route('/add_git_integration', methods=['POST'])
 def add_git_integration():
-    data = request.json
+    data = request.form
     repository_url = data.get('repository_url')
     directory = data.get('directory')
     branch = data.get('branch', 'main')

@@ -3,6 +3,11 @@
 {% block nginx_content %}
 <div class="container mt-4">
     <h1>Git Integrations</h1>
+
+    {% if show_add_repo_button %}
+    <a href="{{ url_for('git.add_form') }}" class="btn btn-primary">Add Repository</a>
+    {% endif %}
+
     <table>
         <thead>
             <tr>

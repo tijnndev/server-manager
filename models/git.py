@@ -1,4 +1,5 @@
 from db import db
+import os, subprocess, shutil
 
 class GitIntegration(db.Model):
     __tablename__ = 'git_integrations'
