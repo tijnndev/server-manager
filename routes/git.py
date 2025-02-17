@@ -15,7 +15,7 @@ def git(name):
 
 # Route to display the form for adding a new Git repository
 @git_routes.route('/add_form', methods=['GET'])
-def add_git_form():
+def add_form():
     return render_template('git/add_form.html')
 
 # Route to add a new Git repository integration
