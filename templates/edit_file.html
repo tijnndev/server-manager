@@ -3,7 +3,7 @@
 {% block content %}
     <div class="container mt-5">
         <h1>Edit file: {{ file_name }}</h1>
-        <form action="{{ url_for('files.edit_file', file=file_path) }}" method="POST">
+        <form action="{{ url_for('files.edit_file', name=service.name, file=file_path) }}" method="POST">
             <div class="mb-3">
                 <label for="file_name" class="form-label">File Name (with extension)</label>
                 <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required>

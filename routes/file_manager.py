@@ -54,16 +54,16 @@ def file_manager(name):
                 else:
                     flash("File uploaded successfully!", "success")
                 
-                return redirect(url_for('files.file_manager', location=relative_location))
+                return redirect(url_for('files.file_manager', service=service, location=relative_location))
             except ValueError:
                 flash("Invalid upload path.", "danger")
     
     return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager", service=service)
 
 
-@file_manager_routes.route('/file-manager/delete', methods=['POST'])
-def delete_file():
-
+@file_manager_routes.route('/<name>/file-manager/delete', methods=['POST'])
+def delete_file(name):
+    service = find_process_by_name(name)
     if not request.form:
         return
     filename = request.form.get('filename', "").replace("\\", "/")
@@ -103,10 +103,10 @@ def delete_file():
                     shutil.move(file_path, trash_path)
                     message = f"Directory '{filename}' moved to .trash."
 
-            return redirect(url_for('files.file_manager', location=os.path.relpath(location, ACTIVE_SERVERS_DIR), message=message))
+            return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), message=message))
 
         except Exception as e:
-            return redirect(url_for('files.file_manager', location=os.path.relpath(location, ACTIVE_SERVERS_DIR), message=f"Error: {e}"))
+            return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), message=f"Error: {e}"))
 
     return jsonify({"error": "File or directory not found"}), 404
 
@@ -123,8 +123,9 @@ def download_file(filename):
     return jsonify({"error": "File not found"}), 404
 
 
-@file_manager_routes.route('/new/file', methods=['GET', 'POST'])
-def create_file():
+@file_manager_routes.route('/<name>/new/file', methods=['GET', 'POST'])
+def create_file(name):
+    service = find_process_by_name(name)
     location = request.args.get('location', '')
     try:
         location = sanitize_path(ACTIVE_SERVERS_DIR, location)
@@ -140,15 +141,16 @@ def create_file():
                 file_path = sanitize_path(location, file_name)
                 with open(file_path, 'w') as f:
                     f.write(file_code)
-                return redirect(url_for('files.file_manager', location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
+                return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
             except ValueError:
                 return render_template('create_file.html', error="Invalid file path.", location=location)
 
-    return render_template('create_file.html', location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
+    return render_template('create_file.html', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
 
-@file_manager_routes.route('/new/dir', methods=['GET', 'POST'])
-def create_directory():
+@file_manager_routes.route('/<name>/new/dir', methods=['GET', 'POST'])
+def create_directory(name):
+    service = find_process_by_name(name)
     location = request.args.get('location', '')
     try:
         location = sanitize_path(ACTIVE_SERVERS_DIR, location)
@@ -162,9 +164,9 @@ def create_directory():
             try:
                 new_dir_path = sanitize_path(location, new_dir_name)
                 os.makedirs(new_dir_path, exist_ok=True)
-                return redirect(url_for('files.file_manager', location=os.path.relpath(location, ACTIVE_SERVERS_DIR), success=f"Directory '{new_dir_name}' created successfully."))
+                return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), success=f"Directory '{new_dir_name}' created successfully."))
             except Exception as e:
-                return redirect(url_for('files.file_manager', location=os.path.relpath(location, ACTIVE_SERVERS_DIR), error=f"Error creating directory: {e}"))
+                return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), error=f"Error creating directory: {e}"))
 
     return render_template('create_directory.html', current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
@@ -199,8 +201,9 @@ def upload_file():
     return jsonify({'success': True})
 
 
-@file_manager_routes.route('/edit', methods=['GET', 'POST'])
-def edit_file():
+@file_manager_routes.route('<name>/edit', methods=['GET', 'POST'])
+def edit_file(name):
+    service = find_process_by_name(name)
     file_path_param = request.args.get('file', '')
     try:
         file_path = sanitize_path(ACTIVE_SERVERS_DIR, file_path_param)
@@ -226,7 +229,7 @@ def edit_file():
         with open(new_file_path, 'w', newline='') as f:
             f.write(new_content)
 
-        return redirect(url_for('files.file_manager', location=os.path.relpath(os.path.dirname(new_file_path), ACTIVE_SERVERS_DIR)))
+        return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(os.path.dirname(new_file_path), ACTIVE_SERVERS_DIR)))
 
     with open(file_path, 'r') as f:
         file_content = f.read()

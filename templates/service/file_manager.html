@@ -123,10 +123,10 @@
                 {% endfor %}
             </h4>
             
-            <a href="{{ url_for('files.create_file', location=current_location) }}" class="btn btn-success mt-2 mb-4">
+            <a href="{{ url_for('files.create_file', name=service.name, location=current_location) }}" class="btn btn-success mt-2 mb-4">
                 Create New File
             </a>
-            <a href="{{ url_for('files.create_directory', location=current_location) }}" class="btn btn-warning mt-2 mb-4">
+            <a href="{{ url_for('files.create_directory', name=service.name, location=current_location) }}" class="btn btn-warning mt-2 mb-4">
                 Create New Directory
             </a>
 
@@ -154,7 +154,7 @@
                 {% endfor %}
 
                 {% for file in regular_files %}
-                    <a href="{{ url_for('files.edit_file', file=file.path) }}">
+                    <a href="{{ url_for('files.edit_file', name=service.name, file=file.path) }}">
                         <li class="list-group-item d-flex justify-content-between">
                             <div>
                                 <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
@@ -168,7 +168,7 @@
                                 </form>
                                 {% endif %}
                                 <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
-                                <form action="{{ url_for('files.delete_file') }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                <form action="{{ url_for('files.delete_file', name=service.name) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
                                     <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
                                     <input type="hidden" name="location" value="{{ current_location }}">
                                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -247,9 +247,9 @@
         if (userConfirmed) {
             const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
             if (action) {
-                form.action = "{{ url_for('files.delete_file', filename='') }}" + filename + "&permanent=true";
+                form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + filename + "&permanent=true";
             } else {
-                form.action = "{{ url_for('files.delete_file', filename='') }}" + filename;
+                form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + filename;
             }
         }
 
