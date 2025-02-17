@@ -26,10 +26,10 @@
                     <td>{{ integration.branch }}</td>
                     <td>{{ integration.status }}</td>
                     <td>
-                        <form action="{{ url_for('git.pull_latest', integration_id=integration.id) }}" method="POST">
+                        <form action="{{ url_for('git.pull_latest', name=service.name, integration_id=integration.id) }}" method="POST">
                             <button type="submit">Pull Latest</button>
                         </form>
-                        <form action="{{ url_for('git.remove_git_integration', integration_id=integration.id) }}" method="POST">
+                        <form action="{{ url_for('git.remove_git_integration', name=service.name, integration_id=integration.id) }}" method="POST">
                             <button type="submit">Remove</button>
                         </form>
                     </td>

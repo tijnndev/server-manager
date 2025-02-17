@@ -3,7 +3,7 @@
 {% block nginx_content %}
 <div class="container mt-4">
     <h1>Add New Git Repository</h1>
-    <form action="{{ url_for('git.add_git_integration') }}" method="POST">
+    <form action="{{ url_for('git.add_git_integration', name=service.name) }}" method="POST">
         <div class="form-group">
             <label for="repository_url">Repository URL</label>
             <input type="text" name="repository_url" id="repository_url" class="form-control" required>

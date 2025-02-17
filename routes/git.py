@@ -1,6 +1,6 @@
 import subprocess
 import os
-from flask import Blueprint, jsonify, request, render_template
+from flask import Blueprint, jsonify, request, render_template, url_for
 from models.git import GitIntegration
 from utils import find_process_by_name, get_service_status
 from db import db
@@ -21,8 +21,8 @@ def add_form(name):
     return render_template('git/add_form.html', service=service)
 
 # Route to add a new Git repository integration
-@git_routes.route('/add_git_integration', methods=['POST'])
-def add_git_integration():
+@git_routes.route('/<name>/add_git_integration', methods=['POST'])
+def add_git_integration(name):
     data = request.form
     repository_url = data.get('repository_url')
     directory = data.get('directory')
@@ -36,14 +36,10 @@ def add_git_integration():
     db.session.commit()
     git_integration.clone_repo()
 
-    return jsonify({
-        "message": f"Repository {repository_url} cloned to {directory}",
-        "status": git_integration.status
-    })
+    return url_for("git.git", name=name)
 
-# Route to pull the latest changes
-@git_routes.route('/pull_latest/<int:integration_id>', methods=['POST'])
-def pull_latest(integration_id):
+@git_routes.route('/<name>/pull_latest/<int:integration_id>', methods=['POST'])
+def pull_latest(name, integration_id):
     git_integration = GitIntegration.query.get(integration_id)
     if not git_integration:
         return jsonify({"error": "Git integration not found"}), 404
@@ -51,9 +47,8 @@ def pull_latest(integration_id):
     git_integration.pull_latest()
     return jsonify({"message": f"Repository at {git_integration.directory} updated", "status": git_integration.status})
 
-# Route to remove a repository integration
-@git_routes.route('/remove_git_integration/<int:integration_id>', methods=['POST'])
-def remove_git_integration(integration_id):
+@git_routes.route('/<name>/remove_git_integration/<int:integration_id>', methods=['POST'])
+def remove_git_integration(name, integration_id):
     git_integration = GitIntegration.query.get(integration_id)
     if not git_integration:
         return jsonify({"error": "Git integration not found"}), 404
