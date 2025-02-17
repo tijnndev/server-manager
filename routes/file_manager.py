@@ -20,7 +20,7 @@ def sanitize_path(base, target):
 @file_manager_routes.route('/manage/<name>', methods=['GET', 'POST'])
 def file_manager(name):
     service = find_process_by_name(name)
-    location_param = request.args.get('location', '')
+    location_param = request.args.get('location', name)
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
     except ValueError:
