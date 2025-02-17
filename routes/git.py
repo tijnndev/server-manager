@@ -7,7 +7,7 @@ git_routes = Blueprint('git', __name__)
 
 # Route to view all git integrations
 @git_routes.route('/git_integrations', methods=['GET'])
-def get_git_integrations():
+def git():
     integrations = GitIntegration.query.all()
     return render_template('git/index.html', integrations=integrations)
 
