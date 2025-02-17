@@ -11,16 +11,14 @@ git_routes = Blueprint('git', __name__)
 def git(name):
     service = find_process_by_name(name)
     integrations = GitIntegration.query.filter_by(process_name=name).all()
-    show_add_repo_button = len(integrations) == 0  # Show the button if no integrations exist
+    show_add_repo_button = len(integrations) == 0
     return render_template('git/index.html', service=service, integrations=integrations, show_add_repo_button=show_add_repo_button)
 
-# Route to display the form for adding a new Git repository
 @git_routes.route('/<name>/add_form', methods=['GET'])
 def add_form(name):
     service = find_process_by_name(name)
     return render_template('git/add_form.html', service=service)
 
-# Route to add a new Git repository integration
 @git_routes.route('/<name>/add_git_integration', methods=['POST'])
 def add_git_integration(name):
     data = request.form

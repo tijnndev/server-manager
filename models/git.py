@@ -1,5 +1,7 @@
 from db import db
 import os, subprocess, shutil
+import tempfile
+
 
 class GitIntegration(db.Model):
     __tablename__ = 'git_integrations'
@@ -24,12 +26,19 @@ class GitIntegration(db.Model):
         return os.path.join('/etc/server-manager/active-servers', self.process_name, self.directory)
 
     def clone_repo(self):
-        """Clones the repository into the server folder."""
+        """Clones the repository into the server folder, even if it's not empty."""
         try:
             os.makedirs(self.server_directory, exist_ok=True)
-            subprocess.run(["git", "clone", "-b", self.branch, self.repository_url, self.server_directory], check=True)
+            
+            with tempfile.TemporaryDirectory() as temp_dir:
+                subprocess.run(["git", "clone", "-b", self.branch, self.repository_url, temp_dir], check=True)
+                
+                for item in os.listdir(temp_dir):
+                    shutil.move(os.path.join(temp_dir, item), self.server_directory)
+
             self.status = 'Cloned'
             db.session.commit()
+
         except subprocess.CalledProcessError as e:
             self.status = f"Error: {str(e)}"
             db.session.commit()
