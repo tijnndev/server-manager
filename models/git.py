@@ -22,19 +22,31 @@ class GitIntegration(db.Model):
 
     @property
     def server_directory(self):
-        """Return the path to the server's directory."""
+        """Return the path to the server's directory, ignoring './'."""
+        if self.directory == "./":
+            return os.path.join('/etc/server-manager/active-servers', self.process_name)
         return os.path.join('/etc/server-manager/active-servers', self.process_name, self.directory)
 
+
     def clone_repo(self):
-        """Clones the repository into the server folder, even if it's not empty."""
+        """Clones the repository into the server folder, overriding existing files."""
         try:
             os.makedirs(self.server_directory, exist_ok=True)
-            
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 subprocess.run(["git", "clone", "-b", self.branch, self.repository_url, temp_dir], check=True)
-                
+
                 for item in os.listdir(temp_dir):
-                    shutil.move(os.path.join(temp_dir, item), self.server_directory)
+                    source_path = os.path.join(temp_dir, item)
+                    dest_path = os.path.join(self.server_directory, item)
+
+                    if os.path.exists(dest_path):
+                        if os.path.isdir(dest_path):
+                            shutil.rmtree(dest_path)
+                        else:
+                            os.remove(dest_path)
+
+                    shutil.move(source_path, dest_path)
 
             self.status = 'Cloned'
             db.session.commit()
@@ -42,6 +54,7 @@ class GitIntegration(db.Model):
         except subprocess.CalledProcessError as e:
             self.status = f"Error: {str(e)}"
             db.session.commit()
+
 
     def pull_latest(self):
         """Pull the latest changes for the repository."""
@@ -75,7 +88,7 @@ class GitIntegration(db.Model):
     def remove_repo(self):
         """Remove the repository from the server folder."""
         try:
-            shutil.rmtree(self.server_directory)
+            shutil.rmtree(os.path.join(self.server_directory, ".git"))
             self.status = 'Removed'
             db.session.delete(self)
             db.session.commit()
