@@ -50,6 +50,7 @@ def nginx(name):
     process = find_process_by_name(name)
     
     nginx_file_path = f'/etc/nginx/sites-available/{process.domain or name}'
+    print(nginx_file_path)
     nginx_enabled_path = f'/etc/nginx/sites-enabled/{process.domain or name}'
     cert_path = f'/etc/letsencrypt/live/{process.domain or name}/fullchain.pem'
 

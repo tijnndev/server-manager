@@ -50,14 +50,22 @@
     async function startConsole() {
         const eventSource = new EventSource(`/services/console/{{ service.name }}/logs`);
         const seenMessages = new Set();
+        let isPageActive = true;
+
+        document.addEventListener("visibilitychange", () => {
+            isPageActive = !document.hidden;
+        });
 
         eventSource.onmessage = function(event) {
+            if (!isPageActive) return;
+
             const message = event.data;
             if (message.trim()) {
                 consoleOutput.innerHTML += message + '\n';
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
             }
         };
+
     }
 
     async function fetchUptime() {
