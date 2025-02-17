@@ -56,6 +56,7 @@ def nginx(name):
     if request.method == 'POST':
         action = request.form.get("action")
         domain_name = request.form.get("domain_name", process.domain or name)
+        nginx_enabled_path = f'/etc/nginx/sites-enabled/{domain_name}'
         process.domain = domain_name
         db.session.add(process)
         db.session.commit()
@@ -111,6 +112,7 @@ def nginx(name):
         proxy_set_header X-Forwarded-Proto $scheme;
     }}
 }}"""
+
             
             with open(nginx_file_path, 'w') as file:
                 file.write(default_nginx_content)
@@ -122,6 +124,9 @@ def nginx(name):
                 os.remove(nginx_enabled_path)
             if os.path.exists(nginx_file_path):
                 os.remove(nginx_file_path)
+            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
+        
+        elif action == "restart_nginx":
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
     
     cert_exists = os.path.exists(cert_path)
