@@ -18,11 +18,16 @@ class GitIntegration(db.Model):
         self.branch = branch
         self.status = status
 
+    @property
+    def server_directory(self):
+        """Return the path to the server's directory."""
+        return os.path.join('/etc/server-manager/active-servers', self.process_name)
+
     def clone_repo(self):
         """Clones the repository into the server folder."""
         try:
-            os.makedirs(self.directory, exist_ok=True)
-            subprocess.run(["git", "clone", "-b", self.branch, self.repository_url, self.directory], check=True)
+            os.makedirs(self.server_directory, exist_ok=True)
+            subprocess.run(["git", "clone", "-b", self.branch, self.repository_url, self.server_directory], check=True)
             self.status = 'Cloned'
             db.session.commit()
         except subprocess.CalledProcessError as e:
@@ -32,7 +37,7 @@ class GitIntegration(db.Model):
     def pull_latest(self):
         """Pull the latest changes for the repository."""
         try:
-            subprocess.run(["git", "-C", self.directory, "pull", "origin", self.branch], check=True)
+            subprocess.run(["git", "-C", self.server_directory, "pull", "origin", self.branch], check=True)
             self.status = 'Updated'
             db.session.commit()
         except subprocess.CalledProcessError as e:
@@ -42,7 +47,7 @@ class GitIntegration(db.Model):
     def remove_repo(self):
         """Remove the repository from the server folder."""
         try:
-            shutil.rmtree(self.directory)
+            shutil.rmtree(self.server_directory)
             self.status = 'Removed'
             db.session.commit()
         except Exception as e:
