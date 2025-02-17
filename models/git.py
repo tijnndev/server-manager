@@ -37,9 +37,31 @@ class GitIntegration(db.Model):
     def pull_latest(self):
         """Pull the latest changes for the repository."""
         try:
-            subprocess.run(["git", "-C", self.server_directory, "pull", "origin", self.branch], check=True)
-            self.status = 'Updated'
+            # Fetch the latest changes from the remote without merging
+            subprocess.run(["git", "-C", self.directory, "fetch", "origin", self.branch], check=True)
+
+            # Get the status of the local and remote branches
+            result = subprocess.run(
+                ["git", "-C", self.directory, "rev-parse", f"HEAD"], 
+                capture_output=True, text=True, check=True
+            )
+            local_commit = result.stdout.strip()
+
+            result = subprocess.run(
+                ["git", "-C", self.directory, "rev-parse", f"origin/{self.branch}"], 
+                capture_output=True, text=True, check=True
+            )
+            remote_commit = result.stdout.strip()
+
+            # Compare local and remote commits
+            if local_commit == remote_commit:
+                self.status = 'Up to date'
+            else:
+                subprocess.run(["git", "-C", self.directory, "pull", "origin", self.branch], check=True)
+                self.status = 'Updated'
+
             db.session.commit()
+
         except subprocess.CalledProcessError as e:
             self.status = f"Error: {str(e)}"
             db.session.commit()
