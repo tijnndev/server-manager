@@ -1,6 +1,6 @@
-{% extends 'layout.html' %}
+{% extends 'service/service_layout.html' %}
 
-{% block content %}
+{% block service_content %}
     <div class="container mt-5">
         <h1>Edit file: {{ file_name }}</h1>
         <form action="{{ url_for('files.edit_file', name=service.name, file=file_path) }}" method="POST">
@@ -75,4 +75,4 @@
         }
     </script>
     
-{% endblock content %}
+{% endblock service_content %}
