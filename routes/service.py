@@ -7,6 +7,7 @@ from datetime import datetime
 from db import db
 from models.process import Process
 from models.discord_integration import DiscordIntegration
+from models.git import GitIntegration
 from utils import find_process_by_name, get_service_status
 
 service_routes = Blueprint('service', __name__)
@@ -121,8 +122,6 @@ CMD ["sh", "-c", "$COMMAND"]
 
     except OSError as e:
         return jsonify({"error": f"Failed to create service directory: {e}"}), 500
-    except DockerException as e:
-        return jsonify({"error": f"Failed to create Docker container: {e}"}), 500
     
 
 @service_routes.route('/delete/<name>', methods=['POST'])
@@ -131,6 +130,10 @@ def delete(name):
         service = Process.query.filter_by(name=name).first()
         if not service:
             return jsonify({"error": "Service not found"}), 404
+        
+        git_integrations = GitIntegration.query.filter_by(process_name=name).all()
+        for integration in git_integrations:
+            db.session.delete(integration)
 
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         if os.path.exists(service_dir):
@@ -144,6 +147,8 @@ def delete(name):
 
             shutil.rmtree(service_dir)
             print(f"Service directory {service_dir} removed successfully")
+
+        
         
         db.session.delete(service)
         db.session.commit()
@@ -270,7 +275,6 @@ def stream_logs(name):
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        # Log command to fetch Docker logs
         logs_command = ['//usr/local/bin/docker-compose', 'logs', '--tail', '50']
 
         process = subprocess.Popen(
@@ -279,12 +283,11 @@ def stream_logs(name):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1  # Set buffer size to line-buffered for real-time output
+            bufsize=1
         )
 
         def generate():
             try:
-                # Read stdout line-by-line to stream it immediately
                 for line in process.stdout:
                     yield f"data: {colorize_log(line)}\n\n"
             except Exception as e:
@@ -305,20 +308,6 @@ def colorize_log(log):
     log = ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log)
     log = log.replace('\033[0m', '</span>')
     return log
-
-
-def ansi_to_html(ansi_code):
-    color_map = {
-        "31": "red",
-        "32": "green",
-        "33": "yellow",
-        "34": "blue",
-        "35": "magenta",
-        "36": "cyan",
-        "37": "white",
-    }
-    return color_map.get(ansi_code.split(';')[0], "black")
-
 
 # @service_routes.route('/console/<string:name>/send', methods=['POST'])
 # def send_command(name):
