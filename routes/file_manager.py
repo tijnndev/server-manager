@@ -24,10 +24,10 @@ def file_manager(name):
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
     except ValueError:
-        return render_template('service/file_manager.html', files=[], error="Invalid path.", current_location="/")
+        return render_template('service/file_manager.html', service=service, files=[], error="Invalid path.", current_location="/")
 
     if not os.path.exists(current_location):
-        return render_template('service/file_manager.html', files=[], error="Location does not exist.", current_location="/")
+        return render_template('service/file_manager.html', service=service, files=[], error="Location does not exist.", current_location="/")
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
     files = [
@@ -130,7 +130,7 @@ def create_file(name):
     try:
         location = sanitize_path(ACTIVE_SERVERS_DIR, location)
     except ValueError:
-        return render_template('create_file.html', error="Invalid path.", location='/')
+        return render_template('create_file.html', service=service, error="Invalid path.", location='/')
 
     if request.method == 'POST':
         file_name = request.form.get('file_name')
@@ -143,7 +143,7 @@ def create_file(name):
                     f.write(file_code)
                 return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
             except ValueError:
-                return render_template('create_file.html', error="Invalid file path.", location=location)
+                return render_template('create_file.html', service=service, error="Invalid file path.", location=location)
 
     return render_template('create_file.html', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
@@ -168,7 +168,7 @@ def create_directory(name):
             except Exception as e:
                 return redirect(url_for('files.file_manager', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), error=f"Error creating directory: {e}"))
 
-    return render_template('create_directory.html', current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
+    return render_template('create_directory.html', service=service, current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
 
 @file_manager_routes.route('/file-manager/upload', methods=['POST'])
@@ -234,7 +234,7 @@ def edit_file(name):
     with open(file_path, 'r') as f:
         file_content = f.read()
 
-    return render_template('edit_file.html', file_path=file_path, file_content=file_content, file_name=file_name)
+    return render_template('edit_file.html', service=service, file_path=file_path, file_content=file_content, file_name=file_name)
 
 @file_manager_routes.route('/unzip/<name>', methods=['POST'])
 def unzip_file(name):
