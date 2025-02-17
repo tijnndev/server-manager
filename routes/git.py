@@ -3,6 +3,7 @@ import os
 from flask import Blueprint, jsonify, request, render_template
 from models.git import GitIntegration
 from utils import find_process_by_name, get_service_status
+from db import db
 
 git_routes = Blueprint('git', __name__)
 
@@ -31,6 +32,8 @@ def add_git_integration():
         return jsonify({"error": "Repository URL and directory are required"}), 400
 
     git_integration = GitIntegration(repository_url=repository_url, directory=directory, branch=branch)
+    db.session.add(git_integration)
+    db.session.commit()
     git_integration.clone_repo()
 
     return jsonify({
