@@ -5,7 +5,7 @@
     <h1>Git Integrations</h1>
 
     {% if show_add_repo_button %}
-    <a href="{{ url_for('git.add_form') }}" class="btn btn-primary">Add Repository</a>
+    <a href="{{ url_for('git.add_form', name=service.name) }}" class="btn btn-primary">Add Repository</a>
     {% endif %}
 
     <table>
