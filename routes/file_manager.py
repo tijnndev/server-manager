@@ -3,7 +3,7 @@ import zipfile
 import shutil
 import time
 from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for, flash
-
+from utils import find_process_by_name
 file_manager_routes = Blueprint('files', __name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
@@ -17,8 +17,9 @@ def sanitize_path(base, target):
         raise ValueError("Path traversal detected.")
     return normalized_path
 
-@file_manager_routes.route('/manage', methods=['GET', 'POST'])
-def file_manager():
+@file_manager_routes.route('/manage/<name>', methods=['GET', 'POST'])
+def file_manager(name):
+    service = find_process_by_name(name)
     location_param = request.args.get('location', '')
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
@@ -57,7 +58,7 @@ def file_manager():
             except ValueError:
                 flash("Invalid upload path.", "danger")
     
-    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager")
+    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager" service=service)
 
 
 @file_manager_routes.route('/file-manager/delete', methods=['POST'])
