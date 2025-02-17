@@ -1,6 +1,6 @@
 import subprocess
 import os
-from flask import Blueprint, jsonify, request, render_template, url_for
+from flask import Blueprint, jsonify, request, render_template, url_for, redirect
 from models.git import GitIntegration
 from utils import find_process_by_name, get_service_status
 from db import db
@@ -36,7 +36,7 @@ def add_git_integration(name):
     db.session.commit()
     git_integration.clone_repo()
 
-    return url_for("git.git", name=name)
+    return redirect(url_for("git.git", name=name))
 
 @git_routes.route('/<name>/pull_latest/<int:integration_id>', methods=['POST'])
 def pull_latest(name, integration_id):
@@ -45,7 +45,7 @@ def pull_latest(name, integration_id):
         return jsonify({"error": "Git integration not found"}), 404
 
     git_integration.pull_latest()
-    return url_for("git.git", name=name)
+    return redirect(url_for("git.git", name=name))
 
 @git_routes.route('/<name>/remove_git_integration/<int:integration_id>', methods=['POST'])
 def remove_git_integration(name, integration_id):
@@ -54,4 +54,4 @@ def remove_git_integration(name, integration_id):
         return jsonify({"error": "Git integration not found"}), 404
 
     git_integration.remove_repo()
-    return url_for("git.git", name=name)
+    return redirect(url_for("git.git", name=name))
