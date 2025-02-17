@@ -49,6 +49,7 @@ class GitIntegration(db.Model):
         try:
             shutil.rmtree(self.server_directory)
             self.status = 'Removed'
+            db.session.delete(self)
             db.session.commit()
         except Exception as e:
             self.status = f"Error: {str(e)}"
