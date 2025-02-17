@@ -127,7 +127,7 @@ def nginx(name):
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
         
         elif action == "restart_nginx":
-            render_template('nginx/index.html', service=process)
+            redirect('/')
             time.sleep(2)
             subprocess.run(["sudo", "systemctl", "restart", "nginx"])
     
