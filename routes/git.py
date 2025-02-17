@@ -45,7 +45,7 @@ def pull_latest(name, integration_id):
         return jsonify({"error": "Git integration not found"}), 404
 
     git_integration.pull_latest()
-    return jsonify({"message": f"Repository at {git_integration.directory} updated", "status": git_integration.status})
+    return url_for("git.git", name=name)
 
 @git_routes.route('/<name>/remove_git_integration/<int:integration_id>', methods=['POST'])
 def remove_git_integration(name, integration_id):
@@ -54,4 +54,4 @@ def remove_git_integration(name, integration_id):
         return jsonify({"error": "Git integration not found"}), 404
 
     git_integration.remove_repo()
-    return jsonify({"message": f"Repository at {git_integration.directory} removed", "status": git_integration.status})
+    return url_for("git.git", name=name)
