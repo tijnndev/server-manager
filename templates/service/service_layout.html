@@ -13,16 +13,16 @@
                         <a class="nav-link {% if "settings" in g.page %} active {% endif %}" href="{{ url_for('service.settings', name=service.name) }}">Settings</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('files.file_manager', name=service.name) }}">File Manager</a>
+                        <a class="nav-link {% if "file" in g.page %} active {% endif %}" href="{{ url_for('files.file_manager', name=service.name) }}">File Manager</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('service.discord', name=service.name) }}">Discord</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('nginx.nginx', name=service.name) }}">Nginx</a>
+                        <a class="nav-link {% if "nginx" in g.page %} active {% endif %}" href="{{ url_for('nginx.nginx', name=service.name) }}">Nginx</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('git.git', name=service.name) }}">Git</a>
+                        <a class="nav-link {% if "git" in g.page %} active {% endif %}" href="{{ url_for('git.git', name=service.name) }}">Git</a>
                     </li>
                 </ul>
             </div>
