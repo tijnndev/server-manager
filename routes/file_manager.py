@@ -58,7 +58,7 @@ def file_manager(name):
             except ValueError:
                 flash("Invalid upload path.", "danger")
     
-    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager" service=service)
+    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager", service=service)
 
 
 @file_manager_routes.route('/file-manager/delete', methods=['POST'])
