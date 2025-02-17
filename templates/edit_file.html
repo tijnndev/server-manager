@@ -6,7 +6,7 @@
         <form action="{{ url_for('files.edit_file', file=file_path) }}" method="POST">
             <div class="mb-3">
                 <label for="file_name" class="form-label">File Name (with extension)</label>
-                <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required oninput="validateFileName()">
+                <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required>
             </div>
 
             <div class="mb-3">
@@ -69,11 +69,6 @@
             var fileExtension = getFileExtension(fileName);
             document.getElementById("file_name").value = fileName;  // No need to add extension here
         });
-    
-        function validateFileName() {
-            var fileName = document.getElementById("file_name").value;
-            document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9/-]/g, '');
-        }
     
         function getFileExtension(fileName) {
             return fileName.slice(((fileName.lastIndexOf(".") - 1) >>> 0) + 2);  // Extract extension from filename
