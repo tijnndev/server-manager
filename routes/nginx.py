@@ -127,6 +127,7 @@ def nginx(name):
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
         
         elif action == "restart_nginx":
+            render_template('nginx/index.html', service=process)
             subprocess.run(["sudo", "systemctl", "restart", "nginx"])
     
     cert_exists = os.path.exists(cert_path)
