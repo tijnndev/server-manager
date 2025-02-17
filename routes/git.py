@@ -10,7 +10,7 @@ git_routes = Blueprint('git', __name__)
 @git_routes.route('/<name>', methods=['GET'])
 def git(name):
     service = find_process_by_name(name)
-    integrations = GitIntegration.query.all()
+    integrations = GitIntegration.query.filter_by(process_name=name).all()
     show_add_repo_button = len(integrations) == 0  # Show the button if no integrations exist
     return render_template('git/index.html', service=service, integrations=integrations, show_add_repo_button=show_add_repo_button)
 
@@ -31,7 +31,7 @@ def add_git_integration(name):
     if not repository_url or not directory:
         return jsonify({"error": "Repository URL and directory are required"}), 400
 
-    git_integration = GitIntegration(repository_url=repository_url, directory=directory, branch=branch)
+    git_integration = GitIntegration(repository_url=repository_url, directory=directory, process_name=name, branch=branch)
     db.session.add(git_integration)
     db.session.commit()
     git_integration.clone_repo()

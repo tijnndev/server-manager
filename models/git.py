@@ -7,12 +7,14 @@ class GitIntegration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     repository_url = db.Column(db.String(255), nullable=False)
     directory = db.Column(db.String(255), nullable=False)
+    process_name = db.Column(db.String(255), nullable=False)
     branch = db.Column(db.String(255), nullable=True, default='main')
     status = db.Column(db.String(255), nullable=False, default='Not Cloned')
 
-    def __init__(self, repository_url, directory, branch='main', status='Not Cloned'):
+    def __init__(self, repository_url, directory, process_name, branch='main', status='Not Cloned'):
         self.repository_url = repository_url
         self.directory = directory
+        self.process_name = process_name
         self.branch = branch
         self.status = status
 
