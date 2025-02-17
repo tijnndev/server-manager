@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Integrations</title>
+</head>
+<body>
+    <h1>Git Integrations</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Repository URL</th>
+                <th>Directory</th>
+                <th>Branch</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for integration in integrations %}
+                <tr>
+                    <td>{{ integration.repository_url }}</td>
+                    <td>{{ integration.directory }}</td>
+                    <td>{{ integration.branch }}</td>
+                    <td>{{ integration.status }}</td>
+                    <td>
+                        <form action="{{ url_for('git.pull_latest', integration_id=integration.id) }}" method="POST">
+                            <button type="submit">Pull Latest</button>
+                        </form>
+                        <form action="{{ url_for('git.remove_git_integration', integration_id=integration.id) }}" method="POST">
+                            <button type="submit">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

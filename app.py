@@ -12,6 +12,7 @@ from db import db
 from dotenv import load_dotenv
 from utils import find_process_by_name
 from routes.nginx import nginx_routes
+from routes.git import git_routes
 
 load_dotenv()
 
@@ -135,6 +136,7 @@ app.register_blueprint(process_routes, url_prefix='/process')
 app.register_blueprint(service_routes, url_prefix='/services')
 app.register_blueprint(file_manager_routes, url_prefix='/files')
 app.register_blueprint(nginx_routes, url_prefix='/nginx')
+app.register_blueprint(git_routes, url_prefix='/git')
 
 
 

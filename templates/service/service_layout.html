@@ -21,6 +21,9 @@
                     <li class="nav-item">
                         <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('nginx.nginx', name=service.name) }}">Nginx</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('git.git', name=service.name) }}">Git</a>
+                    </li>
                 </ul>
             </div>
     </nav>
