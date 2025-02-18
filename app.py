@@ -1,6 +1,6 @@
 import json
 import redis, os, time, threading, requests, logging, subprocess, signal, sys
-from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g
+from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g, flash
 from models.user import User
 from routes.file_manager import file_manager_routes
 from routes.service import service_routes
@@ -165,7 +165,7 @@ def login():
             session['username'] = user.username
             return redirect(url_for('dashboard'))
         else:
-            return render_template('login.html', error="Invalid username or password")
+            flash("Invalid username or password")
 
     return render_template('login.html')
 

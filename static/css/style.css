@@ -51,7 +51,8 @@ body.dark-theme {
 }
 
 /* Login Page Styles */
-.login-container {
+.login-container,
+.dashboard-container {
     min-height: 100vh;
     display: flex;
     align-items: center;
