@@ -10,6 +10,7 @@
     --border-color: #1a1a1a;
     --gradient-start: rgba(0, 146, 128, 0.1);
     --gradient-end: rgba(0, 146, 128, 0.3);
+    --card-bg: rgba(26, 26, 26, 0.8);
 }
 
 body.dark-theme {
@@ -336,6 +337,7 @@ body.dark-theme {
 
 .server-card:hover {
     transform: translateY(-5px);
+    text-decoration: none;
     box-shadow: 0 8px 16px rgba(0, 146, 128, 0.2);
 }
 
