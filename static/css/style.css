@@ -821,7 +821,6 @@ textarea.form-control {
 }
 
 .create-container #add-service-form {
-    max-width: 800px;
     margin: 0 auto;
 }
 
