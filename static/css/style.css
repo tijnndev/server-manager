@@ -3,13 +3,13 @@
     --primary-color: #009280;
     --primary-dark: #007266;
     --primary-light: #00b39e;
-    --bg-dark: #1a1a1a;
-    --bg-darker: #121212;
+    --bg-dark: #000000;
+    --bg-darker: #000000;
     --text-light: #ffffff;
     --text-muted: #a0a0a0;
-    --border-color: #2a2a2a;
-    --gradient-start: #00928066;
-    --gradient-end: #007266cc;
+    --border-color: #1a1a1a;
+    --gradient-start: rgba(0, 146, 128, 0.1);
+    --gradient-end: rgba(0, 146, 128, 0.3);
 }
 
 body.dark-theme {
@@ -22,7 +22,7 @@ body.dark-theme {
 /* Navbar Styles */
 .custom-navbar {
     background: var(--bg-darker);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 10px rgba(0, 146, 128, 0.2);
     padding: 1rem 0;
 }
 
@@ -50,36 +50,37 @@ body.dark-theme {
     color: var(--primary-color) !important;
 }
 
-.btn-logout {
-    background: var(--primary-color);
-    color: white;
-    padding: 0.5rem 1.5rem;
-    border-radius: 4px;
-    transition: all 0.3s ease;
-}
-
-.btn-logout:hover {
-    background: var(--primary-dark);
-    color: white;
-    transform: translateY(-1px);
-}
-
 /* Login Page Styles */
 .login-container {
     min-height: calc(100vh - 76px);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+    background: radial-gradient(circle at center, var(--gradient-end) 0%, var(--bg-dark) 70%);
+    position: relative;
+    overflow: hidden;
+}
+
+.login-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(0, 146, 128, 0.1) 0%, transparent 40%);
+    pointer-events: none;
 }
 
 .login-card {
-    background: var(--bg-darker);
+    background: rgba(0, 0, 0, 0.8);
     padding: 2.5rem;
     border-radius: 12px;
     width: 100%;
     max-width: 400px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 146, 128, 0.2);
+    border: 1px solid rgba(0, 146, 128, 0.1);
+    backdrop-filter: blur(10px);
     animation: slideIn 0.5s ease-out;
 }
 
@@ -92,6 +93,7 @@ body.dark-theme {
     font-size: 3rem;
     color: var(--primary-color);
     margin-bottom: 1rem;
+    animation: glow 2s ease-in-out infinite alternate;
 }
 
 .login-header h1 {
@@ -109,6 +111,7 @@ body.dark-theme {
     border: 1px solid var(--border-color);
     border-radius: 6px;
     transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.3);
 }
 
 .input-group:focus-within {
@@ -121,7 +124,7 @@ body.dark-theme {
     left: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--text-muted);
+    color: var(--primary-color);
 }
 
 .form-control {
@@ -149,11 +152,13 @@ body.dark-theme {
     justify-content: center;
     gap: 0.5rem;
     transition: all 0.3s ease;
+    border: none;
 }
 
 .btn-login:hover {
     background: var(--primary-dark);
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 146, 128, 0.3);
 }
 
 .btn-login.loading {
@@ -175,6 +180,67 @@ body.dark-theme {
     border-radius: 50%;
     position: absolute;
     animation: spin 0.8s linear infinite;
+}
+
+/* Animations */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes glow {
+    from {
+        text-shadow: 0 0 5px rgba(0, 146, 128, 0.5),
+                     0 0 10px rgba(0, 146, 128, 0.3);
+    }
+    to {
+        text-shadow: 0 0 10px rgba(0, 146, 128, 0.8),
+                     0 0 20px rgba(0, 146, 128, 0.5);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .login-card {
+        margin: 1rem;
+        padding: 2rem;
+    }
+
+    .navbar-nav {
+        margin-top: 1rem;
+    }
+
+    .btn-logout {
+        margin-top: 1rem;
+        width: 100%;
+        text-align: center;
+    }
+}
+
+.btn-logout {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.btn-logout:hover {
+    background: var(--primary-dark);
+    color: white;
+    transform: translateY(-1px);
 }
 
 /* Drag and Drop Overlay */
@@ -232,40 +298,4 @@ body.dark-theme {
 .upload-status.error {
     background: #dc3545;
     color: white;
-}
-
-/* Animations */
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .login-card {
-        margin: 1rem;
-        padding: 2rem;
-    }
-    
-    .navbar-nav {
-        margin-top: 1rem;
-    }
-    
-    .btn-logout {
-        margin-top: 1rem;
-        width: 100%;
-        text-align: center;
-    }
 }
