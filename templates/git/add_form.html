@@ -2,7 +2,7 @@
 
 {% block service_content %}
 <div class="container mt-4">
-    <h1>Add New Git Repository</h1>
+    <h2>Add New Git Repository</h2>
     <form action="{{ url_for('git.add_git_integration', name=service.name) }}" method="POST">
         <div class="form-group">
             <label for="repository_url">Repository URL</label>
