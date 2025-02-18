@@ -148,15 +148,14 @@ body.dark-theme {
 
 .form-control {
     background: transparent;
-    border: none;
     color: var(--text-light);
-    padding: 0.8rem 1rem 0.8rem 2.8rem;
 }
 
 .form-control:focus {
     background: transparent;
     color: var(--text-light);
     box-shadow: none;
+    border-color: var(--primary-color);
 }
 
 .btn-login {
