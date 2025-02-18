@@ -369,3 +369,7 @@ body.dark-theme {
     background: rgba(220, 53, 69, 0.1);
     color: #dc3545;
 }
+
+.col-md-4 a:hover {
+    text-decoration: none;
+}
