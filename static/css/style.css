@@ -415,3 +415,50 @@ body.dark-theme {
 .console-controls .btn {
     min-width: 100px;
 }
+
+/* Service Navigation Styles */
+.navbar.navbar-light.bg-light {
+    background: var(--card-bg) !important;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.navbar .nav-link {
+    color: var(--text-light) !important;
+    padding: 0.75rem 1.25rem;
+    margin: 0 0.25rem;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.navbar .nav-link:hover {
+    background: rgba(0, 146, 128, 0.1);
+    color: var(--primary-color) !important;
+}
+
+.navbar .nav-link.active {
+    background: var(--primary-color);
+    color: white !important;
+}
+
+.navbar .nav-link.active:hover {
+    background: var(--primary-dark);
+    color: white !important;
+}
+
+@media (max-width: 768px) {
+    .navbar-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    
+    .nav-item {
+        margin: 0.25rem;
+    }
+    
+    .navbar .nav-link {
+        padding: 0.5rem 1rem;
+    }
+}
