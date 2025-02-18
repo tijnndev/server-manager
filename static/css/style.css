@@ -529,6 +529,6 @@ textarea.form-control {
 }
 
 .settings-container .form-control {
-    padding: 0;
+    padding: .375rem .75rem;
     border: 1px solid var(--border-color);
 }
