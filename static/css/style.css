@@ -791,3 +791,64 @@ textarea.form-control {
     margin-left: 0.5rem;
     cursor: pointer;
 }
+
+/* Create Process Page Styles */
+.create-container .card.p-4.shadow-sm {
+    background: var(--card-bg);
+    border: 1px solid rgba(0, 146, 128, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.create-container .form-select {
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    color: var(--text-light);
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.create-container .form-select:focus {
+    background-color: rgba(0, 0, 0, 0.4);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 146, 128, 0.2);
+}
+
+.create-container .form-select option {
+    background-color: var(--bg-darker);
+    color: var(--text-light);
+    padding: 10px;
+}
+
+.create-container #add-service-form {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.create-container #add-service-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.create-container #add-service-form .btn-primary {
+    width: 100%;
+    padding: 1rem;
+    font-weight: 500;
+    margin-top: 1rem;
+}
+
+.create-container #add-service-form .form-label {
+    color: var(--text-light);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.create-container .btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.create-container .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
