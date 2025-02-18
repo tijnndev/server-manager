@@ -149,6 +149,7 @@ body.dark-theme {
 .form-control {
     background: transparent;
     color: var(--text-light);
+    border: 1px solid var(--border-color);
 }
 
 .form-control:focus {
