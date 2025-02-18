@@ -1,6 +1,17 @@
 {% extends 'service/service_layout.html' %}
 
 {% block service_content %}
+<style>
+    .file-editor-container {
+      border: 1px solid #ccc;
+      padding: 20px;
+    }
+    .file-editor-header {
+      background-color: #f0f0f0;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    </style>
     <div class="container mt-5">
         <h1>Edit file: {{ file_name }}</h1>
         <form action="{{ url_for('files.edit_file', name=service.name, file=file_path) }}" method="POST">
