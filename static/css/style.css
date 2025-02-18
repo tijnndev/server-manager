@@ -373,3 +373,45 @@ body.dark-theme {
 .col-md-4 a:hover {
     text-decoration: none;
 }
+/* Console Page Styles */
+.console-output {
+    background: var(--bg-darker);
+    color: var(--text-light);
+    font-family: 'Monaco', 'Consolas', monospace;
+    padding: 1.5rem;
+    height: 600px;
+    overflow-y: auto;
+    font-size: 13px;
+    white-space: pre-wrap;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.console-output::-webkit-scrollbar {
+    width: 8px;
+}
+
+.console-output::-webkit-scrollbar-track {
+    background: var(--bg-darker);
+}
+
+.console-output::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+#service-uptime {
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.console-controls {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.console-controls .btn {
+    min-width: 100px;
+}
