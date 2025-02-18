@@ -317,3 +317,53 @@ body.dark-theme {
     background: #dc3545;
     color: white;
 }
+
+.dashboard-container {
+    padding: 2rem;
+}
+
+.services-grid {
+    gap: 1.5rem;
+}
+
+.server-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(0, 146, 128, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.server-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 146, 128, 0.2);
+}
+
+.server-card .card-body {
+    padding: 1.5rem;
+}
+
+.server-card .card-title {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+}
+
+.server-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.server-status.text-success {
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+}
+
+.server-status.text-danger {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
