@@ -18,14 +18,14 @@
     
     <h2 class="">Console for {{ service.name }}</h2>
     
-    <div class="text-dark mb-4">
+    <div class="text-light mb-4">
         Status: 
         <span class="server-status text-{{ 'success' if service_status == 'Running' else 'danger' }}">
             <span class="server-status-label">{{ service_status | capitalize }}</span>
         </span>
     </div>
 
-    <div class="text-dark mb-4">
+    <div class="text-light mb-4">
         Uptime: 
         <span id="service-uptime">Fetching uptime...</span>
     </div>
