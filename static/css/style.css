@@ -527,3 +527,8 @@ textarea.form-control {
 .btn-danger:hover {
     background: #c82333;
 }
+
+.settings-container .form-control {
+    padding: 0;
+    border: 1px solid var(--border-color);
+}
