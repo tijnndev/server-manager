@@ -701,6 +701,9 @@ textarea.form-control {
     font-size: 14px;
 }
 
+.ace-github {
+    color: #fff;
+}
 .ace_editor {
     background: var(--bg-darker) !important;
 }
