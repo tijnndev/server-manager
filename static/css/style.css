@@ -335,6 +335,10 @@ body.dark-theme {
     text-decoration: none;
 }
 
+.server-card p {
+    color: var(--text-light)
+}
+
 .server-card:hover {
     transform: translateY(-5px);
     text-decoration: none;
