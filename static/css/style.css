@@ -750,7 +750,6 @@ textarea.form-control {
 
 /* Custom Checkbox Styles */
 .form-check {
-    padding: 0.5rem;
     margin-bottom: 0.5rem;
     border-radius: 6px;
     transition: background-color 0.2s ease;
