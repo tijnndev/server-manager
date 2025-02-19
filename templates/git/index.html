@@ -21,10 +21,10 @@
         <tbody>
             {% for integration in integrations %}
                 <tr>
-                    <td>{{ integration.repository_url }}</td>
-                    <td>{{ integration.directory }}</td>
-                    <td>{{ integration.branch }}</td>
-                    <td>{{ integration.status }}</td>
+                    <td class="text-light">{{ integration.repository_url }}</td>
+                    <td class="text-light">{{ integration.directory }}</td>
+                    <td class="text-light">{{ integration.branch }}</td>
+                    <td class="text-light">{{ integration.status }}</td>
                     <td>
                         <form action="{{ url_for('git.pull_latest', name=service.name, integration_id=integration.id) }}" method="POST" class="d-inline-block">
                             <button type="submit" class="btn btn-sm btn-info">Pull Latest</button>
