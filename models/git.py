@@ -59,6 +59,7 @@ class GitIntegration(db.Model):
     def pull_latest(self):
         """Pull the latest changes for the repository."""
         try:
+            subprocess.run(["git", "-C", self.server_directory, "stash"], check=True)
             subprocess.run(["git", "-C", self.server_directory, "fetch", "origin", self.branch], check=True)
 
             result = subprocess.run(
