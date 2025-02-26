@@ -73,14 +73,14 @@ body.dark-theme {
     pointer-events: none;
 }
 
-.dashboard-container {
+.content-wrapper:has(.dashboard-container) {
     min-height: 100vh;
     background: radial-gradient(circle at center, var(--gradient-end) 0%, var(--bg-dark) 70%);
     position: relative;
     overflow: hidden;
 }
 
-.dashboard-container::before {
+.content-wrapper:has(.dashboard-container)::before {
     content: '';
     position: absolute;
     top: 0;
