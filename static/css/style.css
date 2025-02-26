@@ -144,6 +144,11 @@ body.dark-theme {
     top: 50%;
     transform: translateY(-50%);
     color: var(--primary-color);
+    margin-right: 20px;
+}
+
+.input-group .form-control {
+    padding-left: 2.5rem;
 }
 
 .form-control {
