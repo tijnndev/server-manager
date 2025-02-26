@@ -420,7 +420,7 @@ def rebuild(name):
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
         os.system('//usr/local/bin/docker-compose build')
 
-        return jsonify({"message": f"Service {name} rebuilt successfully!"})
+        return redirect(url_for('service.console', name=service.name))
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
