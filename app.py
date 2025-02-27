@@ -144,7 +144,6 @@ app.register_blueprint(git_routes, url_prefix='/git')
 @app.route('/')
 @auth_check()
 def dashboard():
-    print(url_for("reset_token"))
     user = session.get('username')
     return render_template('dashboard.html', user=user)
 
@@ -263,6 +262,7 @@ def logout():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
+    print(url_for("reset_token"))
     secret = os.getenv("GITHUB_WEBHOOK_SECRET")
     signature = request.headers.get('X-Hub-Signature-256')
     
