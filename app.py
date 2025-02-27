@@ -144,6 +144,7 @@ app.register_blueprint(git_routes, url_prefix='/git')
 @app.route('/')
 @auth_check()
 def dashboard():
+    print(url_for("reset_token"))
     user = session.get('username')
     return render_template('dashboard.html', user=user)
 
