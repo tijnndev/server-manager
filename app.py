@@ -212,6 +212,8 @@ def reset_password():
         if user:
             token = generate_random_string(10)
             user.reset_token = token
+            db.session.add(user)
+            db.session.commit()
             reset_url = url_for('reset_token', token=token, _external=True)
 
             email_body = generate_reset_email_body(reset_url)
@@ -226,11 +228,11 @@ def reset_password():
 
         return redirect(url_for('login'))
 
-    return render_template('reset_password_request.html')
+    return render_template('reset_password.html')
 
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_token(token):
-    user = User.verify_reset_token(token)
+    user = User.verify_reset_token(token=token)
     if not user:
         flash('That is an invalid or expired token', 'warning')
         return redirect(url_for('reset_password'))

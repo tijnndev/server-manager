@@ -1,6 +1,7 @@
 from db import db
 from models.base_model import BaseModel
 from werkzeug.security import generate_password_hash, check_password_hash
+from typing import Optional
 
 class User(BaseModel):
     __tablename__ = 'users'
@@ -24,6 +25,11 @@ class User(BaseModel):
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }
+    
+    @classmethod
+    def verify_reset_token(cls, token: str) -> Optional["User"]:
+        """Finds a user by reset token."""
+        return cls.query.filter_by(reset_token=token).first()
 
     def set_password(self, password: str):
         """Hashes and sets the password for the user."""
