@@ -147,11 +147,9 @@ def dashboard():
     user = session.get('username')
     return render_template('dashboard.html', user=user)
 
-# @app.before_request
-# def before_request():
-#     g.page = request.endpoint
-#     if ('username' not in session or 'user_id' not in session) and request.endpoint not in ['login', 'register', 'static', 'webhook']:
-#         return redirect(url_for('login'))
+@app.before_request
+def before_request():
+    g.page = request.endpoint
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
