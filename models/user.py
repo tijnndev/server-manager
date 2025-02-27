@@ -10,6 +10,7 @@ class User(BaseModel):
     password_hash = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False, unique=True)
     role = db.Column(db.String(50), nullable=False, default="user")
+    reset_token = db.Column(db.String(50), nullable=True)
 
     def __repr__(self):
         return f"<User {self.username}>"

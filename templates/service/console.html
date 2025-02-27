@@ -93,7 +93,7 @@
     try {
         consoleOutput.innerHTML += `broodcode-bot-1  | Service start command received\n`;
         
-        const response = await fetch(`{{ url_for('service.start_service', name="") }}${name}`, {
+        const response = await fetch(`{{ url_for('service.start_service_console', name="") }}${name}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -126,7 +126,7 @@
 
     async function stopService(name) {
         consoleOutput.innerHTML += `broodcode-bot-1  | Service stop command received\n`;
-        const response = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
+        const response = await fetch(`{{ url_for('service.stop_service_console', name="") }}` + name, { method: 'POST' });
         if (response.ok) {
             consoleOutput.innerHTML += `broodcode-bot-1  | Service stopped\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
@@ -143,13 +143,13 @@
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
         updateServiceStatus('restarting');
         
-        const stopResponse = await fetch(`{{ url_for('service.stop_service', name="") }}` + name, { method: 'POST' });
+        const stopResponse = await fetch(`{{ url_for('service.stop_service_console', name="") }}` + name, { method: 'POST' });
         if (stopResponse.ok) {
             consoleOutput.innerHTML += `broodcode-bot-1  | Service stopped successfully.\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             
             setTimeout(async () => {
-                const startResponse = await fetch(`{{ url_for('service.start_service', name="") }}` + name, { method: 'POST' });
+                const startResponse = await fetch(`{{ url_for('service.start_service_console', name="") }}` + name, { method: 'POST' });
                 if (startResponse.ok) {
                     consoleOutput.innerHTML += `broodcode-bot-1  | Service started successfully.\n`;
                     consoleOutput.scrollTop = consoleOutput.scrollHeight;

@@ -1,14 +1,17 @@
 import shutil
 import time, yaml
 import subprocess
-from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for
+from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
 import os, json, re
 from datetime import datetime
 from db import db
 from models.process import Process
 from models.discord_integration import DiscordIntegration
 from models.git import GitIntegration
-from utils import find_process_by_name, get_service_status
+from models.subuser import SubUser
+from decorators import owner_or_subuser_required, owner_required
+from models.user import User
+from utils import find_process_by_name, get_service_status, generate_random_string, send_email
 
 service_routes = Blueprint('service', __name__)
 
@@ -22,10 +25,28 @@ def is_within_base_dir(path, base=ACTIVE_SERVERS_DIR):
     return os.path.commonpath([abs_base]) == os.path.commonpath([abs_base, abs_path])
 
 
+from models.subuser import SubUser
+
 def load_services():
     services = {}
 
-    processes = Process.query.all()
+    user_id = session.get('user_id')
+    if not user_id:
+        return services
+    
+    
+    
+    user = User.query.filter_by(id=user_id).first()
+
+    owned_processes = Process.query.filter_by(owner_id=user_id).all()
+    sub_user_processes = Process.query.join(SubUser, Process.name == SubUser.process).filter(SubUser.email == user.email).all()
+
+    processes = owned_processes + sub_user_processes
+
+    print(session.get('role'))
+    print(user_id)
+    if session.get("role") == "admin":
+        processes = Process.query.all()
 
     for process in processes:
         response = get_service_status(process.name)
@@ -43,6 +64,7 @@ def load_services():
             }
 
     return services
+
 
 @service_routes.route('/', methods=['GET'])
 def get_services():
@@ -125,7 +147,8 @@ CMD ["sh", "-c", "$COMMAND"]
     
 
 @service_routes.route('/delete/<name>', methods=['POST'])
-def delete(name):
+@owner_required()
+def settings_delete(name):
     try:
         service = Process.query.filter_by(name=name).first()
         if not service:
@@ -161,7 +184,8 @@ def delete(name):
 
 
 @service_routes.route('/start/<string:name>', methods=['POST'])
-def start_service(name):
+@owner_or_subuser_required()
+def start_service_console(name):
     service = find_process_by_name(name)
     if not service:
         return jsonify({"error": "Service not found"}), 404
@@ -185,7 +209,8 @@ def start_service(name):
 
 
 @service_routes.route('/stop/<string:name>', methods=['POST'])
-def stop_service(name):
+@owner_or_subuser_required()
+def stop_service_console(name):
     service = find_process_by_name(name)
     if not service:
         return jsonify({"error": "Service not found"}), 404
@@ -222,6 +247,7 @@ def calculate_uptime(startup_date):
 
 
 @service_routes.route('/console/<string:name>', methods=['GET'])
+@owner_or_subuser_required()
 def console(name):
     service = find_process_by_name(name)
     
@@ -236,14 +262,15 @@ def console(name):
         status = "Failed"
     return render_template('service/console.html', service=service, service_status=status)
 
-@service_routes.route('/console/<service_name>/uptime')
-def get_uptime(service_name):
-    process = find_process_by_name(service_name)
+@service_routes.route('/console/<name>/uptime')
+@owner_or_subuser_required()
+def get_console_uptime(name):
+    process = find_process_by_name(name)
     if not process:
         return jsonify({'error': 'Service not found'}), 404
 
     try:
-        service_dir = os.path.join(ACTIVE_SERVERS_DIR, service_name)
+        service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         os.chdir(service_dir)
 
         result = subprocess.run(['docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
@@ -267,7 +294,8 @@ def get_uptime(service_name):
 
 
 @service_routes.route('/console/<string:name>/logs', methods=['GET'])
-def stream_logs(name):
+@owner_or_subuser_required()
+def console_stream_logs(name):
     service = find_process_by_name(name)
     if not service:
         return jsonify({"error": "Service not found"}), 404
@@ -345,6 +373,7 @@ def ansi_to_html(ansi_code):
     return 'black'
 
 @service_routes.route('/settings/<string:name>', methods=['GET', 'POST'])
+@owner_or_subuser_required()
 def settings(name):
     service = find_process_by_name(name)
     if not service:
@@ -411,7 +440,8 @@ def settings(name):
 
 
 @service_routes.route('/rebuild/<name>', methods=['POST'])
-def rebuild(name):
+@owner_required()
+def settings_rebuild(name):
     service = find_process_by_name(name)
     if not service:
         return redirect(url_for('service.index'))
@@ -427,6 +457,7 @@ def rebuild(name):
 
 
 @service_routes.route('/discord/<string:name>', methods=['GET', 'POST'])
+@owner_or_subuser_required()
 def discord(name):
     process = find_process_by_name(name)
     if request.method == 'POST':
@@ -449,3 +480,213 @@ def discord(name):
 
     integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
     return render_template('service/discord.html', service=process, integration=integration)
+
+@service_routes.route('/subusers/<string:name>', methods=['GET'])
+@owner_or_subuser_required()
+def subusers(name):
+    service = find_process_by_name(name)
+    users = SubUser.query.filter_by(process=name).all()
+    return render_template('service/subusers.html', service=service, users=users)
+
+@service_routes.route('/subusers/<string:name>/invite', methods=['GET', 'POST'])
+@owner_or_subuser_required()
+def invite_subuser(name):
+    if request.method == 'POST':
+        email = request.form.get('email')
+        permissions = request.form.getlist('permissions')
+
+        if not email or not permissions:
+            flash('Please provide an email and select at least one permission.', 'danger')
+            return redirect(url_for('service_routes.invite_subuser', name=name))
+
+        existing_user = User.query.filter_by(email=email).first()
+
+        if existing_user:
+            sub_user = SubUser(
+                email=existing_user.email,
+                permissions=permissions,
+                process=name,
+                sub_role="sub_user",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.session.add(sub_user)
+            db.session.commit()
+
+            subject = "You have been added to the project"
+            body = f"""
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>You have been added to the project</title>
+                    <style>
+                        body {{
+                            font-family: Arial, sans-serif;
+                            background-color: #f4f4f4;
+                            margin: 0;
+                            padding: 0;
+                        }}
+                        .container {{
+                            width: 100%;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            background-color: #ffffff;
+                            padding: 20px;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                        }}
+                        h1 {{
+                            color: #333333;
+                            font-size: 24px;
+                        }}
+                        p {{
+                            color: #555555;
+                            font-size: 16px;
+                            line-height: 1.6;
+                        }}
+                        .button {{
+                            background-color: #4CAF50;
+                            color: #ffffff;
+                            padding: 10px 20px;
+                            text-decoration: none;
+                            border-radius: 4px;
+                            display: inline-block;
+                        }}
+                        .button:hover {{
+                            background-color: #45a049;
+                        }}
+                        .footer {{
+                            font-size: 12px;
+                            color: #777777;
+                            text-align: center;
+                            margin-top: 20px;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>You have been added to the project</h1>
+                        <p>Hello <strong>{existing_user.username}</strong>,</p>
+                        <p>You have been successfully added as a sub-user to the project '<strong>{name}</strong>'.</p>
+                        <p>You can now manage your permissions and settings from the <a href="https://yourpanel.com" class="button">project panel</a>.</p>
+                        <div class="footer">
+                            <p>If you have any questions, feel free to reach out to us.</p>
+                            <p>&copy; 2025 ServerMonitor</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            """
+            send_email(existing_user.email, subject, body, type='auth')
+
+        else:
+            reset_token = generate_random_string(10)
+            new_user = User(
+                username=email,
+                email=email,
+                password_hash="",
+                reset_token=reset_token
+            )
+            db.session.add(new_user)
+            db.session.commit()
+
+            # Create sub-user entry for the new user
+            sub_user = SubUser(
+                email=email,
+                permissions=permissions,
+                process=name,
+                sub_role="sub_user",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.session.add(sub_user)
+            db.session.commit()
+
+            subject = "Create Your Account"
+            reset_url = f"https://yourapp.com/reset-password/{reset_token}"
+            body = f"""
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Create Your Account</title>
+                    <style>
+                        body {{
+                            font-family: Arial, sans-serif;
+                            background-color: #f4f4f4;
+                            margin: 0;
+                            padding: 0;
+                        }}
+                        .container {{
+                            width: 100%;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            background-color: #ffffff;
+                            padding: 20px;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                        }}
+                        h1 {{
+                            color: #333333;
+                            font-size: 24px;
+                        }}
+                        p {{
+                            color: #555555;
+                            font-size: 16px;
+                            line-height: 1.6;
+                        }}
+                        .button {{
+                            background-color: #4CAF50;
+                            color: #ffffff;
+                            padding: 10px 20px;
+                            text-decoration: none;
+                            border-radius: 4px;
+                            display: inline-block;
+                        }}
+                        .button:hover {{
+                            background-color: #45a049;
+                        }}
+                        .footer {{
+                            font-size: 12px;
+                            color: #777777;
+                            text-align: center;
+                            margin-top: 20px;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Create Your Account</h1>
+                        <p>Hello,</p>
+                        <p>You have been invited to create an account and join the project '<strong>{name}</strong>'.</p>
+                        <p>Please <a href="https://yourapp.com/reset-password/{reset_token}" class="button">click here to set your password</a> and complete your registration.</p>
+                        <div class="footer">
+                            <p>If you have any questions, feel free to reach out to us.</p>
+                            <p>&copy; 2025 ServerMonitor</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            """
+            send_email(email, subject, body, type='auth')
+
+        flash('Invitation has been sent!', 'success')
+        return redirect(url_for('service.subusers', name=name))
+
+    return redirect(url_for('service.subusers', name=name))
+
+@service_routes.route('/subusers/<string:name>/delete/<int:user_id>', methods=['POST'])
+@owner_or_subuser_required()
+def delete_subuser(name, user_id):
+    sub_user = SubUser.query.filter_by(id=user_id).first()
+    if sub_user:
+        db.session.delete(sub_user)
+        db.session.commit()
+        flash(f"Sub-user with email {sub_user.email} has been removed.", "success")
+    else:
+        flash("Sub-user not found.", "danger")
+    
+    return redirect(url_for('service.subusers', name=name))

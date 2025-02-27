@@ -3,11 +3,13 @@ import os
 from flask import Blueprint, jsonify, request, render_template, url_for, redirect
 from models.git import GitIntegration
 from utils import find_process_by_name, get_service_status
+from decorators import owner_or_subuser_required
 from db import db
 
 git_routes = Blueprint('git', __name__)
 
 @git_routes.route('/<name>', methods=['GET'])
+@owner_or_subuser_required()
 def git(name):
     service = find_process_by_name(name)
     integrations = GitIntegration.query.filter_by(process_name=name).all()
@@ -15,11 +17,13 @@ def git(name):
     return render_template('git/index.html', service=service, integrations=integrations, show_add_repo_button=show_add_repo_button)
 
 @git_routes.route('/<name>/add_form', methods=['GET'])
-def add_form(name):
+@owner_or_subuser_required()
+def add_git_form(name):
     service = find_process_by_name(name)
     return render_template('git/add_form.html', service=service)
 
 @git_routes.route('/<name>/add_git_integration', methods=['POST'])
+@owner_or_subuser_required()
 def add_git_integration(name):
     data = request.form
     repository_url = data.get('repository_url')
@@ -37,7 +41,8 @@ def add_git_integration(name):
     return redirect(url_for("git.git", name=name))
 
 @git_routes.route('/<name>/pull_latest/<int:integration_id>', methods=['POST'])
-def pull_latest(name, integration_id):
+@owner_or_subuser_required()
+def pull_latest_git(name, integration_id):
     git_integration = GitIntegration.query.get(integration_id)
     if not git_integration:
         return jsonify({"error": "Git integration not found"}), 404
@@ -46,6 +51,7 @@ def pull_latest(name, integration_id):
     return redirect(url_for("git.git", name=name))
 
 @git_routes.route('/<name>/remove_git_integration/<int:integration_id>', methods=['POST'])
+@owner_or_subuser_required()
 def remove_git_integration(name, integration_id):
     git_integration = GitIntegration.query.get(integration_id)
     if not git_integration:

@@ -5,7 +5,7 @@
     <h2 class="mb-4">Git Integrations</h2>
 
     {% if show_add_repo_button %}
-    <a href="{{ url_for('git.add_form', name=service.name) }}" class="btn btn-primary mb-3">Add Repository</a>
+    <a href="{{ url_for('git.add_git_form', name=service.name) }}" class="btn btn-primary mb-3">Add Repository</a>
     {% endif %}
 
     <table class="table table-striped table-bordered">
@@ -26,7 +26,7 @@
                     <td class="text-light">{{ integration.branch }}</td>
                     <td class="text-light">{{ integration.status }}</td>
                     <td>
-                        <form action="{{ url_for('git.pull_latest', name=service.name, integration_id=integration.id) }}" method="POST" class="d-inline-block">
+                        <form action="{{ url_for('git.pull_latest_git', name=service.name, integration_id=integration.id) }}" method="POST" class="d-inline-block">
                             <button type="submit" class="btn btn-sm btn-info">Pull Latest</button>
                         </form>
                         <form action="{{ url_for('git.remove_git_integration', name=service.name, integration_id=integration.id) }}" method="POST" class="d-inline-block ml-2">

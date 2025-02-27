@@ -1,3 +1,4 @@
+import functools
 import json
 import redis, os, time, threading, requests, logging, subprocess, signal, sys
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g, flash
@@ -10,8 +11,9 @@ from models.discord_integration import DiscordIntegration
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
-from utils import find_process_by_name
+from utils import find_process_by_name, send_email, generate_reset_email_body, generate_random_string
 from routes.nginx import nginx_routes
+from decorators import auth_check, owner_or_subuser_required, has_permission
 from routes.git import git_routes
 
 load_dotenv()
@@ -59,7 +61,6 @@ def handle_event(event):
         with app.app_context():
             process = find_process_by_name(container_name_in_event)
             if process is None or event["Type"] != "container":
-                # print(f"Invalid process or not a container event: {event}")
                 return
 
             integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
@@ -139,18 +140,18 @@ app.register_blueprint(nginx_routes, url_prefix='/nginx')
 app.register_blueprint(git_routes, url_prefix='/git')
 
 
-
 ## WEB
 @app.route('/')
+@auth_check()
 def dashboard():
-    user = session.get('user', {'username': 'Guest'})
+    user = session.get('username')
     return render_template('dashboard.html', user=user)
 
-@app.before_request
-def before_request():
-    g.page = request.endpoint
-    if ('username' not in session or 'user_id' not in session) and request.endpoint not in ['login', 'static', 'webhook']:
-        return redirect(url_for('login'))
+# @app.before_request
+# def before_request():
+#     g.page = request.endpoint
+#     if ('username' not in session or 'user_id' not in session) and request.endpoint not in ['login', 'register', 'static', 'webhook']:
+#         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -163,11 +164,96 @@ def login():
         if user and user.check_password(password):
             session['user_id'] = user.id
             session['username'] = user.username
+            session["role"] = user.role
             return redirect(url_for('dashboard'))
         else:
             flash("Invalid username or password")
 
     return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if password != confirm_password:
+            flash("Passwords do not match")
+            return redirect(url_for('register'))
+
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash("Username already exists")
+            return redirect(url_for('register'))
+        
+        existing_email = User.query.filter_by(email=email).first()
+        if existing_email:
+            flash("Email already registered")
+            return redirect(url_for('register'))
+
+        new_user = User(username=username, email=email, password_hash=generate_password_hash(password))
+        db.session.add(new_user)
+        db.session.commit()
+
+        flash("Registration successful! Please log in.")
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+
+@app.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            token = generate_random_string(10)
+            user.reset_token = token
+            reset_url = url_for('reset_token', token=token, _external=True)
+
+            email_body = generate_reset_email_body(reset_url)
+            send_email(
+                user.email,
+                'Reset Your Password',
+                email_body
+            )
+            flash('An email with instructions has been sent!', 'info')
+        else:
+            flash('Email not found.', 'danger')
+
+        return redirect(url_for('login'))
+
+    return render_template('reset_password_request.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_token(token):
+    user = User.verify_reset_token(token)
+    if not user:
+        flash('That is an invalid or expired token', 'warning')
+        return redirect(url_for('reset_password'))
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        if password != confirm_password:
+            flash("Passwords do not match", 'danger')
+            return redirect(url_for('reset_token', token=token))
+
+        # Update the password
+        user.password_hash = generate_password_hash(password)
+        db.session.commit()
+        flash('Your password has been updated!', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_token.html', token=token)
+
+
+
+
 
 @app.route('/logout')
 def logout():
@@ -216,6 +302,12 @@ def cleanup_redis_key(*args):
 
 signal.signal(signal.SIGTERM, cleanup_redis_key)
 signal.signal(signal.SIGINT, cleanup_redis_key)
+
+@app.context_processor # type: ignore
+def inject_static_vars():
+    return {
+        'has_permission': has_permission
+    }
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7001, debug=True)

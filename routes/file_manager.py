@@ -2,6 +2,7 @@ import os
 import zipfile
 import shutil
 import time
+from decorators import owner_or_subuser_required, owner_required
 from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for, flash
 from utils import find_process_by_name
 file_manager_routes = Blueprint('files', __name__)
@@ -18,6 +19,7 @@ def sanitize_path(base, target):
     return normalized_path
 
 @file_manager_routes.route('/manage/<name>', methods=['GET', 'POST'])
+@owner_or_subuser_required()
 def file_manager(name):
     service = find_process_by_name(name)
     location_param = request.args.get('location', name)
@@ -62,6 +64,7 @@ def file_manager(name):
 
 
 @file_manager_routes.route('/<name>/file-manager/delete', methods=['POST'])
+@owner_or_subuser_required()
 def delete_file(name):
     service = find_process_by_name(name)
     if not request.form:
@@ -112,6 +115,7 @@ def delete_file(name):
 
 
 @file_manager_routes.route('/file-manager/download/<filename>', methods=['GET'])
+@owner_or_subuser_required()
 def download_file(filename):
     try:
         file_path = sanitize_path(ACTIVE_SERVERS_DIR, filename)
@@ -124,6 +128,7 @@ def download_file(filename):
 
 
 @file_manager_routes.route('/<name>/new/file', methods=['GET', 'POST'])
+@owner_or_subuser_required()
 def create_file(name):
     service = find_process_by_name(name)
     location = request.args.get('location', '')
@@ -149,7 +154,8 @@ def create_file(name):
 
 
 @file_manager_routes.route('/<name>/new/dir', methods=['GET', 'POST'])
-def create_directory(name):
+@owner_or_subuser_required()
+def create_directory_file(name):
     service = find_process_by_name(name)
     location = request.args.get('location', '')
     try:
@@ -202,6 +208,7 @@ def upload_file():
 
 
 @file_manager_routes.route('<name>/edit', methods=['GET', 'POST'])
+@owner_or_subuser_required()
 def edit_file(name):
     service = find_process_by_name(name)
     file_path_param = request.args.get('file', '')
@@ -237,6 +244,7 @@ def edit_file(name):
     return render_template('edit_file.html', service=service, file_path=file_path, file_content=file_content, file_name=file_name)
 
 @file_manager_routes.route('/unzip/<name>', methods=['POST'])
+@owner_or_subuser_required()
 def unzip_file(name):
     zip_path = request.form.get('zip_path')
     if not zip_path or not zip_path.endswith('.zip'):
