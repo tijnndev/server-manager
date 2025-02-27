@@ -662,7 +662,7 @@ def invite_subuser(name):
                         <h1>Create Your Account</h1>
                         <p>Hello,</p>
                         <p>You have been invited to create an account and join the project '<strong>{name}</strong>'.</p>
-                        <p>Please <a href="https://manage.tijnn.dev/{url_for("reset_token", token=reset_token)}" class="button">click here to set your password</a> and complete your registration.</p>
+                        <p>Please <a href="https://manage.tijnn.dev{url_for("reset_token", token=reset_token)}" class="button">click here to set your password</a> and complete your registration.</p>
                         <div class="footer">
                             <p>If you have any questions, feel free to reach out to us.</p>
                             <p>&copy; 2025 ServerMonitor</p>
