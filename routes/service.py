@@ -317,11 +317,12 @@ def console_stream_logs(name):
         def generate():
             try:
                 for line in process.stdout:
-                    yield f"data: {colorize_log(line)}\n\n"
+                    line_before_pipe = line.split(' | ')[-1]
+                    yield f"data: {colorize_log(line_before_pipe)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
             finally:
-                process.terminate()  # Ensure process is terminated after streaming
+                process.terminate()
                 process.wait()
 
         return Response(generate(), content_type='text/event-stream')
