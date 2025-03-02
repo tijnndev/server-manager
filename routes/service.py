@@ -217,7 +217,7 @@ def stop_service_console(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('//usr/local/bin/docker-compose down')
+        os.system('//usr/local/bin/docker-compose stop')
 
         return jsonify({"message": f"Service {name} stopped successfully."})
 
