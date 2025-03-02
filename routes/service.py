@@ -303,8 +303,7 @@ def console_stream_logs(name):
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        logs_command = ['//usr/local/bin/docker-compose', 'up', '--build', '--force-recreate']
-
+        logs_command = ['//usr/local/bin/docker-compose', 'logs', '--tail', '50']
 
         process = subprocess.Popen(
             logs_command,
