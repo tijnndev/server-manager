@@ -303,14 +303,7 @@ def console_stream_logs(name):
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        container_id = subprocess.check_output(
-            ['//usr/local/bin/docker-compose', 'ps', '-q'], cwd=service_dir, text=True
-        ).strip()
-
-        if not container_id:
-            return jsonify({"error": "Container not found"}), 404
-
-        logs_command = ['docker', 'logs', '--tail', '50', container_id]
+        logs_command = ['//usr/local/bin/docker-compose', 'logs', '--tail', '50']
 
         process = subprocess.Popen(
             logs_command,
