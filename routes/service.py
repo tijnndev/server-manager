@@ -605,7 +605,6 @@ def invite_subuser(name):
             db.session.commit()
 
             subject = "Create Your Account"
-            reset_url = f"https://yourapp.com/reset-password/{reset_token}"
             body = f"""
                 <!DOCTYPE html>
                 <html lang="en">

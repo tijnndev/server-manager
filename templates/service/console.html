@@ -62,7 +62,7 @@
             const message = event.data.trim();
             if (message && !seenMessages.has(message)) {
                 seenMessages.add(message);
-                consoleOutput.innerHTML += message + '\n';
+                consoleOutput.innerHTML = message;
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
             }
         };
