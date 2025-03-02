@@ -310,7 +310,7 @@ def console_stream_logs(name):
         if not container_id:
             return jsonify({"error": "Container not found"}), 404
 
-        logs_command = ['docker', 'logs', '-f', '--tail', '50', container_id]
+        logs_command = ['docker', 'logs', '--tail', '50', container_id]
 
         process = subprocess.Popen(
             logs_command,
