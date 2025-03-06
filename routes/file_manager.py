@@ -23,10 +23,17 @@ def sanitize_path(base, target):
 def file_manager(name):
     service = find_process_by_name(name)
     location_param = request.args.get('location', name)
+
+    if not location_param:
+        location_param = name
+
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
     except ValueError:
         return render_template('files/file_manager.html', service=service, files=[], error="Invalid path.", current_location="/")
+    
+    if not os.path.join(ACTIVE_SERVERS_DIR, name) in current_location:
+        return redirect(url_for('files.file_manager', name=service.name, location=""))
 
     if not os.path.exists(current_location):
         return render_template('files/file_manager.html', service=service, files=[], error="Location does not exist.", current_location="/")
