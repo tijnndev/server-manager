@@ -34,8 +34,6 @@ def load_services():
     if not user_id:
         return services
     
-    
-    
     user = User.query.filter_by(id=user_id).first()
 
     owned_processes = Process.query.filter_by(owner_id=user_id).all()
@@ -82,6 +80,7 @@ def add_service():
 
     services = load_services()
     service_name = data.get("name").lower()
+    dependencies = [dep.strip() for dep in data['dependencies'].split(',')]
 
     if not service_name or service_name in services:
         return jsonify({"error": "Invalid or duplicate service name"}), 400
@@ -102,6 +101,7 @@ def add_service():
             command=command,
             type=type,
             file_location=service_dir,
+            dependencies=dependencies,
             id="pending",
         )
 
@@ -124,7 +124,7 @@ def add_service():
         os.chdir(service_dir)
         os.system('//usr/local/bin/docker-compose up -d')
 
-        return jsonify({"message": "Service added and running in Docker container", "directory": service_dir})
+        return jsonify({"redirect_url": url_for("service.console", name=new_process.name)})
 
     except OSError as e:
         return jsonify({"error": f"Failed to create service directory: {e}"}), 500
@@ -350,7 +350,7 @@ def ansi_to_html(ansi_code):
         '35': 'magenta',
         '36': 'cyan',
         '37': 'white',
-        '0': 'black',
+        '0': 'white',
     }
     codes = ansi_code.split(';')
     for code in codes:
@@ -578,7 +578,6 @@ def invite_subuser(name):
             db.session.add(new_user)
             db.session.commit()
 
-            # Create sub-user entry for the new user
             sub_user = SubUser(
                 email=email,
                 permissions=permissions,

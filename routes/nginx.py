@@ -4,7 +4,7 @@ import subprocess
 from flask import Blueprint, redirect, request, render_template
 import os
 from db import db
-from decorators import owner_or_subuser_required, owner_required
+from decorators import owner_or_subuser_required
 from utils import find_process_by_name
 
 nginx_routes = Blueprint('nginx', __name__)

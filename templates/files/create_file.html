@@ -25,8 +25,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script>
-        var editor = ace.edit("editor");
-        editor.setTheme("ace/theme/github");
+        var editor = ace.edit("editor", {
+            theme: "ace/theme/tomorrow_night_bright",
+        });
 
         document.querySelector("form").addEventListener("submit", function() {
             document.getElementById("file_code").value = editor.getValue();

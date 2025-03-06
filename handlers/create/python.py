@@ -1,8 +1,18 @@
 from classes.result import Result
-import json
+import json, os
 
 def create_docker_file(process, dockerfile_path):
     try:
+        directory = os.path.dirname(dockerfile_path)
+        requirements_txt_path = os.path.join(directory, 'requirements.txt')
+
+        dependencies = process.dependencies.split(",") if isinstance(process.dependencies, str) else process.dependencies
+        dependencies = [dep.strip() for dep in dependencies]
+
+        with open(requirements_txt_path, "w") as f:
+            for dep in dependencies:
+                f.write(f"{dep}\n")
+
         dockerfile_content = """FROM python:3.13
 WORKDIR /app
 COPY . /app

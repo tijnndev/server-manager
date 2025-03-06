@@ -36,8 +36,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script>
-        var editor = ace.edit("editor");
-        editor.setTheme("ace/theme/github");
+        var editor = ace.edit("editor", {
+            theme: "ace/theme/tomorrow_night_bright",
+        });
     
         var fileName = document.getElementById("file_name").value;
         var fileExtension = getFileExtension(fileName);

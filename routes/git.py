@@ -1,8 +1,6 @@
-import subprocess
-import os
 from flask import Blueprint, jsonify, request, render_template, url_for, redirect
 from models.git import GitIntegration
-from utils import find_process_by_name, get_service_status
+from utils import find_process_by_name
 from decorators import owner_or_subuser_required
 from db import db
 

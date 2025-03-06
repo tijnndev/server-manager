@@ -602,8 +602,7 @@ textarea.form-control {
     bottom: -100px;
     left: 0;
     width: 100%;
-    background: var(--card-bg);
-    border-top: 1px solid var(--primary-color);
+    background: transparent;
     padding: 1rem;
     z-index: 9999;
     text-align: center;

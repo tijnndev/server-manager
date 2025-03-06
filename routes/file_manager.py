@@ -26,10 +26,10 @@ def file_manager(name):
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
     except ValueError:
-        return render_template('service/file_manager.html', service=service, files=[], error="Invalid path.", current_location="/")
+        return render_template('files/file_manager.html', service=service, files=[], error="Invalid path.", current_location="/")
 
     if not os.path.exists(current_location):
-        return render_template('service/file_manager.html', service=service, files=[], error="Location does not exist.", current_location="/")
+        return render_template('files/file_manager.html', service=service, files=[], error="Location does not exist.", current_location="/")
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
     files = [
@@ -60,7 +60,7 @@ def file_manager(name):
             except ValueError:
                 flash("Invalid upload path.", "danger")
     
-    return render_template('service/file_manager.html', files=files, current_location=relative_location, page_title="File Manager", service=service)
+    return render_template('files/file_manager.html', files=files, current_location=relative_location, page_title="File Manager", service=service)
 
 
 @file_manager_routes.route('/<name>/file-manager/delete', methods=['POST'])
@@ -135,7 +135,7 @@ def create_file(name):
     try:
         location = sanitize_path(ACTIVE_SERVERS_DIR, location)
     except ValueError:
-        return render_template('create_file.html', service=service, error="Invalid path.", location='/')
+        return render_template('files/create_file.html', service=service, error="Invalid path.", location='/')
 
     if request.method == 'POST':
         file_name = request.form.get('file_name')
@@ -148,9 +148,9 @@ def create_file(name):
                     f.write(file_code)
                 return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
             except ValueError:
-                return render_template('create_file.html', service=service, error="Invalid file path.", location=location)
+                return render_template('files/create_file.html', service=service, error="Invalid file path.", location=location)
 
-    return render_template('create_file.html', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
+    return render_template('files/create_file.html', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
 
 @file_manager_routes.route('/<name>/new/dir', methods=['GET', 'POST'])
@@ -174,7 +174,7 @@ def create_directory_file(name):
             except Exception as e:
                 return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), error=f"Error creating directory: {e}"))
 
-    return render_template('create_directory.html', service=service, current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
+    return render_template('files/create_directory.html', service=service, current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
 
 @file_manager_routes.route('/file-manager/upload', methods=['POST'])
@@ -221,7 +221,6 @@ def edit_file(name):
         return "File not found", 404
 
     file_name = os.path.basename(file_path)
-    print(file_path)
     
     if request.method == 'POST':
         new_name = request.form['file_name']
@@ -236,12 +235,11 @@ def edit_file(name):
         with open(new_file_path, 'w', newline='') as f:
             f.write(new_content)
 
-        return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(os.path.dirname(new_file_path), ACTIVE_SERVERS_DIR)))
 
     with open(file_path, 'r') as f:
         file_content = f.read()
 
-    return render_template('edit_file.html', service=service, file_path=file_path, file_content=file_content, file_name=file_name)
+    return render_template('files/edit_file.html', service=service, file_path=file_path, file_content=file_content, file_name=file_name)
 
 @file_manager_routes.route('/unzip/<name>', methods=['POST'])
 @owner_or_subuser_required()

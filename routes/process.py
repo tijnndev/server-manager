@@ -8,7 +8,7 @@ handlers_folder = os.path.join(os.getcwd(), 'handlers')
 def find_types():
     types = []
     
-    for root, _dirs, files in os.walk(handlers_folder):
+    for _root, _dirs, files in os.walk(handlers_folder):
         for filename in files:
             
             if filename.endswith('.py') and filename not in types:

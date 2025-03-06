@@ -4,6 +4,7 @@ import redis, os, time, threading, requests, logging, subprocess, signal, sys
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g, flash
 from models.user import User
 from routes.file_manager import file_manager_routes
+from routes.auth import auth_route
 from routes.service import service_routes
 from flask_migrate import Migrate
 from routes.process import process_routes
@@ -56,7 +57,7 @@ def handle_event(event):
 
             processed_events[event_key] = current_time
 
-        # print(f"Event processed: {event_key}")
+        print(f"Event processed: {event_key}")
 
         with app.app_context():
             process = find_process_by_name(container_name_in_event)
@@ -138,6 +139,7 @@ app.register_blueprint(service_routes, url_prefix='/services')
 app.register_blueprint(file_manager_routes, url_prefix='/files')
 app.register_blueprint(nginx_routes, url_prefix='/nginx')
 app.register_blueprint(git_routes, url_prefix='/git')
+app.register_blueprint(auth_route, url_prefix='/auth')
 
 
 ## WEB
@@ -151,118 +153,9 @@ def dashboard():
 def before_request():
     g.page = request.endpoint
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-
-        user = User.query.filter_by(username=username).first()
-
-        if user and user.check_password(password):
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session["role"] = user.role
-            return redirect(url_for('dashboard'))
-        else:
-            flash("Invalid username or password")
-
-    return render_template('login.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-
-        if password != confirm_password:
-            flash("Passwords do not match")
-            return redirect(url_for('register'))
-
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            flash("Username already exists")
-            return redirect(url_for('register'))
-        
-        existing_email = User.query.filter_by(email=email).first()
-        if existing_email:
-            flash("Email already registered")
-            return redirect(url_for('register'))
-
-        new_user = User(username=username, email=email, password_hash=generate_password_hash(password))
-        db.session.add(new_user)
-        db.session.commit()
-
-        flash("Registration successful! Please log in.")
-        return redirect(url_for('login'))
-
-    return render_template('register.html')
-
-
-@app.route('/reset_password', methods=['GET', 'POST'])
-def reset_password():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        user = User.query.filter_by(email=email).first()
-        
-        if user:
-            token = generate_random_string(10)
-            user.reset_token = token
-            db.session.add(user)
-            db.session.commit()
-            reset_url = url_for('reset_token', token=token, _external=True)
-
-            email_body = generate_reset_email_body(reset_url)
-            send_email(
-                user.email,
-                'Reset Your Password',
-                email_body
-            )
-            flash('An email with instructions has been sent!', 'info')
-        else:
-            flash('Email not found.', 'danger')
-
-        return redirect(url_for('login'))
-
-    return render_template('reset_password.html')
-
-@app.route('/reset-password/<token>', methods=['GET', 'POST'])
-def reset_token(token):
-    user = User.verify_reset_token(token=token)
-    if not user:
-        flash('That is an invalid or expired token', 'warning')
-        return redirect(url_for('reset_password'))
-
-    if request.method == 'POST':
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-
-        if password != confirm_password:
-            flash("Passwords do not match", 'danger')
-            return redirect(url_for('reset_token', token=token))
-
-        # Update the password
-        user.password_hash = generate_password_hash(password)
-        db.session.commit()
-        flash('Your password has been updated!', 'success')
-        return redirect(url_for('login'))
-
-    return render_template('reset_token.html', token=token)
-
-
-
-
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    print(url_for("reset_token"))
     secret = os.getenv("GITHUB_WEBHOOK_SECRET")
     signature = request.headers.get('X-Hub-Signature-256')
     
