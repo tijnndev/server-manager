@@ -25,8 +25,8 @@ def nginx(name):
         process.domain = domain_name
         try:
             db.session.add(process)
-        except:
-            print("Error occured")
+        except Exception as e:
+            print(str(e))
         
         db.session.commit()
 
