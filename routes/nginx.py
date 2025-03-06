@@ -13,7 +13,7 @@ nginx_routes = Blueprint('nginx', __name__)
 @owner_or_subuser_required()
 def nginx(name):
     process = find_process_by_name(name)
-    
+
     nginx_file_path = f'/etc/nginx/sites-available/{process.domain or name}'
     nginx_enabled_path = f'/etc/nginx/sites-enabled/{process.domain or name}'
     cert_path = f'/etc/letsencrypt/live/{process.domain or name}/fullchain.pem'
@@ -23,7 +23,11 @@ def nginx(name):
         domain_name = request.form.get("domain_name", process.domain or name)
         nginx_enabled_path = f'/etc/nginx/sites-enabled/{domain_name}'
         process.domain = domain_name
-        db.session.add(process)
+        try:
+            db.session.add(process)
+        except:
+            print("Error occured")
+        
         db.session.commit()
 
         cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
