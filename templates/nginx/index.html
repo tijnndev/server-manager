@@ -14,11 +14,14 @@
     </div>
 
     {% if nginx_content %}
-        <div class="alert alert-info" role="alert">
-            <h4 class="alert-heading">NGINX Configuration</h4>
-            <pre>{{ nginx_content }}</pre>
-        </div>
+        <div class="nginx-config" role="alert">
+            <label for="nginx_config" class="form-label">NGINX Configuration</label>
+            <input type="hidden" id="nginx_config" name="nginx_config">
+            <div id="editor" style="height: 300px;"></div>
 
+        </div>
+        </div>
+            <button type="submit" name="action" value="save_nginx" class="btn btn-primary">Save Configuration</button>
             {% if cert_exists %}
                 <button type="submit" name="action" value="renew_cert" class="btn btn-primary">Renew Certificate</button>
                 <button type="submit" name="action" value="delete_cert" class="btn btn-danger">Delete Certificate</button>
@@ -33,4 +36,20 @@
         </form>
     {% endif %}
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script>
+var editor = ace.edit("editor", {
+    theme: "ace/theme/tomorrow_night_bright",
+});
+editor.session.setMode("ace/mode/nginx");
+
+var fileContent = {{ nginx_content|tojson }};
+if (fileContent) {
+    editor.setValue(fileContent);
+}
+
+document.querySelector("form").addEventListener("submit", function() {
+    document.getElementById("nginx_config").value = editor.getValue();
+});
+</script>
 {% endblock %}

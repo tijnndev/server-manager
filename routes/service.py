@@ -3,7 +3,7 @@ import time, yaml
 import subprocess
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
 import os, json, re
-from datetime import datetime
+from datetime import datetime, timezone
 from db import db
 from models.process import Process
 from models.discord_integration import DiscordIntegration
@@ -11,7 +11,7 @@ from models.git import GitIntegration
 from models.subuser import SubUser
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
-from utils import find_process_by_name, get_service_status, generate_random_string, send_email
+from utils import find_process_by_name, get_service_status, generate_random_string, send_email, execute_handler
 
 service_routes = Blueprint('service', __name__)
 
@@ -43,8 +43,6 @@ def load_services():
 
     processes = owned_processes + sub_user_processes
 
-    print(session.get('role'))
-    print(user_id)
     if session.get("role") == "admin":
         processes = Process.query.all()
 
@@ -75,13 +73,15 @@ def get_services():
 @service_routes.route('/add', methods=['POST'])
 def add_service():
     data = request.json
-    print(data)
 
     if data is None:
         return jsonify({"error": "Invalid or duplicate service name"}), 400
+    
+    type = data.get("type", "")
+    command = data.get("command", "")
 
     services = load_services()
-    service_name = data.get("name")
+    service_name = data.get("name").lower()
 
     if not service_name or service_name in services:
         return jsonify({"error": "Invalid or duplicate service name"}), 400
@@ -96,46 +96,30 @@ def add_service():
 
     try:
         os.makedirs(service_dir, exist_ok=False)
-
         new_process = Process(
-            name=service_name, # type: ignore
-            command=data.get("command", ""), # type: ignore
-            type=data.get("type", ""), # type: ignore
-            file_location=service_dir, # type: ignore
-            id="pending", # type: ignore
+            name=service_name,
+            owner_id=session.get("user_id"),
+            command=command,
+            type=type,
+            file_location=service_dir,
+            id="pending",
         )
 
         db.session.add(new_process)
         db.session.commit()
 
         compose_file_path = os.path.join(service_dir, 'docker-compose.yml')
-        with open(compose_file_path, 'w') as f:
-            f.write(f"""version: '3.7'
+        compose_result = execute_handler("create." + type, "create_docker_compose_file", new_process, compose_file_path)
 
-services:
-  {service_name}:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - .:/app
-    command: ["sh", "-c", {data.get("command", "")}]
-    ports:
-      - "{8000 + new_process.port_id}:{8000 + new_process.port_id}"
-    environment:
-      - COMMAND={data.get("command", "")}
-            """)
+        if not compose_result.success:
+            return jsonify({"error": compose_result.message}), 400
 
-        dockerfile_content = f"""
-FROM {data.get("type", "python:3.9-slim")}
-WORKDIR /app
-COPY . /app
-RUN pip install -r requirements.txt
-CMD ["sh", "-c", "$COMMAND"]
-"""
         dockerfile_path = os.path.join(service_dir, "Dockerfile")
-        with open(dockerfile_path, "w") as f:
-            f.write(dockerfile_content)
+        docker_result = execute_handler("create." + type, "create_docker_file", new_process, dockerfile_path)
+
+        if not docker_result.success:
+            return jsonify({"error": docker_result.message}), 400
+        
 
         os.chdir(service_dir)
         os.system('//usr/local/bin/docker-compose up -d')
@@ -316,9 +300,10 @@ def console_stream_logs(name):
 
         def generate():
             try:
-                for line in process.stdout:
-                    line_before_pipe = line.split(' | ')[-1]
-                    yield f"data: {colorize_log(line_before_pipe)}\n\n"
+                if process.stdout is not None:
+                    for line in process.stdout:
+                        line_before_pipe = line.split(' | ')[-1]
+                        yield f"data: {colorize_log(line_before_pipe)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
             finally:
@@ -508,8 +493,8 @@ def invite_subuser(name):
                 permissions=permissions,
                 process=name,
                 sub_role="sub_user",
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.session.add(sub_user)
             db.session.commit()
@@ -571,7 +556,7 @@ def invite_subuser(name):
                         <h1>You have been added to the project</h1>
                         <p>Hello <strong>{existing_user.username}</strong>,</p>
                         <p>You have been successfully added as a sub-user to the project '<strong>{name}</strong>'.</p>
-                        <p>You can now manage your permissions and settings from the <a href="https://yourpanel.com" class="button">project panel</a>.</p>
+                        <p>You can now manage your permissions and settings from the <a href="https://manage.tijnn.dev" class="button">project panel</a>.</p>
                         <div class="footer">
                             <p>If you have any questions, feel free to reach out to us.</p>
                             <p>&copy; 2025 ServerMonitor</p>
@@ -599,8 +584,8 @@ def invite_subuser(name):
                 permissions=permissions,
                 process=name,
                 sub_role="sub_user",
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.session.add(sub_user)
             db.session.commit()

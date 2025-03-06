@@ -5,6 +5,7 @@ from flask import jsonify, current_app
 import os, subprocess
 from docker.errors import NotFound
 from models.process import Process
+import importlib
 
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
@@ -148,3 +149,14 @@ def generate_reset_email_body(reset_url):
     </body>
     </html>
     """
+
+def execute_handler(handler_type, function_name, *args, **kwargs):
+    try:
+        module_name = f"handlers.{handler_type}"
+        module = importlib.import_module(module_name)
+        function = getattr(module, function_name)
+        return function(*args, **kwargs)
+    except ModuleNotFoundError:
+        raise ImportError(f"Handler '{handler_type}' not found.")
+    except AttributeError:
+        raise AttributeError(f"Function '{function_name}' not found in '{handler_type}'.")

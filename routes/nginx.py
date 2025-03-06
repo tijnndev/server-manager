@@ -44,11 +44,11 @@ def nginx(name):
     }}
 }}"""
             
-            with open(nginx_file_path, 'w') as file:
-                file.write(default_nginx_content)
+            subprocess.run(["sudo", "sh", "-c", f"echo '{default_nginx_content}' > {nginx_file_path}"])
+
             
             if not os.path.exists(nginx_enabled_path):
-                os.symlink(nginx_file_path, nginx_enabled_path)
+                subprocess.run(["sudo", "ln", "-s", nginx_file_path, nginx_enabled_path])
 
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
             return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
@@ -79,8 +79,8 @@ def nginx(name):
 }}"""
 
             
-            with open(nginx_file_path, 'w') as file:
-                file.write(default_nginx_content)
+            subprocess.run(["sudo", "sh", "-c", f"echo '{default_nginx_content}' > {nginx_file_path}"])
+
 
             
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
@@ -95,6 +95,11 @@ def nginx(name):
             redirect('/')
             time.sleep(2)
             subprocess.run(["sudo", "systemctl", "restart", "nginx"])
+        elif action == "save_nginx":
+            new_config = request.form.get("nginx_config")
+            if new_config:
+                subprocess.run(["sudo", "sh", "-c", f"echo '{new_config.strip()}' > {nginx_file_path}"], check=True)
+
     
     cert_exists = os.path.exists(cert_path)
     

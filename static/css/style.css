@@ -673,7 +673,6 @@ textarea.form-control {
 #editor {
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    background: var(--bg-darker);
 }
 
 /* Animations */
@@ -695,69 +694,6 @@ textarea.form-control {
     to {
         opacity: 1;
     }
-}
-
-/* File Editor Styles */
-.file-editor-container {
-    background: var(--card-bg);
-    border-radius: 8px;
-    padding: 2rem;
-    margin-top: 2rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-#editor {
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    margin: 1rem 0;
-    font-size: 14px;
-}
-
-.ace-github {
-    color: #fff;
-}
-.ace_editor {
-    background: var(--bg-darker) !important;
-}
-
-.ace_gutter {
-    background: var(--card-bg) !important;
-    color: var(--text-muted) !important;
-}
-
-.ace_active-line {
-    background: rgba(0, 146, 128, 0.1) !important;
-}
-
-.ace_cursor {
-    color: var(--primary-color) !important;
-}
-
-.ace_selection {
-    background: rgba(0, 146, 128, 0.2) !important;
-}
-
-.file-editor-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 2rem;
-}
-
-.file-editor-header h1 {
-    margin: 0;
-    font-size: 1.8rem;
-    color: var(--text-light);
-}
-
-.editor-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-.editor-actions .btn {
-    min-width: 120px;
 }
 
 /* Custom Checkbox Styles */

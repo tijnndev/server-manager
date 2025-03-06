@@ -21,8 +21,9 @@
             <div class="form-group mb-3">
                 <label for="service-type" class="form-label">Service Type</label>
                 <select id="service-type" class="form-select">
-                    <option value="nodejs">Node.js</option>
-                    <option value="python">Python</option>
+                    {% for type in types %}
+                    <option value="{{type}}">{{type | capitalize}}</option>
+                    {% endfor %}
                 </select>
             </div>
 
