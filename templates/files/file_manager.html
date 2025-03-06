@@ -97,7 +97,54 @@
     margin: auto;
 }
 
+    .modal-content {
+        background-color: #333;
+        color: #fff;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid #444;
+    }
+
+    .modal-title {
+        color: #fff;
+    }
+
+    .modal-body {
+        background-color: #444;
+    }
+
+    .modal-footer {
+        background-color: #333;
+        border-top: 1px solid #444;
+    }
+
+    .modal-footer .btn {
+        color: #fff;
+        background-color: #555;
+        border: 1px solid #666;
+    }
+
+    .modal-footer .btn:hover {
+        background-color: #666;
+        border-color: #777;
+    }
+
+    .modal-footer .btn-danger {
+        background-color: #cc3b3b;
+        border-color: #b32d2d;
+    }
+
+    .modal-footer .btn-danger:hover {
+        background-color: #b32d2d;
+        border-color: #9a2525;
+    }
+
+    .modal-backdrop.show {
+        background-color: rgba(0, 0, 0, 0.7);
+    }
 </style>
+
 
 <div class="container mt-4">
     <h2 class="mb-4">File Manager</h2>
@@ -204,35 +251,60 @@
 <div id="actions-overlay" class="actions-overlay">
     <button class="btn btn-danger" onclick="deleteSelectedFiles()">Delete Selected</button>
     <button class="btn btn-info" onclick="downloadSelectedFiles()">Download Selected</button>
+    <button class="btn btn-warning" onclick="moveSelectedFiles()">Move Selected</button>
 </div>
 
+<!-- Move Files Modal -->
+<div class="modal" id="moveFilesModal" tabindex="-1" aria-labelledby="moveFilesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="moveFilesModalLabel">Move Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <label for="destination">Select Destination Folder:</label>
+                <input type="text" class="form-control" id="destination" placeholder="Enter destination path" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="submitMove()">Move</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <script>
-    let selectedFiles = [];
-    document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', (event) => {
-            const filePath = event.target.getAttribute('data-path');
-            if (event.target.checked) {
-                selectedFiles.push(filePath);
-            } else {
-                selectedFiles = selectedFiles.filter(path => path !== filePath);
-            }
-            toggleActionsOverlay();
-        });
-    });
-
-    function toggleActionsOverlay() {
-        const overlay = document.getElementById('actions-overlay');
-        if (selectedFiles.length > 0) {
-            overlay.classList.add('active');
+let selectedFiles = [];
+document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', (event) => {
+        const filePath = event.target.getAttribute('data-path');
+        if (event.target.checked) {
+            selectedFiles.push(filePath);
         } else {
-            overlay.classList.remove('active');
+            selectedFiles = selectedFiles.filter(path => path !== filePath);
         }
-    }
+        toggleActionsOverlay();
+    });
+});
 
-    function deleteSelectedFiles() {
+function toggleActionsOverlay() {
+    const overlay = document.getElementById('actions-overlay');
+    if (selectedFiles.length > 0) {
+        overlay.classList.add('active');
+    } else {
+        overlay.classList.remove('active');
+    }
+}
+
+function deleteSelectedFiles() {
         if (selectedFiles.length === 0) return;
         if (confirm("Are you sure you want to delete the selected files?")) {
             alert('Deleting files: ' + selectedFiles.join(', '));
+            selectedFiles.forEach(element => {
+                form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + element + "&permanent=true";
+            });
         }
     }
 
@@ -242,10 +314,10 @@
     }
 
     function confirmDelete(form, filename) {
-        const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
+        const userConfirmed = confirm("Are you sure you want to delete '${filename}'?");
 
         if (userConfirmed) {
-            const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
+            const action = confirm("Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.");
             if (action) {
                 form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + filename + "&permanent=true";
             } else {
@@ -255,6 +327,47 @@
 
         return true;
     }
+
+function moveSelectedFiles() {
+    if (selectedFiles.length === 0) return;
+    // Show the move files modal
+    $('#moveFilesModal').modal('show');
+}
+
+function submitMove() {
+    const destination = document.getElementById('destination').value;
+    if (!destination) {
+        alert('Please enter a destination path.');
+        return;
+    }
+
+    fetch('{{ url_for("files.move_files", name=service.name) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            files: selectedFiles,
+            destination: destination
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Files moved successfully');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error moving files');
+    });
+
+    $('#moveFilesModal').modal('hide');
+}
+
 </script>
 
 {% endblock service_content %}

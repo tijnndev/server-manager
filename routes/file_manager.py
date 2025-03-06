@@ -70,48 +70,40 @@ def delete_file(name):
     if not request.form:
         return
     filename = request.form.get('filename', "").replace("\\", "/")
-    location = request.args.get('location', '')
+    current_location = request.form.get('location', '')
     permanent = request.args.get('permanent', 'false').lower() == 'true'
 
     try:
-        location = sanitize_path(ACTIVE_SERVERS_DIR, location)
-        file_path = sanitize_path(location, filename)
+        file_path = sanitize_path(ACTIVE_SERVERS_DIR, filename)
     except ValueError:
         return jsonify({"error": "Invalid path."}), 400
 
     trash_path = os.path.join(TRASH_DIR, f"{filename.replace('/', '_')}-{int(time.time())}")
-
     if os.path.exists(file_path):
         try:
-            message = ""
             if os.path.isfile(file_path):
                 if permanent:
                     os.remove(file_path)
-                    message = f"File '{filename}' permanently deleted."
                 else:
                     os.makedirs(TRASH_DIR, exist_ok=True)
                     if os.path.exists(trash_path):
                         base, ext = os.path.splitext(trash_path)
                         trash_path = f"{base}-{int(time.time())}{ext}"
                     shutil.move(file_path, trash_path)
-                    message = f"File '{filename}' moved to .trash."
             elif os.path.isdir(file_path):
                 if permanent:
                     shutil.rmtree(file_path)
-                    message = f"Directory '{filename}' permanently deleted."
                 else:
                     os.makedirs(TRASH_DIR, exist_ok=True)
                     if os.path.exists(trash_path):
                         trash_path = f"{trash_path}-{int(time.time())}"
                     shutil.move(file_path, trash_path)
-                    message = f"Directory '{filename}' moved to .trash."
-
-            return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), message=message))
+            return redirect(url_for('files.file_manager', name=service.name, location=current_location))
 
         except Exception as e:
-            return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), message=f"Error: {e}"))
+            return redirect(url_for('files.file_manager', name=service.name, location=current_location))
 
-    return jsonify({"error": "File or directory not found"}), 404
+    return redirect(url_for('files.file_manager', name=service.name, location=current_location))
 
 
 @file_manager_routes.route('/file-manager/download/<filename>', methods=['GET'])
@@ -157,9 +149,9 @@ def create_file(name):
 @owner_or_subuser_required()
 def create_directory_file(name):
     service = find_process_by_name(name)
-    location = request.args.get('location', '')
+    current_location = request.args.get('location', '')
     try:
-        location = sanitize_path(ACTIVE_SERVERS_DIR, location)
+        location = sanitize_path(ACTIVE_SERVERS_DIR, current_location)
     except ValueError:
         return jsonify({"error": "Invalid path"}), 400
 
@@ -170,9 +162,9 @@ def create_directory_file(name):
             try:
                 new_dir_path = sanitize_path(location, new_dir_name)
                 os.makedirs(new_dir_path, exist_ok=True)
-                return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), success=f"Directory '{new_dir_name}' created successfully."))
-            except Exception as e:
-                return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR), error=f"Error creating directory: {e}"))
+                return redirect(url_for('files.file_manager', name=service.name, location=current_location))
+            except Exception:
+                return redirect(url_for('files.file_manager', name=service.name, location=current_location))
 
     return render_template('files/create_directory.html', service=service, current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
@@ -234,6 +226,11 @@ def edit_file(name):
 
         with open(new_file_path, 'w', newline='') as f:
             f.write(new_content)
+        file_path = new_file_path
+        with open(new_file_path, 'r') as f:
+            file_content = f.read()
+
+        return render_template('files/edit_file.html', service=service, file_path=new_file_path, file_content=file_content, file_name=new_name)
 
 
     with open(file_path, 'r') as f:
@@ -263,3 +260,65 @@ def unzip_file(name):
         flash(f"Error extracting ZIP file: {str(e)}", "danger")
     
     return redirect(request.referrer)
+
+def sanitize_path2(base_path, relative_path):
+    safe_path = os.path.normpath(relative_path)
+
+    absolute_path = os.path.join(base_path, safe_path)
+
+    if not os.path.commonprefix([absolute_path, base_path]) == base_path:
+        raise ValueError("Invalid path, path traversal detected")
+
+    return absolute_path
+
+@file_manager_routes.route('/move_files/<name>', methods=['POST'])
+@owner_or_subuser_required()
+def move_files(name):
+    try:
+        data = request.get_json()
+        files = data.get('files', [])
+        destination = data.get('destination', '')
+
+        if not files or not destination:
+            return jsonify({'error': 'Invalid request'}), 400
+
+        server_path = os.path.join(ACTIVE_SERVERS_DIR, name)
+
+        if not os.path.isdir(server_path):
+            return jsonify({'error': f'Invalid source directory: {name}'}), 400
+
+        for file in files:
+            file_path = sanitize_path2(ACTIVE_SERVERS_DIR, file)
+
+            if not os.path.exists(file_path):
+                return jsonify({'error': f'File {file} does not exist'}), 400
+
+            file_name = os.path.basename(file_path)
+            file_dir = os.path.dirname(file_path)
+
+            destination_dir = os.path.join(file_dir, destination)
+
+            absolute_destination_dir = os.path.abspath(destination_dir)
+
+            if not absolute_destination_dir.startswith(server_path):
+                return jsonify({'error': 'Cannot move file outside of the source directory'}), 400
+
+            if not os.path.exists(destination_dir):
+                try:
+                    os.makedirs(destination_dir)
+                except OSError as e:
+                    return jsonify({'error': f'Failed to create destination directory: {str(e)}'}), 500
+
+            destination_file_path = os.path.join(destination_dir, file_name)
+
+            try:
+                shutil.move(file_path, destination_file_path)
+            except Exception as e:
+                return jsonify({'error': f'Error moving {file}: {str(e)}'}), 500
+
+        return jsonify({'success': True})
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Error: {str(e)}'}), 500

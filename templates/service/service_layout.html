@@ -38,7 +38,7 @@
                     {% endif %}
                     {% if has_permission(service.name, "sub_users") %}
                     <li class="nav-item">
-                        <a class="nav-link {% if "git" in g.page %} active {% endif %}" href="{{ url_for('service.subusers', name=service.name) }}">Sub Users</a>
+                        <a class="nav-link {% if "subusers" in g.page %} active {% endif %}" href="{{ url_for('service.subusers', name=service.name) }}">Sub Users</a>
                     </li>
                     {% endif %}
                 </ul>

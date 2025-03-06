@@ -10,7 +10,7 @@ def auth_check():
         def decorated_auth_check(*args, **kwargs):
             if not session.get('user_id') or not session.get('username'):
                 session.clear()
-                return redirect(f'/login?redirect={request.path}')
+                return redirect(f'/auth/login?redirect={request.path}')
             return func(*args, **kwargs)
         return decorated_auth_check
     return decorator
@@ -26,12 +26,12 @@ def owner_or_subuser_required():
             user_id = session.get('user_id')
             if not user_id:
                 session.clear()
-                return redirect(f'/login?redirect={request.path}')
+                return redirect(f'/auth/login?redirect={request.path}')
 
             user = User.query.get(user_id)
             if not user:
                 session.clear()
-                return redirect(f'/login?redirect={request.path}')
+                return redirect(f'/auth/login?redirect={request.path}')
             
             process_name = kwargs.get('name')
             if not process_name:
@@ -64,12 +64,12 @@ def owner_required():
             user_id = session.get('user_id')
             if not user_id:
                 session.clear()
-                return redirect(f'/login?redirect={request.path}')
+                return redirect(f'/auth/login?redirect={request.path}')
 
             user = User.query.get(user_id)
             if not user:
                 session.clear()
-                return redirect(f'/login?redirect={request.path}')
+                return redirect(f'/auth/login?redirect={request.path}')
             
             process_name = kwargs.get('name')
             if not process_name:
