@@ -31,7 +31,7 @@ migrate = Migrate(app, db)
 
 def create_admin_user():
     if User.query.count() == 0:
-        admin = User(username='admin', email="test@gmail.com", password_hash=generate_password_hash('tDIg2uDuSOf0b!Uc82'))
+        admin = User(username='admin', role="admin", email="test@gmail.com", password_hash=generate_password_hash('tDIg2uDuSOf0b!Uc82'))
         db.session.add(admin)
         db.session.commit()
         print("Admin user created successfully!")

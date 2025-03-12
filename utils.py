@@ -160,3 +160,18 @@ def execute_handler(handler_type, function_name, *args, **kwargs):
         raise ImportError(f"Handler '{handler_type}' not found.")
     except AttributeError:
         raise AttributeError(f"Function '{function_name}' not found in '{handler_type}'.")
+    
+
+handlers_folder = os.path.join(os.getcwd(), 'handlers')
+
+
+def find_types():
+    types = []
+    
+    for _root, _dirs, files in os.walk(handlers_folder):
+        for filename in files:
+            
+            if filename.endswith('.py') and filename not in types:
+                types.append(filename.split('.')[0])
+    
+    return types

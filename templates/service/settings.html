@@ -31,9 +31,11 @@
         <div class="form-group">
             <label for="service-type" class="form-label">Service Type</label>
             <select id="service-type" name="type" class="form-select">
-                <option value="nodejs" {% if service.type == "nodejs" %} selected {% endif %}>Node.js</option>
-                <option value="python" {% if service.type == "python" %} selected {% endif %}>Python</option>
+                {% for type in types %}
+                <option value="{{type}}" {% if service.type == type %} selected {% endif %}>{{type | capitalize}}</option>
+                {% endfor %}
             </select>
+        </div>
         </div>
         
         <button type="submit" class="btn btn-primary mt-3">Save Changes</button>

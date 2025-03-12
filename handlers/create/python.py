@@ -1,6 +1,7 @@
 from classes.result import Result
 import json, os
 
+
 def create_docker_file(process, dockerfile_path):
     try:
         directory = os.path.dirname(dockerfile_path)

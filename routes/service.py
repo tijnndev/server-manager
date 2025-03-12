@@ -11,7 +11,7 @@ from models.git import GitIntegration
 from models.subuser import SubUser
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
-from utils import find_process_by_name, get_service_status, generate_random_string, send_email, execute_handler
+from utils import find_process_by_name, find_types, get_service_status, generate_random_string, send_email, execute_handler
 
 service_routes = Blueprint('service', __name__)
 
@@ -122,7 +122,7 @@ def add_service():
         
 
         os.chdir(service_dir)
-        os.system('//usr/local/bin/docker-compose up -d')
+        os.system('docker-compose up -d')
 
         return jsonify({"redirect_url": url_for("service.console", name=new_process.name)})
 
@@ -146,7 +146,7 @@ def settings_delete(name):
         if os.path.exists(service_dir):
             try:
                 os.chdir(service_dir)
-                subprocess.run(['/usr/local/bin/docker-compose', 'down'], check=True)
+                subprocess.run(['docker-compose', 'down'], check=True)
                 print(f"Service {name} stopped and removed successfully via docker-compose")
             except subprocess.CalledProcessError as e:
                 print(f"Error stopping service {name}: {e}")
@@ -177,7 +177,7 @@ def start_service_console(name):
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
         
-        subprocess.run(['//usr/local/bin/docker-compose', 'up', '-d'], check=True)
+        subprocess.run(['docker-compose', 'up', '-d'], check=True)
 
         time.sleep(2)
 
@@ -201,7 +201,7 @@ def stop_service_console(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('//usr/local/bin/docker-compose stop')
+        os.system('docker-compose stop')
 
         return jsonify({"message": f"Service {name} stopped successfully."})
 
@@ -287,7 +287,7 @@ def console_stream_logs(name):
     try:
         service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        logs_command = ['//usr/local/bin/docker-compose', 'logs', '--tail', '50']
+        logs_command = ['docker-compose', 'logs', '--tail', '50']
 
         process = subprocess.Popen(
             logs_command,
@@ -362,8 +362,10 @@ def ansi_to_html(ansi_code):
 @owner_or_subuser_required()
 def settings(name):
     service = find_process_by_name(name)
+    
+    types = find_types()
     if not service:
-        return render_template('service/settings.html', service=service)
+        return render_template('service/settings.html', service=service, types=types)
     
     if request.method == 'POST':
         service.name = request.form.get('name')
@@ -422,7 +424,7 @@ def settings(name):
         print('Service settings updated successfully!')
         return redirect(url_for('service.console', name=service.name))
     
-    return render_template('service/settings.html', service=service)
+    return render_template('service/settings.html', service=service, types=types)
 
 
 @service_routes.route('/rebuild/<name>', methods=['POST'])
@@ -434,7 +436,7 @@ def settings_rebuild(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('//usr/local/bin/docker-compose build')
+        os.system('docker-compose build')
 
         return redirect(url_for('service.console', name=service.name))
 

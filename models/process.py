@@ -16,7 +16,7 @@ class Process(BaseModel):
     dependencies = db.Column(db.JSON, nullable=True)
     port_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
-    owner_id = db.Column(db.String(255), db.ForeignKey('users.id'), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     def __repr__(self):
         return f"<Process {self.name}>"

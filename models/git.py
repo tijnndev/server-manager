@@ -23,9 +23,11 @@ class GitIntegration(db.Model):
     @property
     def server_directory(self):
         """Return the path to the server's directory, ignoring './'."""
+        
+        project_root = os.path.dirname(os.path.abspath(__file__))
         if self.directory == "./":
-            return os.path.join('/etc/server-manager/active-servers', self.process_name)
-        return os.path.join('/etc/server-manager/active-servers', self.process_name, self.directory)
+            return os.path.join(project_root, 'active-servers', self.process_name)
+        return os.path.join(project_root, 'active-servers', self.process_name, self.directory)
 
 
     def clone_repo(self):
