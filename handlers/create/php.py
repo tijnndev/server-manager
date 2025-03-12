@@ -6,7 +6,7 @@ def create_docker_file(_process, dockerfile_path):
         dockerfile_content = """FROM php:apache
 RUN apt-get update && apt-get install -y libpng-dev libjpeg-dev libfreetype6-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql
+    && docker-php-ext-install gd pdo pdo_mysql mysqli
 
 RUN a2enmod rewrite
 WORKDIR /var/www/html
