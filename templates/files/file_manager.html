@@ -176,6 +176,9 @@
             <a href="{{ url_for('files.create_directory_file', name=service.name, location=current_location) }}" class="btn btn-warning mt-2 mb-4">
                 Create New Directory
             </a>
+            <button type="button" class="btn btn-primary mt-2 mb-4" id="select-all-btn">
+                Select All
+            </button>
 
             <ul class="list-group">
                 {% set directories = files | selectattr('is_directory', 'equalto', true) | sort(attribute='name') %}
@@ -285,9 +288,28 @@ document.querySelectorAll('.file-checkbox').forEach(checkbox => {
         } else {
             selectedFiles = selectedFiles.filter(path => path !== filePath);
         }
+
         toggleActionsOverlay();
     });
 });
+
+document.getElementById('select-all-btn').addEventListener('click', () => {
+    const allCheckboxes = document.querySelectorAll('.file-checkbox');
+    const isAllSelected = Array.from(allCheckboxes).every(checkbox => checkbox.checked);
+
+    allCheckboxes.forEach(checkbox => {
+        checkbox.checked = !isAllSelected;
+        const filePath = checkbox.getAttribute('data-path');
+        if (!isAllSelected && !selectedFiles.includes(filePath)) {
+            selectedFiles.push(filePath);
+        } else if (isAllSelected) {
+            selectedFiles = selectedFiles.filter(path => path !== filePath);
+        }
+    });
+
+    toggleActionsOverlay();
+});
+
 
 function toggleActionsOverlay() {
     const overlay = document.getElementById('actions-overlay');
@@ -314,10 +336,10 @@ function deleteSelectedFiles() {
     }
 
     function confirmDelete(form, filename) {
-        const userConfirmed = confirm("Are you sure you want to delete '${filename}'?");
+        const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
 
         if (userConfirmed) {
-            const action = confirm("Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.");
+            const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
             if (action) {
                 form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + filename + "&permanent=true";
             } else {
