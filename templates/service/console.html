@@ -29,7 +29,7 @@
         {% if not service.domain %}
         <a href="http://{{ server_ip }}:{{ 8000 + service.port_id}}">http://{{ server_ip }}:{{ 8000 + service.port_id}}</a>
         {% else %}
-        <a href="{{service.domain}}">{{service.domain}}</a>
+        <a href="https://{{service.domain}}">{{service.domain}}</a>
         {% endif %}
     </div>
 
