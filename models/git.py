@@ -24,11 +24,10 @@ class GitIntegration(db.Model):
     def server_directory(self):
         """Return the path to the server's directory, ignoring './'."""
         
-        project_root = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         if self.directory == "./":
             return os.path.join(project_root, 'active-servers', self.process_name)
         return os.path.join(project_root, 'active-servers', self.process_name, self.directory)
-
 
     def clone_repo(self):
         """Clones the repository into the server folder, overriding existing files."""
