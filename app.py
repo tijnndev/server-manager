@@ -16,6 +16,7 @@ from utils import find_process_by_name, send_email, generate_reset_email_body, g
 from routes.nginx import nginx_routes
 from decorators import auth_check, owner_or_subuser_required, has_permission
 from routes.git import git_routes
+import socket
 
 load_dotenv()
 
@@ -199,10 +200,12 @@ signal.signal(signal.SIGINT, cleanup_redis_key)
 
 @app.context_processor # type: ignore
 def inject_static_vars():
+    server_ip = socket.gethostbyname(socket.gethostname())
     return {
-        'has_permission': has_permission
+        'has_permission': has_permission,
+        'server_ip': server_ip
     }
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7001, debug=True)
-

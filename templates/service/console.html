@@ -18,12 +18,17 @@
     
     <h2 class="">Console for {{ service.name }}</h2>
     
-    <div class="text-light mb-4">
+    <div class="text-light">
         Status: 
         <span class="server-status text-{{ 'success' if service_status == 'Running' else 'danger' }}">
             <span class="server-status-label">{{ service_status | capitalize }}</span>
         </span>
     </div>
+    <div class="text-light mb-4">
+        URL: 
+        <a href="http://{{ server_ip }}:{{ 8000 + service.port_id}}">http://{{ server_ip }}:{{ 8000 + service.port_id}}</a>
+    </div>
+
 
     <div class="text-light mb-4">
         Uptime: 
