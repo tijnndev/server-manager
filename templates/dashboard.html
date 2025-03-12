@@ -14,57 +14,66 @@
         font-size: 0.9rem;
         font-weight: bold;
     }
-    
 </style>
 
 <div class="container mt-4 dashboard-container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Manage Services</h2>
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Manage Services</h2>
+            <div id="services-grid" class="row g-3"></div>
+        </div>
+        <div class="col-md-4">
+            <h2>Server Stats</h2>
+            <div id="server-stats" class="p-3 border rounded">
+                <p><strong>CPU Name:</strong> <span id="cpu-name"></span></p>
+                <p><strong>CPU Usage:</strong> <span id="cpu-usage"></span>%</p>
+                <p><strong>Memory Allocated:</strong> <span id="memory-allocated"></span> MB</p>
+                <p><strong>Memory Usage:</strong> <span id="memory-usage"></span>%</p>
+                <p><strong>Storage Allocated:</strong> <span id="storage-allocated"></span> GB</p>
+                <p><strong>Storage Usage:</strong> <span id="storage-usage"></span>%</p>
+                <p><strong>Network Usage:</strong> <span id="network-usage"></span> MB/s</p>
+            </div>
+        </div>
     </div>
-    
-    <div id="services-grid" class="row g-3"></div>
+</div>
 
-    <script>
-        async function fetchServices() {
-            const response = await fetch({{ url_for('service.get_services') }});
-            const services = await response.json();
-            const grid = document.getElementById('services-grid');
-            grid.innerHTML = '';
-            Object.entries(services).forEach(([name, service]) => {
-                const card = `
-                <div class="col-md-4 pb-4">
-                    <a href="/services/console/${name}">
-                    <div class="server-card card p-3">
-                        <div class="card-body">
-                            <h5 class="card-title">${name}</h5>
-                            <p class="server-status text-${service.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${service.status}</p>
-                            <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
-                        </div>
+<script>
+    async function fetchServices() {
+        const response = await fetch("{{ url_for('service.get_services') }}");
+        const services = await response.json();
+        const grid = document.getElementById('services-grid');
+        grid.innerHTML = '';
+        Object.entries(services).forEach(([name, service]) => {
+            const card = `
+            <div class="col-md-12 pb-4">
+                <a href="/services/console/${name}">
+                <div class="server-card card p-3">
+                    <div class="card-body">
+                        <h5 class="card-title">${name}</h5>
+                        <p class="server-status text-${service.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${service.status}</p>
+                        <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
                     </div>
-                    </a>
                 </div>
-                `;
-                grid.innerHTML += card;
-            });
-        }
+                </a>
+            </div>
+            `;
+            grid.innerHTML += card;
+        });
+    }
 
-        async function addService() {
-            const name = document.getElementById('service-name').value;
-            const command = document.getElementById('service-command').value;
-            const type = document.getElementById('service-type').value;
-            const response = await fetch('{{ url_for('service.get_services') }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, command, type })
-            });
-            if (response.ok) {
-                alert('Service added successfully');
-                fetchServices();
-            } else {
-                alert('Failed to add service');
-            }
-        }
+    async function fetchServerStats() {
+        const response = await fetch("{{ url_for('get_server_stats') }}");
+        const stats = await response.json();
+        document.getElementById('cpu-name').textContent = stats.cpu_name;
+        document.getElementById('cpu-usage').textContent = stats.cpu_usage;
+        document.getElementById('memory-allocated').textContent = stats.memory_allocated;
+        document.getElementById('memory-usage').textContent = stats.memory_usage;
+        document.getElementById('storage-allocated').textContent = stats.storage_allocated;
+        document.getElementById('storage-usage').textContent = stats.storage_usage;
+        document.getElementById('network-usage').textContent = stats.network_usage;
+    }
 
-        fetchServices();
-    </script>
+    fetchServices();
+    fetchServerStats();
+</script>
 {% endblock content %}

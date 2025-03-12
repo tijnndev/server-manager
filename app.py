@@ -1,4 +1,4 @@
-import functools
+import platform
 import json
 import redis, os, time, threading, requests, logging, subprocess, signal, sys
 from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g, flash
@@ -17,6 +17,8 @@ from routes.nginx import nginx_routes
 from decorators import auth_check, owner_or_subuser_required, has_permission
 from routes.git import git_routes
 import socket
+import psutil
+import re
 
 load_dotenv()
 
@@ -143,12 +145,44 @@ app.register_blueprint(git_routes, url_prefix='/git')
 app.register_blueprint(auth_route, url_prefix='/auth')
 
 
-## WEB
+# WEB
 @app.route('/')
 @auth_check()
 def dashboard():
     user = session.get('username')
     return render_template('dashboard.html', user=user)
+
+
+def get_processor_name():
+    if platform.system() == "Windows":
+        return platform.processor()
+    if platform.system() == "Darwin":
+        os.environ['PATH'] = os.environ['PATH'] + os.pathsep + '/usr/sbin'
+        command = "sysctl -n machdep.cpu.brand_string"
+        return subprocess.check_output(command).strip()
+    if platform.system() == "Linux":
+        command = "cat /proc/cpuinfo"
+        all_info = subprocess.check_output(command, shell=True).decode().strip()
+        for line in all_info.split("\n"):
+            if "model name" in line:
+                return re.sub( ".*model name.*:", "", line,1)
+    return ""
+
+import cpuinfo
+@app.route('/api/server/stats')
+@auth_check()
+def get_server_stats():
+    stats = {
+        "cpu_name": cpuinfo.get_cpu_info()["brand_raw"],
+        "cpu_usage": psutil.cpu_percent(interval=1),
+        "memory_allocated": psutil.virtual_memory().total // (1024 * 1024),
+        "memory_usage": psutil.virtual_memory().percent,
+        "storage_allocated": psutil.disk_usage('/').total // (1024 * 1024 * 1024),
+        "storage_usage": psutil.disk_usage('/').percent,
+        "network_usage": psutil.net_io_counters().bytes_sent // (1024 * 1024) + psutil.net_io_counters().bytes_recv // (1024 * 1024)
+    }
+    return jsonify(stats)
+
 
 @app.before_request
 def before_request():
