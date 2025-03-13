@@ -37,7 +37,7 @@ def nginx(name):
         }
 
         if action in action_handlers:
-            return action_handlers[action]()
+            action_handlers[action]()
 
     return render_template('nginx/index.html',
                            process=process,
