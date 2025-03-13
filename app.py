@@ -1,24 +1,20 @@
-import platform
-import json
-import redis, os, time, threading, requests, logging, subprocess, signal, sys
-from flask import Flask, render_template, redirect, request, session, url_for, jsonify, g, flash
+import redis, os, time, threading, requests, subprocess, signal, sys, cpuinfo, json, socket, psutil, hmac
+from flask import Flask, render_template, request, session, jsonify, g
 from models.user import User
 from routes.file_manager import file_manager_routes
 from routes.auth import auth_route
-from routes.service import service_routes
+from routes.process import process_routes
 from flask_migrate import Migrate
 from routes.process import process_routes
 from models.discord_integration import DiscordIntegration
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
-from utils import find_process_by_name, send_email, generate_reset_email_body, generate_random_string
+from utils import find_process_by_name
 from routes.nginx import nginx_routes
-from decorators import auth_check, owner_or_subuser_required, has_permission
+from decorators import auth_check, has_permission
 from routes.git import git_routes
-import socket
-import psutil
-import re
+from hashlib import sha256
 
 load_dotenv()
 
@@ -32,6 +28,7 @@ app.secret_key = os.getenv('SECRET_KEY')
 db.init_app(app)
 migrate = Migrate(app, db)
 
+
 def create_admin_user():
     if User.query.count() == 0:
         admin = User(username='admin', role="admin", email="test@gmail.com", password_hash=generate_password_hash('tDIg2uDuSOf0b!Uc82'))
@@ -39,9 +36,11 @@ def create_admin_user():
         db.session.commit()
         print("Admin user created successfully!")
 
+
 processed_events = {}
 processed_events_lock = threading.Lock()
 EVENT_EXPIRATION_TIME = 30
+
 
 def handle_event(event):
     if 'Actor' in event and 'Attributes' in event['Actor']:
@@ -67,16 +66,14 @@ def handle_event(event):
             if process is None or event["Type"] != "container":
                 return
 
-            integration = DiscordIntegration.query.filter_by(service_id=process.id).first()
+            integration = DiscordIntegration.query.filter_by(process_name=process.name).first()
             if integration and event['Action'] in integration.events_list:
-                # print(f"Sending webhook for event: {event['Action']}")
                 send_webhook_message(integration.webhook_url, event)
-
 
 
 def start_listening_for_events():
     while True:
-        result = subprocess.run(["docker", "events", "--format", "{{json .}}"], capture_output=True, text=True)
+        result = subprocess.run(["docker", "events", "--format", "{{json .}}"], capture_output=True, text=True, check=False)
         for line in result.stdout.splitlines():
             try:
                 event = json.loads(line)
@@ -91,6 +88,7 @@ def run_event_listener():
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
     event_listener_thread.start()
 
+
 def send_webhook_message(webhook_url, event):
     data = {
         "content": f"Event triggered: {event['Action']} for container {event['Actor']['Attributes'].get('name', 'Unknown')}"
@@ -99,21 +97,22 @@ def send_webhook_message(webhook_url, event):
     try:
         response = requests.post(webhook_url, json=data)
         if response.status_code == 204:
-            # print(event)
             print("Webhook message sent successfully!")
         else:
             print(f"Failed to send webhook: {response.status_code} - {response.text}")
     except requests.exceptions.RequestException as e:
         print(f"Error sending webhook message: {e}")
 
+
 redis_client = redis.StrictRedis(
     host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', 6379)),
+    port=int(os.getenv('REDIS_PORT', "6379")),
     decode_responses=True
 )
 
 REDIS_LOCK_KEY = "first_worker_lock"
 LOCK_TTL = 3600
+
 
 def is_first_worker():
     current_pid = os.getpid()
@@ -127,6 +126,7 @@ def is_first_worker():
     print(f"Current worker PID: {current_pid}, First worker PID: {lock_owner}")
     return str(current_pid) == lock_owner
 
+
 with app.app_context():
     if is_first_worker():
         run_event_listener()
@@ -135,10 +135,9 @@ with app.app_context():
 
 BASE_DIR = os.path.dirname(__file__)
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
-SERVICES_DIRECTORY = 'active-servers'
+PROCESS_DIRECTORY = 'active-servers'
 
 app.register_blueprint(process_routes, url_prefix='/process')
-app.register_blueprint(service_routes, url_prefix='/services')
 app.register_blueprint(file_manager_routes, url_prefix='/files')
 app.register_blueprint(nginx_routes, url_prefix='/nginx')
 app.register_blueprint(git_routes, url_prefix='/git')
@@ -153,22 +152,6 @@ def dashboard():
     return render_template('dashboard.html', user=user)
 
 
-def get_processor_name():
-    if platform.system() == "Windows":
-        return platform.processor()
-    if platform.system() == "Darwin":
-        os.environ['PATH'] = os.environ['PATH'] + os.pathsep + '/usr/sbin'
-        command = "sysctl -n machdep.cpu.brand_string"
-        return subprocess.check_output(command).strip()
-    if platform.system() == "Linux":
-        command = "cat /proc/cpuinfo"
-        all_info = subprocess.check_output(command, shell=True).decode().strip()
-        for line in all_info.split("\n"):
-            if "model name" in line:
-                return re.sub( ".*model name.*:", "", line,1)
-    return ""
-
-import cpuinfo
 @app.route('/api/server/stats')
 @auth_check()
 def get_server_stats():
@@ -195,8 +178,6 @@ def webhook():
     signature = request.headers.get('X-Hub-Signature-256')
     
     if secret and signature:
-        from hashlib import sha256
-        import hmac
         payload = request.get_data()
         computed_signature = "sha256=" + hmac.new(secret.encode(), payload, sha256).hexdigest()
         if not hmac.compare_digest(computed_signature, signature):
@@ -209,7 +190,7 @@ def webhook():
         script_path = os.path.join(BASE_DIR, 'updater.sh')
 
         try:
-            os.chmod(script_path, 0o755)  
+            os.chmod(script_path, 0o755)
         except subprocess.CalledProcessError as e:
             return jsonify({"error": f"Failed to set script permissions: {e}"}), 500
         
@@ -222,17 +203,17 @@ def webhook():
     return jsonify({"message": "Unhandled event"}), 200
 
 
-# logging.basicConfig(level=logging.INFO)
-
-def cleanup_redis_key(*args):
+def cleanup_redis_key(*_args):
     redis_client.delete(REDIS_LOCK_KEY)
     print(f"Redis lock key {REDIS_LOCK_KEY} removed for PID: {os.getpid()}")
     sys.exit(0)
 
+
 signal.signal(signal.SIGTERM, cleanup_redis_key)
 signal.signal(signal.SIGINT, cleanup_redis_key)
 
-@app.context_processor # type: ignore
+
+@app.context_processor
 def inject_static_vars():
     server_ip = socket.gethostbyname(socket.gethostname())
     return {

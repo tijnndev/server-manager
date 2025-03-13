@@ -21,7 +21,7 @@ def sanitize_path(base, target):
 @file_manager_routes.route('/manage/<name>', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def file_manager(name):
-    service = find_process_by_name(name)
+    process = find_process_by_name(name)
     location_param = request.args.get('location', name)
 
     if not location_param:
@@ -30,13 +30,13 @@ def file_manager(name):
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
     except ValueError:
-        return render_template('files/file_manager.html', service=service, files=[], error="Invalid path.", current_location="/")
+        return render_template('files/file_manager.html', process=process, files=[], error="Invalid path.", current_location="/")
     
     if not os.path.join(ACTIVE_SERVERS_DIR, name) in current_location:
-        return redirect(url_for('files.file_manager', name=service.name, location=""))
+        return redirect(url_for('files.file_manager', name=process.name, location=""))
 
     if not os.path.exists(current_location):
-        return render_template('files/file_manager.html', service=service, files=[], error="Location does not exist.", current_location="/")
+        return render_template('files/file_manager.html', process=process, files=[], error="Location does not exist.", current_location="/")
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
     files = [
@@ -63,17 +63,17 @@ def file_manager(name):
                 else:
                     flash("File uploaded successfully!", "success")
                 
-                return redirect(url_for('files.file_manager', name=service.name, location=relative_location))
+                return redirect(url_for('files.file_manager', name=process.name, location=relative_location))
             except ValueError:
                 flash("Invalid upload path.", "danger")
     
-    return render_template('files/file_manager.html', files=files, current_location=relative_location, page_title="File Manager", service=service)
+    return render_template('files/file_manager.html', files=files, current_location=relative_location, page_title="File Manager", process=process)
 
 
 @file_manager_routes.route('/<name>/file-manager/delete', methods=['POST'])
 @owner_or_subuser_required()
 def delete_file(name):
-    service = find_process_by_name(name)
+    process = find_process_by_name(name)
     if not request.form:
         return
     filename = request.form.get('filename', "").replace("\\", "/")
@@ -105,12 +105,12 @@ def delete_file(name):
                     if os.path.exists(trash_path):
                         trash_path = f"{trash_path}-{int(time.time())}"
                     shutil.move(file_path, trash_path)
-            return redirect(url_for('files.file_manager', name=service.name, location=current_location))
+            return redirect(url_for('files.file_manager', name=process.name, location=current_location))
 
         except Exception as e:
-            return redirect(url_for('files.file_manager', name=service.name, location=current_location))
+            return redirect(url_for('files.file_manager', name=process.name, location=current_location))
 
-    return redirect(url_for('files.file_manager', name=service.name, location=current_location))
+    return redirect(url_for('files.file_manager', name=process.name, location=current_location))
 
 
 @file_manager_routes.route('/file-manager/download/<filename>', methods=['GET'])
@@ -129,12 +129,12 @@ def download_file(filename):
 @file_manager_routes.route('/<name>/new/file', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def create_file(name):
-    service = find_process_by_name(name)
+    process = find_process_by_name(name)
     location = request.args.get('location', '')
     try:
         location = sanitize_path(ACTIVE_SERVERS_DIR, location)
     except ValueError:
-        return render_template('files/create_file.html', service=service, error="Invalid path.", location='/')
+        return render_template('files/create_file.html', process=process, error="Invalid path.", location='/')
 
     if request.method == 'POST':
         file_name = request.form.get('file_name')
@@ -145,17 +145,17 @@ def create_file(name):
                 file_path = sanitize_path(location, file_name)
                 with open(file_path, 'w') as f:
                     f.write(file_code)
-                return redirect(url_for('files.file_manager', name=service.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
+                return redirect(url_for('files.file_manager', name=process.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
             except ValueError:
-                return render_template('files/create_file.html', service=service, error="Invalid file path.", location=location)
+                return render_template('files/create_file.html', process=process, error="Invalid file path.", location=location)
 
-    return render_template('files/create_file.html', service=service, location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
+    return render_template('files/create_file.html', process=process, location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
 
 @file_manager_routes.route('/<name>/new/dir', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def create_directory_file(name):
-    service = find_process_by_name(name)
+    process = find_process_by_name(name)
     current_location = request.args.get('location', '')
     try:
         location = sanitize_path(ACTIVE_SERVERS_DIR, current_location)
@@ -169,11 +169,11 @@ def create_directory_file(name):
             try:
                 new_dir_path = sanitize_path(location, new_dir_name)
                 os.makedirs(new_dir_path, exist_ok=True)
-                return redirect(url_for('files.file_manager', name=service.name, location=current_location))
+                return redirect(url_for('files.file_manager', name=process.name, location=current_location))
             except Exception:
-                return redirect(url_for('files.file_manager', name=service.name, location=current_location))
+                return redirect(url_for('files.file_manager', name=process.name, location=current_location))
 
-    return render_template('files/create_directory.html', service=service, current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
+    return render_template('files/create_directory.html', process=process, current_location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
 
 @file_manager_routes.route('/file-manager/upload', methods=['POST'])
@@ -197,7 +197,6 @@ def upload_file():
                 extract_path = os.path.splitext(file_path)[0]
                 with zipfile.ZipFile(file_path, 'r') as zip_ref:
                     zip_ref.extractall(extract_path)
-                # os.remove(file_path)
             
             return jsonify({'success': True})
         except ValueError:
@@ -209,7 +208,7 @@ def upload_file():
 @file_manager_routes.route('<name>/edit', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def edit_file(name):
-    service = find_process_by_name(name)
+    process = find_process_by_name(name)
     file_path_param = request.args.get('file', '')
     try:
         file_path = sanitize_path(ACTIVE_SERVERS_DIR, file_path_param)
@@ -222,10 +221,11 @@ def edit_file(name):
     file_name = os.path.basename(file_path)
     
     if request.method == 'POST':
-        new_name = request.form['file_name']
+        data = request.get_json()
+        new_name = data['file_name']
         new_file_path = os.path.join(os.path.dirname(file_path), new_name)
 
-        new_content = request.form['file_code']
+        new_content = data['file_code']
         new_content = new_content.replace('\r\n', '\n').replace('\r', '\n')
 
         if file_path != new_file_path:
@@ -237,13 +237,13 @@ def edit_file(name):
         with open(new_file_path, 'r') as f:
             file_content = f.read()
 
-        return render_template('files/edit_file.html', service=service, file_path=new_file_path, file_content=file_content, file_name=new_name)
+        return render_template('files/edit_file.html', process=process, file_path=new_file_path, file_content=file_content, file_name=new_name)
 
 
     with open(file_path, 'r') as f:
         file_content = f.read()
 
-    return render_template('files/edit_file.html', service=service, file_path=file_path, file_content=file_content, file_name=file_name)
+    return render_template('files/edit_file.html', process=process, file_path=file_path, file_content=file_content, file_name=file_name)
 
 @file_manager_routes.route('/unzip/<name>', methods=['POST'])
 @owner_or_subuser_required()

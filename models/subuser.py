@@ -1,6 +1,7 @@
 from db import db
 from models.base_model import BaseModel
 
+
 class SubUser(BaseModel):
     __tablename__ = 'sub_users'
 

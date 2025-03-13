@@ -1,0 +1,58 @@
+{% extends 'process/process_layout.html' %}
+
+{% block process_content %}
+
+<div class="container mt-4 settings-container">
+    <h2>Edit Settings for {{ process.name }}</h2>
+    
+    <!-- Form for updating process settings -->
+    <form method="POST" action="{{ url_for('process.settings', name=process.name) }}">
+        <div class="form-group">
+            <label for="process-containerid">Container ID</label>
+            <input type="text" class="form-control" id="process-containerid" name="containerid" value="{{ process.id }}" readonly>
+        </div>
+        <div class="form-group">
+            <label for="process-name">Process Name</label>
+            <input type="text" class="form-control" id="process-name" name="name" value="{{ process.name }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="process-description">Description</label>
+            <textarea class="form-control" id="process-description" name="description" rows="3">{{ process.description }}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="process-port">Port Number</label>
+            <input type="text" class="form-control" id="process-port" name="port" value="{{ 8000 + process.port_id }}" readonly>
+        </div>
+        <div class="form-group">
+            <label for="process-command">Command</label>
+            <input type="text" class="form-control" id="process-command" name="command" value="{{ process.command }}" required>
+        </div>
+        <div class="form-group">
+            <label for="process-type" class="form-label">Process Type</label>
+            <select id="process-type" name="type" class="form-select">
+                {% for type in types %}
+                <option value="{{type}}" {% if process.type == type %} selected {% endif %}>{{type | capitalize}}</option>
+                {% endfor %}
+            </select>
+        </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary mt-3">Save Changes</button>
+    </form>
+
+    <!-- Rebuild Button -->
+    <form method="POST" action="{{ url_for('process.settings_rebuild', name=process.name) }}">
+        <button type="submit" class="btn btn-warning mt-3">Rebuild Process</button>
+    </form>
+
+    <!-- Delete Button -->
+    <form method="POST" action="{{ url_for('process.settings_delete', name=process.name) }}">
+        <button type="submit" class="btn btn-danger mt-3" onclick="return confirm('Are you sure you want to delete this process?')">Delete Process</button>
+    </form>
+</div>
+
+<script>
+    
+</script>
+{% endblock process_content %}

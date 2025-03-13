@@ -96,4 +96,6 @@ class GitIntegration(db.Model):
             db.session.commit()
         except Exception as e:
             self.status = f"Error: {str(e)}"
+            self.status = 'Removed'
+            db.session.delete(self)
             db.session.commit()

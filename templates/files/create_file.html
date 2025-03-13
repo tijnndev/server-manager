@@ -1,9 +1,9 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
     <div class="container mt-5">
         <h1>Create New File with Code</h1>
-        <form action="{{ url_for('files.create_file', name=service.name, location=location) }}" method="POST">
+        <form action="{{ url_for('files.create_file', name=process.name, location=location) }}" method="POST">
             <div class="mb-3">
                 <label for="file_name" class="form-label">File Name (with extension)</label>
                 <input type="text" class="form-control" id="file_name" name="file_name" required oninput="validateFileName()">
@@ -38,4 +38,4 @@
             document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9_.-]/g, '');
         }
     </script>
-{% endblock service_content %}
+{% endblock process_content %}

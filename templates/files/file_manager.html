@@ -1,6 +1,6 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
 <style>
 .file-bar {
     background-color: #333;
@@ -152,7 +152,7 @@
     <div class="row">
         <div class="col-12">
             <h4 class="file-bar">
-                <a href="{{ url_for('files.file_manager', name=service.name) }}" class="btn">
+                <a href="{{ url_for('files.file_manager', name=process.name) }}" class="btn">
                     <span>home</span>
                 </a>
                 <span>/</span>
@@ -160,7 +160,7 @@
                 {% for i in range(path_parts|length) %}
                     {% set part = path_parts[i] %}
                     {% if part != "." %}
-                        <a href="{{ url_for('files.file_manager', name=service.name, location='/'.join(path_parts[:i+1])) }}" class="btn">
+                        <a href="{{ url_for('files.file_manager', name=process.name, location='/'.join(path_parts[:i+1])) }}" class="btn">
                             <span>{{ part }}</span>
                         </a>
                         {% if not loop.last %}
@@ -170,10 +170,10 @@
                 {% endfor %}
             </h4>
             
-            <a href="{{ url_for('files.create_file', name=service.name, location=current_location) }}" class="btn btn-success mt-2 mb-4">
+            <a href="{{ url_for('files.create_file', name=process.name, location=current_location) }}" class="btn btn-success mt-2 mb-4">
                 Create New File
             </a>
-            <a href="{{ url_for('files.create_directory_file', name=service.name, location=current_location) }}" class="btn btn-warning mt-2 mb-4">
+            <a href="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}" class="btn btn-warning mt-2 mb-4">
                 Create New Directory
             </a>
             <button type="button" class="btn btn-primary mt-2 mb-4" id="select-all-btn">
@@ -185,7 +185,7 @@
                 {% set regular_files = files | selectattr('is_directory', 'equalto', false) | sort(attribute='name') %}
 
                 {% for file in directories %}
-                <a href="{{ url_for('files.file_manager', name=service.name, location=file.path) }}">
+                <a href="{{ url_for('files.file_manager', name=process.name, location=file.path) }}">
                     <li class="list-group-item d-flex justify-content-between">
                         <div>
                             <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
@@ -193,7 +193,7 @@
                             <span>{{ file.name }}</span>
                         </div>
                         <div>
-                            <form action="{{ url_for('files.delete_file', name=service.name) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                            <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
                                 <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
                                 <input type="hidden" name="location" value="{{ current_location }}">
                                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -204,7 +204,7 @@
                 {% endfor %}
 
                 {% for file in regular_files %}
-                    <a href="{{ url_for('files.edit_file', name=service.name, file=file.path) }}">
+                    <a href="{{ url_for('files.edit_file', name=process.name, file=file.path) }}">
                         <li class="list-group-item d-flex justify-content-between">
                             <div>
                                 <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
@@ -218,7 +218,7 @@
                                 </form>
                                 {% endif %}
                                 <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
-                                <form action="{{ url_for('files.delete_file', name=service.name) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
                                     <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
                                     <input type="hidden" name="location" value="{{ current_location }}">
                                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -234,7 +234,7 @@
     <hr>
 
     <h4 class="mt-4">Upload a New File</h4>
-    <form action="{{ url_for('files.file_manager', name=service.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ url_for('files.file_manager', name=process.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
         <div class="mb-3">
             <label for="file" class="form-label">Select file to upload</label>
             <input type="file" name="file" class="form-control" required>
@@ -325,7 +325,7 @@ function deleteSelectedFiles() {
         if (confirm("Are you sure you want to delete the selected files?")) {
             alert('Deleting files: ' + selectedFiles.join(', '));
             selectedFiles.forEach(element => {
-                form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + element + "&permanent=true";
+                form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + element + "&permanent=true";
             });
         }
     }
@@ -341,9 +341,9 @@ function deleteSelectedFiles() {
         if (userConfirmed) {
             const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
             if (action) {
-                form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + filename + "&permanent=true";
+                form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename + "&permanent=true";
             } else {
-                form.action = "{{ url_for('files.delete_file', name=service.name, filename='') }}" + filename;
+                form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename;
             }
         }
 
@@ -363,7 +363,7 @@ function submitMove() {
         return;
     }
 
-    fetch('{{ url_for("files.move_files", name=service.name) }}', {
+    fetch('{{ url_for("files.move_files", name=process.name) }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -392,4 +392,4 @@ function submitMove() {
 
 </script>
 
-{% endblock service_content %}
+{% endblock process_content %}

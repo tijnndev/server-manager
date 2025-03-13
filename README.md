@@ -18,7 +18,7 @@ You will also need access to the MariaDB server for database setup and configura
 ## Step 1: Clone the Repository
 
 Option 1 (RECOMMENDED), install it trough my CDN:
-When using this option, you can normally jump to step 5 immediately, except for the database setup in the .env file and starting the service!
+When using this option, you can normally jump to step 5 immediately, except for the database setup in the .env file and starting the process!
 ```bash
 curl -O https://tijnn.dev/assets/server-manager/run.sh && chmod +x run.sh && sudo ./run.sh
 ```
@@ -121,6 +121,6 @@ sqlalchemy.exc.OperationalError: (pymysql.err.OperationalError) (1045, "Access d
 
 Make sure that the MariaDB user `root` has the appropriate privileges and password. You may need to adjust the credentials in `.env` to match the user you've created. Also make sure the database is already created!
 
-### Issue: Docker "Failed to start docker.service"
+### Issue: Docker "Failed to start docker.process"
 
 If you receive an error when trying to start Docker, you may need to install Docker properly by following [Docker's official installation instructions](https://docs.docker.com/engine/install/).

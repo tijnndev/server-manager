@@ -1,10 +1,10 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
     <div class="container mt-5">
         <h1 class="mb-4">Create New Directory</h1>
 
-        <form action="{{ url_for('files.create_directory_file', name=service.name, location=current_location) }}" method="POST">
+        <form action="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}" method="POST">
             <div class="mb-3">
                 <label for="directory_name" class="form-label">Directory Name</label>
                 <input type="text" class="form-control" id="directory_name" name="directory_name" required>
@@ -12,4 +12,4 @@
             <button type="submit" class="btn btn-primary">Create Directory</button>
         </form>
     </div>
-{% endblock service_content %}
+{% endblock process_content %}

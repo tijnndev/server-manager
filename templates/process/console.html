@@ -1,6 +1,6 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
 <style>
     .console-output {
         background-color: #333;
@@ -16,48 +16,48 @@
 
 <div class="container mt-4">
     
-    <h2 class="">Console for {{ service.name }}</h2>
+    <h2 class="">Console for {{ process.name }}</h2>
     
     <div class="text-light">
         Status: 
-        <span class="server-status text-{{ 'success' if service_status == 'Running' else 'danger' }}">
-            <span class="server-status-label">{{ service_status | capitalize }}</span>
+        <span class="server-status text-{{ 'success' if process_status == 'Running' else 'danger' }}">
+            <span class="server-status-label">{{ process_status | capitalize }}</span>
         </span>
     </div>
     <div class="text-light mb-4">
         URL: 
-        {% if not service.domain %}
-        <a href="http://{{ server_ip }}:{{ 8000 + service.port_id}}">http://{{ server_ip }}:{{ 8000 + service.port_id}}</a>
+        {% if not process.domain %}
+        <a href="http://{{ server_ip }}:{{ 8000 + process.port_id}}">http://{{ server_ip }}:{{ 8000 + process.port_id}}</a>
         {% else %}
-        <a href="https://{{service.domain}}">{{service.domain}}</a>
+        <a href="https://{{process.domain}}">{{process.domain}}</a>
         {% endif %}
     </div>
 
 
     <div class="text-light mb-4">
         Uptime: 
-        <span id="service-uptime">Fetching uptime...</span>
+        <span id="process-uptime">Fetching uptime...</span>
     </div>
 
     <div class="console-output" id="console-output"></div>
 
     <div class="mt-3">
-        <button class="btn btn-success mt-2 " onclick="startService('{{ service.name }}')">Start</button>
-        <button class="btn btn-danger mt-2" onclick="stopService('{{ service.name }}')">Stop</button>
-        <button class="btn btn-warning mt-2" onclick="restartService('{{ service.name }}')">Restart</button>
+        <button class="btn btn-success mt-2 " onclick="startProcess('{{ process.name }}')">Start</button>
+        <button class="btn btn-danger mt-2" onclick="stopProcess('{{ process.name }}')">Stop</button>
+        <button class="btn btn-warning mt-2" onclick="restartProcess('{{ process.name }}')">Restart</button>
     </div>
 </div>
 
 <script>
     const consoleOutput = document.getElementById('console-output');
     const commandInput = document.getElementById('command-input');
-    const uptimeElement = document.getElementById('service-uptime');
-    const startButton = document.querySelector('button[onclick="startService(\'{{ service.name }}\')"]');
-    const stopButton = document.querySelector('button[onclick="stopService(\'{{ service.name }}\')"]');
-    const restartButton = document.querySelector('button[onclick="restartService(\'{{ service.name }}\')"]');
+    const uptimeElement = document.getElementById('process-uptime');
+    const startButton = document.querySelector('button[onclick="startProcess(\'{{ process.name }}\')"]');
+    const stopButton = document.querySelector('button[onclick="stopProcess(\'{{ process.name }}\')"]');
+    const restartButton = document.querySelector('button[onclick="restartProcess(\'{{ process.name }}\')"]');
 
     async function startConsole() {
-        const eventSource = new EventSource(`/services/console/{{ service.name }}/logs`);
+        const eventSource = new EventSource(`/process/console/{{ process.name }}/logs`);
         const seenMessages = new Set();
         let isPageActive = true;
 
@@ -81,7 +81,7 @@
     async function fetchUptime() {
         // setInterval(async () => {
             try {
-                const response = await fetch(`/services/console/{{ service.name }}/uptime`);
+                const response = await fetch(`/process/console/{{ process.name }}/uptime`);
                 if (response.ok) {
                     const data = await response.json();
                     uptimeElement.innerText = data.uptime;
@@ -98,11 +98,11 @@
     startConsole();
     fetchUptime();
 
-    async function startService(name) {
+    async function startProcess(name) {
     try {
-        consoleOutput.innerHTML += `| Service start command received\n`;
+        consoleOutput.innerHTML += `| Process start command received\n`;
         
-        const response = await fetch(`{{ url_for('service.start_service_console', name="") }}${name}`, {
+        const response = await fetch(`{{ url_for('process.start_process_console', name="") }}${name}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -111,68 +111,68 @@
 
         if (!response.ok) {
             const errorResponse = await response.json(); // Ensure to handle error responses
-            alert(`Failed to start service: ${errorResponse.error}`);
+            alert(`Failed to start process: ${errorResponse.error}`);
             console.log(errorResponse);
             return;
         }
 
         const responseData = await response.json(); // Parse the JSON only when the response is okay
         if (responseData && responseData.ok) {
-            consoleOutput.innerHTML += `| Service started\n`;
+            consoleOutput.innerHTML += `| Process started\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            updateServiceStatus('running');
+            updateProcessStatus('running');
         } else {
-            alert('Failed to start service');
+            alert('Failed to start process');
             console.log(responseData);
         }
     } catch (error) {
-        alert('An error occurred while starting the service');
+        alert('An error occurred while starting the process');
         console.error('Fetch error:', error);
         console.log(error);
     }
 }
 
 
-    async function stopService(name) {
-        consoleOutput.innerHTML += `| Service stop command received\n`;
-        const response = await fetch(`{{ url_for('service.stop_service_console', name="") }}` + name, { method: 'POST' });
+    async function stopProcess(name) {
+        consoleOutput.innerHTML += `| Process stop command received\n`;
+        const response = await fetch(`{{ url_for('process.stop_process_console', name="") }}` + name, { method: 'POST' });
         if (response.ok) {
-            consoleOutput.innerHTML += `| Service stopped\n`;
+            consoleOutput.innerHTML += `| Process stopped\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            updateServiceStatus('exited');
+            updateProcessStatus('exited');
         } else {
             const errorMessage = await response.text();
-            alert('Failed to stop service: ' + errorMessage);
+            alert('Failed to stop process: ' + errorMessage);
             console.log('Response Error:', errorMessage);
         }
     }
 
-    async function restartService(name) {
-        consoleOutput.innerHTML += `| Restarting service...\n`;
+    async function restartProcess(name) {
+        consoleOutput.innerHTML += `| Restarting process...\n`;
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
-        updateServiceStatus('restarting');
+        updateProcessStatus('restarting');
         
-        const stopResponse = await fetch(`{{ url_for('service.stop_service_console', name="") }}` + name, { method: 'POST' });
+        const stopResponse = await fetch(`{{ url_for('process.stop_process_console', name="") }}` + name, { method: 'POST' });
         if (stopResponse.ok) {
-            consoleOutput.innerHTML += `| Service stopped successfully.\n`;
+            consoleOutput.innerHTML += `| Process stopped successfully.\n`;
             consoleOutput.scrollTop = consoleOutput.scrollHeight;
             
             setTimeout(async () => {
-                const startResponse = await fetch(`{{ url_for('service.start_service_console', name="") }}` + name, { method: 'POST' });
+                const startResponse = await fetch(`{{ url_for('process.start_process_console', name="") }}` + name, { method: 'POST' });
                 if (startResponse.ok) {
-                    consoleOutput.innerHTML += `| Service started successfully.\n`;
+                    consoleOutput.innerHTML += `| Process started successfully.\n`;
                     consoleOutput.scrollTop = consoleOutput.scrollHeight;
-                    updateServiceStatus('running');
+                    updateProcessStatus('running');
                 } else {
-                    alert('Failed to start service after stopping');
+                    alert('Failed to start process after stopping');
                 }
             }, 2000);
         } else {
-            alert('Failed to stop service');
+            alert('Failed to stop process');
         }
     }
 
-    function updateServiceStatus(status) {
+    function updateProcessStatus(status) {
         const statusText = document.querySelector('.server-status');
         const statusLabel = document.querySelector('.server-status-label');
 
@@ -199,7 +199,7 @@
     }
 
     function checkStatus() {
-        let status = `{{ service_status }}`
+        let status = `{{ process_status }}`
         if(status == "Running") {
             changeStartButton(true);
             changeStopButton(false);
@@ -230,4 +230,4 @@
         changeRestartButton(state);
     }
 </script>
-{% endblock service_content %}
+{% endblock process_content %}

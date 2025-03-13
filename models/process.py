@@ -1,7 +1,7 @@
 from db import db
 from models.base_model import BaseModel
-import docker
 from models.discord_integration import DiscordIntegration
+
 
 class Process(BaseModel):
     __tablename__ = 'processes'
@@ -34,21 +34,21 @@ class Process(BaseModel):
             "updated_at": self.updated_at
         }
 
-    def update_id(self, new_id: str):
+    def update_id(self, new_name: str):
         try:
-            integration = DiscordIntegration.query.filter_by(service_id=self.id).first()
+            integration = DiscordIntegration.query.filter_by(process_name=self.name).first()
             if integration:
-                integration.service_id = new_id 
+                integration.process_name = new_name
                 db.session.add(integration)
-                print(f"Updated DiscordIntegration for service_id: {new_id}")
+                print(f"Updated DiscordIntegration for process_name: {new_name}")
             else:
                 print('No discord integration found')
 
-            self.id = new_id
+            self.id = new_name
             db.session.add(self)
 
             db.session.commit()
-            print(f"Updated process ID to: {new_id}")
+            print(f"Updated process ID to: {new_name}")
         
         except Exception as e:
             db.session.rollback()

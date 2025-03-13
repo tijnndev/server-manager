@@ -4,30 +4,30 @@
     <div class="container mt-5 create-container">
         <h1 class="mb-4">Create a New Process</h1>
 
-        <form id="add-service-form" class="card p-4 shadow-sm">
+        <form id="add-process-form" class="card p-4 shadow-sm">
             <div class="form-group mb-3">
-                <label for="service-name" class="form-label">Service Name</label>
-                <input type="text" id="service-name" class="form-control" placeholder="Service Name" required>
+                <label for="process-name" class="form-label">Process Name</label>
+                <input type="text" id="process-name" class="form-control" placeholder="Process Name" required>
             </div>
 
             <div class="form-group mb-3">
-                <label for="service-command" class="form-label">Command</label>
-                <input type="text" id="service-command" class="form-control" placeholder="Command" required>
+                <label for="process-command" class="form-label">Command</label>
+                <input type="text" id="process-command" class="form-control" placeholder="Command" required>
             </div>
             <div class="form-group mb-3">
-                <label for="service-dependencies" class="form-label">Dependencies</label>
-                <input type="text" id="service-dependencies" class="form-control" placeholder="Dependencies" required>
+                <label for="process-dependencies" class="form-label">Dependencies</label>
+                <input type="text" id="process-dependencies" class="form-control" placeholder="Dependencies" required>
             </div>
             <div class="form-group mb-3">
-                <label for="service-type" class="form-label">Service Type</label>
-                <select id="service-type" class="form-select">
+                <label for="process-type" class="form-label">Process Type</label>
+                <select id="process-type" class="form-select">
                     {% for type in types %}
                     <option value="{{type}}">{{type | capitalize}}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <button type="button" class="btn btn-primary" onclick="addService()">Add Service</button>
+            <button type="button" class="btn btn-primary" onclick="addProcess()">Add Process</button>
         </form>
 
         {% if success %}
@@ -42,18 +42,18 @@
     </div>
 
     <script>
-        async function addService() {
-            const name = document.getElementById('service-name').value;
-            const command = document.getElementById('service-command').value;
-            const dependencies = document.getElementById('service-dependencies').value;
-            const type = document.getElementById('service-type').value;
-            const response = await fetch('{{ url_for('service.add_service') }}', {
+        async function addProcess() {
+            const name = document.getElementById('process-name').value;
+            const command = document.getElementById('process-command').value;
+            const dependencies = document.getElementById('process-dependencies').value;
+            const type = document.getElementById('process-type').value;
+            const response = await fetch('{{ url_for('process.add_process') }}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, command, type, dependencies })
             });
             if (response.ok) {
-                alert('Service added successfully');
+                alert('Process added successfully');
                 const responseData = await response.json();
                 const redirectUrl = responseData.redirect_url;
 
@@ -61,7 +61,7 @@
             } else {
                 console.log(response)
                 const responseData = await response.json();
-                alert('Failed to add service :' + responseData);
+                alert('Failed to add process :' + responseData);
             }
         }
     </script>

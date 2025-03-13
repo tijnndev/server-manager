@@ -1,12 +1,12 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
 <div class="container mt-4">
     <h2 class="mb-4">Sub Users</h2>
 
     <!-- Form to invite a user -->
     <h3 class="mb-3">Invite a New Sub User</h3>
-    <form action="{{ url_for('service.invite_subuser', name=service.name)}}" method="POST">
+    <form action="{{ url_for('process.invite_subuser', name=process.name)}}" method="POST">
         <div class="form-group">
             <label for="email">Email</label>
             <input type="email" class="form-control" id="email" name="email" placeholder="Enter user email" required>
@@ -51,7 +51,7 @@
                     <td class="text-light">{{ user.created_at }}</td>
                     <td class="text-light">{{ user.updated_at }}</td>
                     <td>
-                        <form action="/services/subusers/{{service.name}}/delete/{{user.id}}" method="POST" class="d-inline-block">
+                        <form action="/process/subusers/{{process.name}}/delete/{{user.id}}" method="POST" class="d-inline-block">
                             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
                         </form>
                         

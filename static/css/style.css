@@ -332,7 +332,7 @@ body.dark-theme {
     padding: 2rem;
 }
 
-.services-grid {
+.process-grid {
     gap: 1.5rem;
 }
 
@@ -414,7 +414,7 @@ body.dark-theme {
     border-radius: 4px;
 }
 
-#service-uptime {
+#process-uptime {
     color: var(--primary-color);
     font-weight: 500;
 }
@@ -429,7 +429,7 @@ body.dark-theme {
     min-width: 100px;
 }
 
-/* Service Navigation Styles */
+/* Process Navigation Styles */
 .navbar.navbar-light.bg-light {
     background: var(--card-bg) !important;
     border-radius: 8px;
@@ -764,22 +764,22 @@ textarea.form-control {
     padding: 10px;
 }
 
-.create-container #add-service-form {
+.create-container #add-process-form {
     margin: 0 auto;
 }
 
-.create-container #add-service-form .form-group {
+.create-container #add-process-form .form-group {
     margin-bottom: 1.5rem;
 }
 
-.create-container #add-service-form .btn-primary {
+.create-container #add-process-form .btn-primary {
     width: 100%;
     padding: 1rem;
     font-weight: 500;
     margin-top: 1rem;
 }
 
-.create-container #add-service-form .form-label {
+.create-container #add-process-form .form-label {
     color: var(--text-light);
     font-weight: 500;
     margin-bottom: 0.5rem;

@@ -9,16 +9,16 @@ git_routes = Blueprint('git', __name__)
 @git_routes.route('/<name>', methods=['GET'])
 @owner_or_subuser_required()
 def git(name):
-    service = find_process_by_name(name)
+    process = find_process_by_name(name)
     integrations = GitIntegration.query.filter_by(process_name=name).all()
     show_add_repo_button = len(integrations) == 0
-    return render_template('git/index.html', service=service, integrations=integrations, show_add_repo_button=show_add_repo_button)
+    return render_template('git/index.html', process=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
 
 @git_routes.route('/<name>/add_form', methods=['GET'])
 @owner_or_subuser_required()
 def add_git_form(name):
-    service = find_process_by_name(name)
-    return render_template('git/add_form.html', service=service)
+    process = find_process_by_name(name)
+    return render_template('git/add_form.html', process=process)
 
 @git_routes.route('/<name>/add_git_integration', methods=['POST'])
 @owner_or_subuser_required()

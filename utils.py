@@ -1,9 +1,8 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
-from flask import jsonify, current_app
+from flask import current_app
 import os, subprocess
-from docker.errors import NotFound
 from models.process import Process
 import importlib
 
@@ -11,35 +10,36 @@ import importlib
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 
-def get_service_status(name):
-    service = find_process_by_name(name)
-    if not service:
-        return {"error": "Service not found"}
+
+def get_process_status(name):
+    process = find_process_by_name(name)
+    if not process:
+        return {"error": "Process not found"}
 
     try:
-        service_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(service_dir)
+        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+        os.chdir(process_dir)
 
         result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
 
         if not container_id:
-            return {"service": name, "status": "Exited"}
+            return {"process": name, "status": "Exited"}
 
         result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], capture_output=True, text=True)
 
         if result.returncode != 0:
-            return {"error": "Failed to get service status from docker inspect."}
+            return {"error": "Failed to get process status from docker inspect."}
 
         container_status = result.stdout.strip()
 
         if container_status == 'running':
-            return {"service": name, "status": "Running"}
-        else:
-            return {"service": name, "status": "Exited"}
+            return {"process": name, "status": "Running"}
+        
+        return {"process": name, "status": "Exited"}
 
     except subprocess.CalledProcessError as e:
-        return {"error": f"Failed to get service status: {e.stderr}"}
+        return {"error": f"Failed to get process status: {e.stderr}"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -48,9 +48,11 @@ def find_process_by_name(name):
     with current_app.app_context():
         return Process.query.filter_by(name=name).first()
 
+
 def find_process_by_id(process_id):
     with current_app.app_context():
         return Process.query.get(process_id)
+
 
 from email import encoders
 from email.mime.base import MIMEBase
@@ -59,6 +61,7 @@ SMTP_SERVER = os.getenv("MAIL_SERVER", "")
 SMTP_PORT = int(os.getenv("MAIL_PORT", "0"))
 EMAIL_ADDRESS = os.getenv("MAIL_USERNAME", "")
 EMAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
+
 
 def send_email(to: str, subject: str, body: str, type: str = 'auth', attachment: str = ""):
     message = MIMEMultipart()
@@ -84,13 +87,16 @@ def send_email(to: str, subject: str, body: str, type: str = 'auth', attachment:
         print(f"Failed to send email: {e}")
         return False
     
+
 import random
 import string
 
+
 def generate_random_string(length: int) -> str:
     """Generates a random string of a specified length."""
-    characters = string.ascii_letters + string.digits  # You can add more characters if needed
+    characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for _ in range(length))
+
 
 def generate_reset_email_body(reset_url):
     return f"""
@@ -150,6 +156,7 @@ def generate_reset_email_body(reset_url):
     </html>
     """
 
+
 def execute_handler(handler_type, function_name, *args, **kwargs):
     try:
         module_name = f"handlers.{handler_type}"
@@ -157,9 +164,9 @@ def execute_handler(handler_type, function_name, *args, **kwargs):
         function = getattr(module, function_name)
         return function(*args, **kwargs)
     except ModuleNotFoundError:
-        raise ImportError(f"Handler '{handler_type}' not found.")
+        raise ImportError(f"Handler '{handler_type}' not found.") from None
     except AttributeError:
-        raise AttributeError(f"Function '{function_name}' not found in '{handler_type}'.")
+        raise AttributeError(f"Function '{function_name}' not found in '{handler_type}'.") from None
     
 
 handlers_folder = os.path.join(os.getcwd(), 'handlers')

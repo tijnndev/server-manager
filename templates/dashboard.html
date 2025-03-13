@@ -29,9 +29,9 @@
 <div class="container mt-4 dashboard-container">
     <div class="row">
         <div class="col-md-8">
-            <h2>Manage Services</h2>
-            <input type="text" id="search-bar" class="form-control" placeholder="Search services..." oninput="filterServices()">
-            <div id="services-grid" class="row g-3"></div>
+            <h2>Manage Processes</h2>
+            <input type="text" id="search-bar" class="form-control" placeholder="Search process..." oninput="filterProcesses()">
+            <div id="process-grid" class="row g-3"></div>
         </div>
         <div class="col-md-4">
             <h2>Server Stats</h2>
@@ -49,20 +49,20 @@
 </div>
 
 <script>
-    async function fetchServices() {
-        const response = await fetch("{{ url_for('service.get_services') }}");
-        const services = await response.json();
-        const grid = document.getElementById('services-grid');
+    async function fetchProcesses() {
+        const response = await fetch("{{ url_for('process.get_process') }}");
+        const process = await response.json();
+        const grid = document.getElementById('process-grid');
         grid.innerHTML = '';
-        Object.entries(services).forEach(([name, service]) => {
+        Object.entries(process).forEach(([name, process]) => {
             const card = `
-            <div class="col-md-6 pb-4" data-service-name="${name}">
-                <a href="/services/console/${name}">
+            <div class="col-md-6 pb-4" data-process-name="${name}">
+                <a href="/process/console/${name}">
                     <div class="server-card card p-3">
                         <div class="card-body">
                             <h5 class="card-title">${name}</h5>
-                            <p class="server-status text-${service.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${service.status}</p>
-                            <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
+                            <p class="server-status text-${process.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${process.status}</p>
+                            <p class="mb-2"><strong>Type:</strong> ${process.type}</p>
                         </div>
                     </div>
                 </a>
@@ -84,12 +84,12 @@
         document.getElementById('network-usage').textContent = stats.network_usage;
     }
 
-    function filterServices() {
+    function filterProcesses() {
         const query = document.getElementById('search-bar').value.toLowerCase();
-        const serviceCards = document.querySelectorAll('[data-service-name]');
-        serviceCards.forEach(card => {
-            const serviceName = card.getAttribute('data-service-name').toLowerCase();
-            if (serviceName.includes(query)) {
+        const processCards = document.querySelectorAll('[data-process-name]');
+        processCards.forEach(card => {
+            const processName = card.getAttribute('data-process-name').toLowerCase();
+            if (processName.includes(query)) {
                 card.style.display = 'block';
             } else {
                 card.style.display = 'none';
@@ -97,7 +97,7 @@
         });
     }
 
-    fetchServices();
+    fetchProcesses();
     fetchServerStats();
 </script>
 {% endblock content %}

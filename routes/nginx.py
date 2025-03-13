@@ -55,7 +55,7 @@ def nginx(name):
                 subprocess.run(["sudo", "ln", "-s", nginx_file_path, nginx_enabled_path])
 
             subprocess.run(["sudo", "systemctl", "reload", "nginx"])
-            return render_template('nginx/index.html', service=process, nginx_content=default_nginx_content)
+            return render_template('nginx/index.html', process=process, nginx_content=default_nginx_content)
 
         elif action == "add_cert":
             subprocess.run(["sudo", "certbot", "--nginx", "-d", domain_name, "--non-interactive"])
@@ -112,5 +112,5 @@ def nginx(name):
         with open(nginx_file_path, 'r') as file:
             nginx_content = file.read()
 
-    return render_template('nginx/index.html', service=process, nginx_content=nginx_content, cert_exists=cert_exists)
+    return render_template('nginx/index.html', process=process, nginx_content=nginx_content, cert_exists=cert_exists)
 

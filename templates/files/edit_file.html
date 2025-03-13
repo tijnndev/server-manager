@@ -1,6 +1,6 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
 <style>
     .file-editor-container {
       border: 1px solid #ccc;
@@ -11,80 +11,88 @@
       padding: 10px;
       margin-bottom: 10px;
     }
-    </style>
-    <div class="container mt-5">
-        <h1>Edit file: {{ file_name }}</h1>
-        <form action="{{ url_for('files.edit_file', name=service.name, file=file_path) }}" method="POST">
-            <div class="mb-3">
-                <label for="file_name" class="form-label">File Name (with extension)</label>
-                <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="file_code" class="form-label">Code</label>
-                <div id="editor" style="height: 500px;"></div>
-                <textarea name="file_code" id="file_code" style="display: none;"></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Edit File</button>
-        </form>
-
-        {% if error %}
-            <div class="alert alert-danger mt-3">{{ error }}</div>
-        {% endif %}
+</style>
+<div class="container mt-5">
+    <h1>Edit file: {{ file_name }}</h1>
+    <div class="mb-3">
+        <label for="file_name" class="form-label">File Name (with extension)</label>
+        <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
-    <script>
-        var editor = ace.edit("editor", {
-            theme: "ace/theme/tomorrow_night_bright",
-        });
-    
-        var fileName = document.getElementById("file_name").value;
-        var fileExtension = getFileExtension(fileName);
-        setEditorMode(fileExtension);
-    
-        var fileContent = {{ file_content|tojson }};
-        if (fileContent) {
-            editor.setValue(fileContent);
-        }
-    
-        function setEditorMode(fileExtension) {
-            var mode = '';
-            switch (fileExtension) {
-                case '.py':
-                    mode = 'python';
-                    break;
-                case '.js':
-                    mode = 'javascript';
-                    break;
-                case '.html':
-                    mode = 'html';
-                    break;
-                case '.css':
-                    mode = 'css';
-                    break;
-                default:
-                    mode = 'text';  // Default mode if extension doesn't match
-            }
-            editor.session.setMode(`ace/mode/${mode}`);
-        }
-    
-        document.querySelector("form").addEventListener("submit", function() {
-            let content = editor.getValue();
-            
-            content = content.replace(/\r\n|\r/g, "\n");
+    <div class="mb-3">
+        <label for="file_code" class="form-label">Code</label>
+        <div id="editor" style="height: 500px;"></div>
+    </div>
 
-            document.getElementById("file_code").value = content;
+    <button id="save-button" class="btn btn-primary">Save File</button>
 
-            var fileName = document.getElementById("file_name").value;
-            var fileExtension = getFileExtension(fileName);
-            document.getElementById("file_name").value = fileName;  // No need to add extension here
-        });
-    
-        function getFileExtension(fileName) {
-            return fileName.slice(((fileName.lastIndexOf(".") - 1) >>> 0) + 2);  // Extract extension from filename
+    {% if error %}
+        <div class="alert alert-danger mt-3">{{ error }}</div>
+    {% endif %}
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script>
+    var editor = ace.edit("editor", {
+        theme: "ace/theme/tomorrow_night_bright",
+    });
+
+    var fileName = document.getElementById("file_name").value;
+    var fileExtension = getFileExtension(fileName);
+    setEditorMode(fileExtension);
+
+    var fileContent = {{ file_content|tojson }};
+    if (fileContent) {
+        editor.setValue(fileContent);
+    }
+
+    function setEditorMode(fileExtension) {
+        var mode = '';
+        switch (fileExtension) {
+            case 'py':
+                mode = 'python';
+                break;
+            case 'js':
+                mode = 'javascript';
+                break;
+            case 'html':
+                mode = 'html';
+                break;
+            case 'css':
+                mode = 'css';
+                break;
+            default:
+                mode = 'text';
         }
-    </script>
-    
-{% endblock service_content %}
+        editor.session.setMode(`ace/mode/${mode}`);
+    }
+
+    document.getElementById("save-button").addEventListener("click", function() {
+        let content = editor.getValue();
+        content = content.replace(/\r\n|\r/g, "\n");
+
+        fetch("{{ url_for('files.edit_file', name=process.name, file=file_path) }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                file_name: document.getElementById("file_name").value,
+                file_code: content,
+            })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  console.log("File saved successfully");
+              } else {
+                  console.error("Error saving file", data.error);
+              }
+          })
+          .catch(error => console.error("Fetch error:", error));
+    });
+
+    function getFileExtension(fileName) {
+        return fileName.split('.').pop();
+    }
+</script>
+{% endblock process_content %}

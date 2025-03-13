@@ -78,10 +78,10 @@ else
   echo "Skipping Node.js setup."
 fi
 
-echo "Setting up the service..."
-SERVICE_PATH="/etc/systemd/system/server-manager.service"
+echo "Setting up the process..."
+PROCESS_PATH="/etc/systemd/system/server-manager.process"
 
-SERVICE_CONTENT="[Unit]
+PROCESS_CONTENT="[Unit]
 Description=Server Manager Flask App
 After=network.target
 
@@ -94,7 +94,7 @@ Restart=always
 [Install]
 WantedBy=multi-user.target"
 
-echo "$SERVICE_CONTENT" > $SERVICE_PATH
+echo "$PROCESS_CONTENT" > $PROCESS_PATH
 
 echo "Reloading systemd..."
 systemctl daemon-reload
@@ -103,7 +103,7 @@ read -p "Do you want to edit the .env file? (y/n): " edit_env
 if [ "$edit_env" == "y" ]; then
     echo ""
     echo ""
-    echo "Step 1: Please edit the /etc/server-manager/.env file with the right database credentials to allow the service to create processes"
+    echo "Step 1: Please edit the /etc/server-manager/.env file with the right database credentials to allow the process to create processes"
     echo "Step 2: Go in to /etc/server-manager/ and execute: source venv/bin/activate"
     echo "Step 3: Execute the command: flask db migrate"
     echo ""
@@ -115,10 +115,10 @@ else
     flask db migrate
     flask db upgrade
 
-    echo "Enabling and starting the service..."
+    echo "Enabling and starting the process..."
     systemctl enable server-manager
     systemctl start server-manager
 fi
 
 
-echo "Server Manager setup complete! The service is now running."
+echo "Server Manager setup complete! The process is now running."

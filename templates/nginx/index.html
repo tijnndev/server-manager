@@ -1,8 +1,8 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
 <div class="container mt-4">
-    <h2>NGINX Configuration for {{ service.name }}</h2>
+    <h2>NGINX Configuration for {{ process.name }}</h2>
 
 
     <form method="POST">
@@ -10,7 +10,7 @@
     <button type="submit" name="action" value="restart_nginx" class="btn btn-danger">Restart Nginx</button>
     <div class="mb-3">
         <label for="domain_name" class="form-label">Domain Name</label>
-        <input type="text" class="form-control" id="domain_name" name="domain_name" value="{{service.domain}}" placeholder="Enter your domain name">
+        <input type="text" class="form-control" id="domain_name" name="domain_name" value="{{process.domain}}" placeholder="Enter your domain name">
     </div>
 
     {% if nginx_content %}

@@ -4,6 +4,7 @@ from models.process import Process
 from models.subuser import SubUser
 from models.user import User
 
+
 def auth_check():
     def decorator(func):
         @functools.wraps(func)
@@ -24,12 +25,8 @@ def owner_or_subuser_required():
                 return func(*args, **kwargs)
 
             user_id = session.get('user_id')
-            if not user_id:
-                session.clear()
-                return redirect(f'/auth/login?redirect={request.path}')
-
             user = User.query.get(user_id)
-            if not user:
+            if not user_id or not user:
                 session.clear()
                 return redirect(f'/auth/login?redirect={request.path}')
             

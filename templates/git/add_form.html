@@ -1,9 +1,9 @@
-{% extends 'service/service_layout.html' %}
+{% extends 'process/process_layout.html' %}
 
-{% block service_content %}
+{% block process_content %}
 <div class="container mt-4">
     <h2>Add New Git Repository</h2>
-    <form action="{{ url_for('git.add_git_integration', name=service.name) }}" method="POST">
+    <form action="{{ url_for('git.add_git_integration', name=process.name) }}" method="POST">
         <div class="form-group">
             <label for="repository_url">Repository URL</label>
             <input type="text" name="repository_url" id="repository_url" class="form-control" required>
