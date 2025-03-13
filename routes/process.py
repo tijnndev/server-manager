@@ -446,6 +446,7 @@ def settings_rebuild(name):
 
     try:
         os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
+        os.system('docker-compose down')
         os.system('docker-compose build')
 
         return redirect(url_for('process.console', name=process.name))
