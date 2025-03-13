@@ -81,7 +81,7 @@ def remove_nginx_config(nginx_file_path, nginx_enabled_path):
     for path in [nginx_enabled_path, nginx_file_path]:
         if os.path.exists(path):
             os.remove(path)
-    reload_nginx()
+    restart_nginx()
 
 
 def save_nginx_config(new_config, nginx_file_path):
@@ -93,12 +93,7 @@ def save_nginx_config(new_config, nginx_file_path):
 def run_certbot(args):
     """Run Certbot commands for managing SSL certificates."""
     subprocess.run(["sudo", "certbot"] + args + ["--non-interactive"], check=True)
-    reload_nginx()
-
-
-def reload_nginx():
-    """Reload Nginx service."""
-    subprocess.run(["sudo", "systemctl", "reload", "nginx"], check=True)
+    restart_nginx()
 
 
 def restart_nginx():
