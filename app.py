@@ -128,6 +128,14 @@ if ENVIRONMENT == "production":
     print(f"Current worker PID: {current_pid}, First worker PID: {lock_owner}")
     first_worker = (str(current_pid) == lock_owner)
 
+    def cleanup_redis_key(*_args):
+        redis_client.delete(REDIS_LOCK_KEY)
+        print(f"Redis lock key {REDIS_LOCK_KEY} removed for PID: {os.getpid()}")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, cleanup_redis_key)
+    signal.signal(signal.SIGINT, cleanup_redis_key)
+
 
 with app.app_context():
     if ENVIRONMENT == "production" and first_worker:
@@ -203,16 +211,6 @@ def webhook():
             return jsonify({"error": f"Script execution failed: {e}"}), 500
 
     return jsonify({"message": "Unhandled event"}), 200
-
-
-def cleanup_redis_key(*_args):
-    redis_client.delete(REDIS_LOCK_KEY)
-    print(f"Redis lock key {REDIS_LOCK_KEY} removed for PID: {os.getpid()}")
-    sys.exit(0)
-
-
-signal.signal(signal.SIGTERM, cleanup_redis_key)
-signal.signal(signal.SIGINT, cleanup_redis_key)
 
 
 @app.context_processor
