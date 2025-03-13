@@ -3,7 +3,7 @@ import time, yaml
 import subprocess
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
 import os, json, re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from db import db
 from models.process import Process
 from models.discord_integration import DiscordIntegration
@@ -19,20 +19,45 @@ PROCESS_DIRECTORY = 'active-servers'
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 
+
 def is_within_base_dir(path, base=ACTIVE_SERVERS_DIR):
     abs_base = os.path.abspath(base)
     abs_path = os.path.abspath(path)
     return os.path.commonpath([abs_base]) == os.path.commonpath([abs_base, abs_path])
 
 
-from models.subuser import SubUser
+def colorize_log(log):
+    ansi_escape = re.compile(r'\033\[(\d+(;\d+)*)m')
+    return ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log).replace('\033[0m', '</span>')
+
+
+def calculate_uptime(startup_date):
+    startup_datetime = datetime.fromisoformat(startup_date[:-1])
+    current_time = datetime.now()
+
+    uptime = current_time - startup_datetime
+
+    seconds = int(uptime.total_seconds())
+
+    weeks = seconds // (7 * 24 * 3600)
+    days = (seconds % (7 * 24 * 3600)) // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    seconds %= 60
+
+    uptime_str = ''
+
+    uptime_str += f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
+
+    return uptime_str.strip()
+
 
 def load_process():
     process_dict = {}
 
     user_id = session.get('user_id')
     if not user_id:
-        return process
+        return process_dict
     
     user = User.query.filter_by(id=user_id).first()
 
@@ -74,33 +99,30 @@ def create_process():
 
     return render_template('create_process.html', types=types)
 
+
 @process_routes.route('/add', methods=['POST'])
 def add_process():
     data = request.json
 
-    if data is None:
+    if not data:
         return jsonify({"error": "Invalid or duplicate process name"}), 400
-    
-    type = data.get("type", "")
-    command = data.get("command", "")
 
-    process = load_process()
-    process_name = data.get("name").lower()
-    dependencies = [dep.strip() for dep in data['dependencies'].split(',')]
+    process_name = data.get("name", "").strip().lower()
+    type = data.get("type", "").strip()
+    command = data.get("command", "").strip()
+    dependencies = [dep.strip() for dep in data.get("dependencies", "").split(",")]
 
-    if not process_name or process_name in process:
+    if not process_name or process_name in load_process():
         return jsonify({"error": "Invalid or duplicate process name"}), 400
 
     process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
 
-    if not is_within_base_dir(process_dir):
-        return jsonify({"error": "Invalid process name or directory"}), 400
-    
-    if os.path.exists(process_dir):
-        return jsonify({"error": "Process directory already exists"}), 400
+    if not is_within_base_dir(process_dir) or os.path.exists(process_dir):
+        return jsonify({"error": "Invalid process name or directory already exists"}), 400
 
     try:
         os.makedirs(process_dir, exist_ok=False)
+
         new_process = Process(
             name=process_name,
             owner_id=session.get("user_id"),
@@ -114,27 +136,23 @@ def add_process():
         db.session.add(new_process)
         db.session.commit()
 
-        compose_file_path = os.path.join(process_dir, 'docker-compose.yml')
-        compose_result = execute_handler("create." + type, "create_docker_compose_file", new_process, compose_file_path)
-
-        if not compose_result.success:
-            return jsonify({"error": compose_result.message}), 400
-
+        compose_file_path = os.path.join(process_dir, "docker-compose.yml")
         dockerfile_path = os.path.join(process_dir, "Dockerfile")
-        docker_result = execute_handler("create." + type, "create_docker_file", new_process, dockerfile_path)
 
-        if not docker_result.success:
-            return jsonify({"error": docker_result.message}), 400
-        
+        compose_result = execute_handler(f"create.{type}", "create_docker_compose_file", new_process, compose_file_path)
+        docker_result = execute_handler(f"create.{type}", "create_docker_file", new_process, dockerfile_path)
+
+        if not compose_result.success or not docker_result.success:
+            return jsonify({"error": compose_result.message if not compose_result.success else docker_result.message}), 400
 
         os.chdir(process_dir)
-        os.system('docker-compose up -d')
+        os.system("docker-compose up -d")
 
         return jsonify({"redirect_url": url_for("process.console", name=new_process.name)})
 
     except OSError as e:
         return jsonify({"error": f"Failed to create process directory: {e}"}), 500
-    
+
 
 @process_routes.route('/delete/<name>', methods=['POST'])
 @owner_required()
@@ -161,8 +179,6 @@ def settings_delete(name):
             shutil.rmtree(process_dir)
             print(f"Process directory {process_dir} removed successfully")
 
-        
-        
         db.session.delete(process)
         db.session.commit()
 
@@ -197,7 +213,6 @@ def start_process_console(name):
         return jsonify({"error": error_message, "ok": False}), 500
 
 
-
 @process_routes.route('/stop/<string:name>', methods=['POST'])
 @owner_or_subuser_required()
 def stop_process_console(name):
@@ -213,27 +228,6 @@ def stop_process_console(name):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-def calculate_uptime(startup_date):
-    startup_datetime = datetime.fromisoformat(startup_date[:-1])
-    current_time = datetime.now()
-
-    uptime = current_time - startup_datetime
-
-    seconds = int(uptime.total_seconds())
-
-    weeks = seconds // (7 * 24 * 3600)
-    days = (seconds % (7 * 24 * 3600)) // 86400
-    hours = (seconds % 86400) // 3600
-    minutes = (seconds % 3600) // 60
-    seconds = seconds % 60
-
-    uptime_str = ''
-
-    uptime_str += f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
-
-    return uptime_str.strip()
-
 
 
 @process_routes.route('/console/<string:name>', methods=['GET'])
@@ -251,6 +245,7 @@ def console(name):
     except KeyError:
         status = "Failed"
     return render_template('process/console.html', process=process, process_status=status)
+
 
 @process_routes.route('/console/<name>/uptime')
 @owner_or_subuser_required()
@@ -280,7 +275,6 @@ def get_console_uptime(name):
         return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': f"Failed to get process status: {e.stderr}"})
     except Exception as e:
         return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': str(e)})
-
 
 
 @process_routes.route('/console/<string:name>/logs', methods=['GET'])
@@ -322,13 +316,6 @@ def console_stream_logs(name):
         return jsonify({"error": str(e)}), 500
 
 
-
-def colorize_log(log):
-    ansi_escape = re.compile(r'\033\[(\d+(;\d+)*)m')
-    log = ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log)
-    log = log.replace('\033[0m', '</span>')
-    return log
-
 # @process_routes.route('/console/<string:name>/send', methods=['POST'])
 # def send_command(name):
 #     process = find_process_by_name(name)
@@ -369,80 +356,85 @@ def ansi_to_html(ansi_code):
 @owner_or_subuser_required()
 def settings(name):
     process = find_process_by_name(name)
-    
     types = find_types()
-    if not process:
-        return render_template('process/settings.html', process=process, types=types)
     
+    if not process:
+        return render_template('process/settings.html', process=None, types=types)
+
     if request.method == 'POST':
-        old_process_name = process.name
-        process.name = request.form.get('name')
+        old_name = process.name
+        new_name = request.form.get('name')
+        
+        process.name = new_name
         process.description = request.form.get('description')
         process.command = request.form.get('command')
         process.type = request.form.get('type')
         process.params = request.form.get('params', '')
 
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, old_process_name)
-        dockerfile_path = f'{process_dir}/Dockerfile'
-
         if not process.command:
-            return print("Process command not found")
-        
-        old_process_dir = os.path.join(ACTIVE_SERVERS_DIR, old_process_name)
-        new_process_dir = os.path.join(ACTIVE_SERVERS_DIR, process.name)
+            return "Process command not found", 400
 
-        if old_process_name != process.name and os.path.exists(old_process_dir):
-            try:
-                os.rename(old_process_dir, new_process_dir)
-                print(f"Renamed process directory: {old_process_dir} → {new_process_dir}")
-            except FileExistsError:
-                return f"Process directory '{process.name}' already exists", 400
-        
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, process.name)
-        compose_file_path = os.path.join(process_dir, 'docker-compose.yml')
+        old_dir = os.path.join(ACTIVE_SERVERS_DIR, old_name)
+        new_dir = os.path.join(ACTIVE_SERVERS_DIR, new_name)
 
-        if os.path.exists(compose_file_path):
-            with open(compose_file_path) as compose_file:
-                compose_data = yaml.safe_load(compose_file)
+        if old_name != new_name and os.path.exists(old_dir):
+            if os.path.exists(new_dir):
+                return f"Process directory '{new_name}' already exists", 400
+            os.rename(old_dir, new_dir)
+            print(f"Renamed process directory: {old_dir} → {new_dir}")
 
-            if name in compose_data.get('services', {}):
-                compose_data['services'][name]['command'] = process.command.split()
-            else:
-                return f"Process '{name}' not found in docker-compose.yml", 404
+        compose_path = os.path.join(new_dir, 'docker-compose.yml')
+        dockerfile_path = os.path.join(new_dir, 'Dockerfile')
 
-            with open(compose_file_path, 'w') as compose_file:
-                yaml.safe_dump(compose_data, compose_file, default_flow_style=False)
+        if not update_compose_file(compose_path, new_name, process.command):
+            return f"Process '{new_name}' not found in docker-compose.yml", 404
 
-            print(f"docker-compose.yml for {process.name} updated with new command: {process.command}")
-        else:
-            print(f"docker-compose.yml for {process.name} not found")
-            return f"docker-compose.yml for {process.name} not found", 404
-        
         if os.path.exists(dockerfile_path):
-            with open(dockerfile_path) as dockerfile:
-                dockerfile_content = dockerfile.readlines()
+            update_dockerfile(dockerfile_path, process.command)
 
-            for idx, line in enumerate(dockerfile_content):
-                if line.startswith(("CMD", "ENTRYPOINT")):
-                    dockerfile_content[idx] = f'CMD [{", ".join([f"\"{word}\"" for word in process.command.split()])}]\n'
-                    break
-            else:
-                dockerfile_content.append(f'CMD {process.command.split()}\n')
-
-            with open(dockerfile_path, 'w') as dockerfile:
-                dockerfile.writelines(dockerfile_content)
-
-            print(f'Dockerfile for {process.name} updated with new command: {process.command}')
-        else:
-            print(f'Dockerfile for {process.name} not found')
-        
-        db.session.add(process)
         db.session.commit()
-        
         print('Process settings updated successfully!')
-        return redirect(url_for('process.console', name=process.name))
-    
+        return redirect(url_for('process.console', name=new_name))
+
     return render_template('process/settings.html', process=process, types=types)
+
+
+def update_compose_file(compose_path, process_name, command):
+    """Update docker-compose.yml with the new command."""
+    if not os.path.exists(compose_path):
+        return False
+
+    with open(compose_path) as compose_file:
+        compose_data = yaml.safe_load(compose_file)
+
+    if process_name not in compose_data.get('services', {}):
+        return False
+
+    compose_data['services'][process_name]['command'] = command.split()
+
+    with open(compose_path, 'w') as compose_file:
+        yaml.safe_dump(compose_data, compose_file, default_flow_style=False)
+
+    print(f"docker-compose.yml for {process_name} updated with new command: {command}")
+    return True
+
+
+def update_dockerfile(dockerfile_path, command):
+    """Update CMD/ENTRYPOINT in the Dockerfile."""
+    with open(dockerfile_path) as dockerfile:
+        lines = dockerfile.readlines()
+
+    for idx, line in enumerate(lines):
+        if line.startswith(("CMD", "ENTRYPOINT")):
+            lines[idx] = f'CMD [{", ".join([f"\"{word}\"" for word in command.split()])}]\n'
+            break
+    else:
+        lines.append(f'CMD {command.split()}\n')
+
+    with open(dockerfile_path, 'w') as dockerfile:
+        dockerfile.writelines(lines)
+
+    print(f"Dockerfile for {dockerfile_path} updated with new command: {command}")
 
 
 @process_routes.route('/rebuild/<name>', methods=['POST'])
@@ -487,12 +479,14 @@ def discord(name):
     integration = DiscordIntegration.query.filter_by(process_name=process.name).first()
     return render_template('process/discord.html', process=process, integration=integration)
 
+
 @process_routes.route('/subusers/<string:name>', methods=['GET'])
 @owner_or_subuser_required()
 def subusers(name):
     process = find_process_by_name(name)
     users = SubUser.query.filter_by(process=name).all()
     return render_template('process/subusers.html', process=process, users=users)
+
 
 @process_routes.route('/subusers/<string:name>/invite', methods=['GET', 'POST'])
 @owner_or_subuser_required()
@@ -513,8 +507,8 @@ def invite_subuser(name):
                 permissions=permissions,
                 process=name,
                 sub_role="sub_user",
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc)
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC)
             )
             db.session.add(sub_user)
             db.session.commit()
@@ -603,8 +597,8 @@ def invite_subuser(name):
                 permissions=permissions,
                 process=name,
                 sub_role="sub_user",
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc)
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC)
             )
             db.session.add(sub_user)
             db.session.commit()
@@ -681,6 +675,7 @@ def invite_subuser(name):
         return redirect(url_for('process.subusers', name=name))
 
     return redirect(url_for('process.subusers', name=name))
+
 
 @process_routes.route('/subusers/<string:name>/delete/<int:user_id>', methods=['POST'])
 @owner_or_subuser_required()

@@ -2,7 +2,7 @@ import os
 import zipfile
 import shutil
 import time
-from decorators import owner_or_subuser_required, owner_required
+from decorators import owner_or_subuser_required
 from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for, flash
 from utils import find_process_by_name
 file_manager_routes = Blueprint('files', __name__)
@@ -11,12 +11,14 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 TRASH_DIR = os.path.join(BASE_DIR, '.trash')
 
+
 def sanitize_path(base, target):
     """Ensure target path stays within the base directory."""
     normalized_path = os.path.abspath(os.path.normpath(os.path.join(base, target)))
     if not normalized_path.startswith(base):
         raise ValueError("Path traversal detected.")
     return normalized_path
+
 
 @file_manager_routes.route('/manage/<name>', methods=['GET', 'POST'])
 @owner_or_subuser_required()
@@ -32,7 +34,7 @@ def file_manager(name):
     except ValueError:
         return render_template('files/file_manager.html', process=process, files=[], error="Invalid path.", current_location="/")
     
-    if not os.path.join(ACTIVE_SERVERS_DIR, name) in current_location:
+    if os.path.join(ACTIVE_SERVERS_DIR, name) not in current_location:
         return redirect(url_for('files.file_manager', name=process.name, location=""))
 
     if not os.path.exists(current_location):
@@ -74,8 +76,6 @@ def file_manager(name):
 @owner_or_subuser_required()
 def delete_file(name):
     process = find_process_by_name(name)
-    if not request.form:
-        return
     filename = request.form.get('filename', "").replace("\\", "/")
     current_location = request.form.get('location', '')
     permanent = request.args.get('permanent', 'false').lower() == 'true'
@@ -89,26 +89,12 @@ def delete_file(name):
     if os.path.exists(file_path):
         try:
             if os.path.isfile(file_path):
-                if permanent:
-                    os.remove(file_path)
-                else:
-                    os.makedirs(TRASH_DIR, exist_ok=True)
-                    if os.path.exists(trash_path):
-                        base, ext = os.path.splitext(trash_path)
-                        trash_path = f"{base}-{int(time.time())}{ext}"
-                    shutil.move(file_path, trash_path)
+                os.remove(file_path) if permanent else shutil.move(file_path, trash_path)
             elif os.path.isdir(file_path):
-                if permanent:
-                    shutil.rmtree(file_path)
-                else:
-                    os.makedirs(TRASH_DIR, exist_ok=True)
-                    if os.path.exists(trash_path):
-                        trash_path = f"{trash_path}-{int(time.time())}"
-                    shutil.move(file_path, trash_path)
+                shutil.rmtree(file_path) if permanent else shutil.move(file_path, trash_path)
             return redirect(url_for('files.file_manager', name=process.name, location=current_location))
-
-        except Exception as e:
-            return redirect(url_for('files.file_manager', name=process.name, location=current_location))
+        except Exception:
+            pass
 
     return redirect(url_for('files.file_manager', name=process.name, location=current_location))
 
@@ -234,16 +220,16 @@ def edit_file(name):
         with open(new_file_path, 'w', newline='') as f:
             f.write(new_content)
         file_path = new_file_path
-        with open(new_file_path, 'r') as f:
+        with open(new_file_path) as f:
             file_content = f.read()
 
         return render_template('files/edit_file.html', process=process, file_path=new_file_path, file_content=file_content, file_name=new_name)
 
-
-    with open(file_path, 'r') as f:
+    with open(file_path) as f:
         file_content = f.read()
 
     return render_template('files/edit_file.html', process=process, file_path=file_path, file_content=file_content, file_name=file_name)
+
 
 @file_manager_routes.route('/unzip/<name>', methods=['POST'])
 @owner_or_subuser_required()
@@ -268,6 +254,7 @@ def unzip_file(name):
     
     return redirect(request.referrer)
 
+
 def sanitize_path2(base_path, relative_path):
     safe_path = os.path.normpath(relative_path)
 
@@ -277,6 +264,7 @@ def sanitize_path2(base_path, relative_path):
         raise ValueError("Invalid path, path traversal detected")
 
     return absolute_path
+
 
 @file_manager_routes.route('/move_files/<name>', methods=['POST'])
 @owner_or_subuser_required()
@@ -290,42 +278,26 @@ def move_files(name):
             return jsonify({'error': 'Invalid request'}), 400
 
         server_path = os.path.join(ACTIVE_SERVERS_DIR, name)
-
         if not os.path.isdir(server_path):
             return jsonify({'error': f'Invalid source directory: {name}'}), 400
 
         for file in files:
             file_path = sanitize_path2(ACTIVE_SERVERS_DIR, file)
-
             if not os.path.exists(file_path):
                 return jsonify({'error': f'File {file} does not exist'}), 400
 
-            file_name = os.path.basename(file_path)
-            file_dir = os.path.dirname(file_path)
-
-            destination_dir = os.path.join(file_dir, destination)
-
-            absolute_destination_dir = os.path.abspath(destination_dir)
-
-            if not absolute_destination_dir.startswith(server_path):
+            destination_dir = os.path.join(os.path.dirname(file_path), destination)
+            if not os.path.abspath(destination_dir).startswith(server_path):
                 return jsonify({'error': 'Cannot move file outside of the source directory'}), 400
 
-            if not os.path.exists(destination_dir):
-                try:
-                    os.makedirs(destination_dir)
-                except OSError as e:
-                    return jsonify({'error': f'Failed to create destination directory: {str(e)}'}), 500
-
-            destination_file_path = os.path.join(destination_dir, file_name)
+            os.makedirs(destination_dir, exist_ok=True)
 
             try:
-                shutil.move(file_path, destination_file_path)
+                shutil.move(file_path, os.path.join(destination_dir, os.path.basename(file_path)))
             except Exception as e:
                 return jsonify({'error': f'Error moving {file}: {str(e)}'}), 500
 
         return jsonify({'success': True})
 
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f'Error: {str(e)}'}), 500

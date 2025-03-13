@@ -9,67 +9,46 @@ from utils import find_process_by_name
 
 nginx_routes = Blueprint('nginx', __name__)
 
+
 @nginx_routes.route('/<name>', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def nginx(name):
     process = find_process_by_name(name)
+    domain_name = request.form.get("domain_name", process.domain or name)
+    
+    process.domain = domain_name
+    db.session.commit()
 
-    nginx_file_path = f'/etc/nginx/sites-available/{process.domain or name}'
-    nginx_enabled_path = f'/etc/nginx/sites-enabled/{process.domain or name}'
-    cert_path = f'/etc/letsencrypt/live/{process.domain or name}/fullchain.pem'
+    nginx_file_path = f'/etc/nginx/sites-available/{domain_name}'
+    nginx_enabled_path = f'/etc/nginx/sites-enabled/{domain_name}'
+    cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
 
     if request.method == 'POST':
         action = request.form.get("action")
-        domain_name = request.form.get("domain_name", process.domain or name)
-        nginx_enabled_path = f'/etc/nginx/sites-enabled/{domain_name}'
-        process.domain = domain_name
-        try:
-            db.session.add(process)
-        except Exception as e:
-            print(str(e))
-        
-        db.session.commit()
 
-        cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
+        action_handlers = {
+            "create_nginx": lambda: create_nginx_config(process, domain_name, nginx_file_path, nginx_enabled_path),
+            "add_cert": lambda: run_certbot(["--nginx", "-d", domain_name]),
+            "renew_cert": lambda: run_certbot(["renew", "--cert-name", domain_name]),
+            "delete_cert": lambda: delete_cert(process, domain_name, nginx_file_path),
+            "remove_nginx": lambda: remove_nginx_config(nginx_file_path, nginx_enabled_path),
+            "restart_nginx": restart_nginx,
+            "save_nginx": lambda: save_nginx_config(request.form.get("nginx_config"), nginx_file_path),
+        }
 
-        if action == "create_nginx":
-            local_ip = socket.gethostbyname(socket.gethostname())
+        if action in action_handlers:
+            return action_handlers[action]()
 
-            default_nginx_content = f"""server {{
-    listen 80;
-    server_name {domain_name};
+    return render_template('nginx/index.html',
+                           process=process,
+                           nginx_content=read_nginx_config(nginx_file_path),
+                           cert_exists=os.path.exists(cert_path))
 
-    location / {{
-        proxy_pass http://{local_ip}:{process.port_id + 8000}/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }}
-}}"""
-            
-            subprocess.run(["sudo", "sh", "-c", f"echo '{default_nginx_content}' > {nginx_file_path}"])
 
-            
-            if not os.path.exists(nginx_enabled_path):
-                subprocess.run(["sudo", "ln", "-s", nginx_file_path, nginx_enabled_path])
-
-            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
-            return render_template('nginx/index.html', process=process, nginx_content=default_nginx_content)
-
-        elif action == "add_cert":
-            subprocess.run(["sudo", "certbot", "--nginx", "-d", domain_name, "--non-interactive"])
-            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
-        
-        elif action == "renew_cert":
-            subprocess.run(["sudo", "certbot", "renew", "--cert-name", domain_name, "--non-interactive"])
-            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
-
-        elif action == "delete_cert":
-            subprocess.run(["sudo", "certbot", "delete", "--cert-name", domain_name, "--non-interactive"])
-
-            local_ip = socket.gethostbyname(socket.gethostname())
-            default_nginx_content = f"""server {{
+def create_nginx_config(process, domain_name, nginx_file_path, nginx_enabled_path):
+    """Create a basic Nginx reverse proxy configuration."""
+    local_ip = socket.gethostbyname(socket.gethostname())
+    config = f"""server {{
     listen 80;
     server_name {domain_name};
 
@@ -82,35 +61,58 @@ def nginx(name):
     }}
 }}"""
 
-            
-            subprocess.run(["sudo", "sh", "-c", f"echo '{default_nginx_content}' > {nginx_file_path}"])
-
-
-            
-            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
-        elif action == "remove_nginx":
-            if os.path.exists(nginx_enabled_path):
-                os.remove(nginx_enabled_path)
-            if os.path.exists(nginx_file_path):
-                os.remove(nginx_file_path)
-            subprocess.run(["sudo", "systemctl", "reload", "nginx"])
-        
-        elif action == "restart_nginx":
-            redirect('/')
-            time.sleep(2)
-            subprocess.run(["sudo", "systemctl", "restart", "nginx"])
-        elif action == "save_nginx":
-            new_config = request.form.get("nginx_config")
-            if new_config:
-                subprocess.run(["sudo", "sh", "-c", f"echo '{new_config.strip()}' > {nginx_file_path}"], check=True)
-
+    write_nginx_config(nginx_file_path, config)
     
-    cert_exists = os.path.exists(cert_path)
-    
-    nginx_content = None
-    if os.path.exists(nginx_file_path):
-        with open(nginx_file_path, 'r') as file:
-            nginx_content = file.read()
+    if not os.path.exists(nginx_enabled_path):
+        subprocess.run(["sudo", "ln", "-s", nginx_file_path, nginx_enabled_path], check=True)
 
-    return render_template('nginx/index.html', process=process, nginx_content=nginx_content, cert_exists=cert_exists)
+    reload_nginx()
+    return render_template('nginx/index.html', process=process, nginx_content=config)
 
+
+def delete_cert(process, domain_name, nginx_file_path):
+    """Delete SSL certificate and revert to HTTP configuration."""
+    run_certbot(["delete", "--cert-name", domain_name])
+    create_nginx_config(process, domain_name, nginx_file_path, f'/etc/nginx/sites-enabled/{domain_name}')
+
+
+def remove_nginx_config(nginx_file_path, nginx_enabled_path):
+    """Remove Nginx configuration files and reload Nginx."""
+    for path in [nginx_enabled_path, nginx_file_path]:
+        if os.path.exists(path):
+            os.remove(path)
+    reload_nginx()
+
+
+def save_nginx_config(new_config, nginx_file_path):
+    """Save new Nginx configuration from the form input."""
+    if new_config:
+        write_nginx_config(nginx_file_path, new_config.strip())
+
+
+def run_certbot(args):
+    """Run Certbot commands for managing SSL certificates."""
+    subprocess.run(["sudo", "certbot"] + args + ["--non-interactive"], check=True)
+    reload_nginx()
+
+
+def reload_nginx():
+    """Reload Nginx service."""
+    subprocess.run(["sudo", "systemctl", "reload", "nginx"], check=True)
+
+
+def restart_nginx():
+    """Restart Nginx service."""
+    time.sleep(2)
+    subprocess.run(["sudo", "systemctl", "restart", "nginx"], check=True)
+    return redirect('/')
+
+
+def write_nginx_config(file_path, content):
+    """Write content to an Nginx configuration file."""
+    subprocess.run(["sudo", "sh", "-c", f"echo '{content}' > {file_path}"], check=True)
+
+
+def read_nginx_config(file_path):
+    """Read Nginx configuration file content."""
+    return open(file_path).read() if os.path.exists(file_path) else None

@@ -25,6 +25,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 app.secret_key = os.getenv('SECRET_KEY')
 
+ENVIRONMENT = os.getenv("ENVIRONMENT")
+
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -104,31 +106,31 @@ def send_webhook_message(webhook_url, event):
         print(f"Error sending webhook message: {e}")
 
 
-redis_client = redis.StrictRedis(
-    host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', "6379")),
-    decode_responses=True
-)
+first_worker = None
+if ENVIRONMENT == "production":
+    redis_client = redis.StrictRedis(
+        host=os.getenv('REDIS_HOST', 'localhost'),
+        port=int(os.getenv('REDIS_PORT', "6379")),
+        decode_responses=True
+    )
 
-REDIS_LOCK_KEY = "first_worker_lock"
-LOCK_TTL = 3600
+    REDIS_LOCK_KEY = "first_worker_lock"
+    LOCK_TTL = 3600
 
-
-def is_first_worker():
     current_pid = os.getpid()
 
     is_first = redis_client.set(REDIS_LOCK_KEY, current_pid, nx=True, ex=LOCK_TTL)
     if is_first:
         print(f"First worker detected with PID: {current_pid}")
-        return True
+        first_worker = True
 
     lock_owner = redis_client.get(REDIS_LOCK_KEY)
     print(f"Current worker PID: {current_pid}, First worker PID: {lock_owner}")
-    return str(current_pid) == lock_owner
+    first_worker = (str(current_pid) == lock_owner)
 
 
 with app.app_context():
-    if is_first_worker():
+    if ENVIRONMENT == "production" and first_worker:
         run_event_listener()
     db.create_all()
     create_admin_user()

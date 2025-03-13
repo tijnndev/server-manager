@@ -6,6 +6,7 @@ from db import db
 
 git_routes = Blueprint('git', __name__)
 
+
 @git_routes.route('/<name>', methods=['GET'])
 @owner_or_subuser_required()
 def git(name):
@@ -14,11 +15,13 @@ def git(name):
     show_add_repo_button = len(integrations) == 0
     return render_template('git/index.html', process=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
 
+
 @git_routes.route('/<name>/add_form', methods=['GET'])
 @owner_or_subuser_required()
 def add_git_form(name):
     process = find_process_by_name(name)
     return render_template('git/add_form.html', process=process)
+
 
 @git_routes.route('/<name>/add_git_integration', methods=['POST'])
 @owner_or_subuser_required()
@@ -38,6 +41,7 @@ def add_git_integration(name):
 
     return redirect(url_for("git.git", name=name))
 
+
 @git_routes.route('/<name>/pull_latest/<int:integration_id>', methods=['POST'])
 @owner_or_subuser_required()
 def pull_latest_git(name, integration_id):
@@ -47,6 +51,7 @@ def pull_latest_git(name, integration_id):
 
     git_integration.pull_latest()
     return redirect(url_for("git.git", name=name))
+
 
 @git_routes.route('/<name>/remove_git_integration/<int:integration_id>', methods=['POST'])
 @owner_or_subuser_required()
