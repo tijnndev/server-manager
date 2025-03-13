@@ -14,12 +14,17 @@
         font-size: 0.9rem;
         font-weight: bold;
     }
+    #search-bar {
+        margin-top: 5px;
+        margin-bottom: 20px;
+    }
 </style>
 
 <div class="container mt-4 dashboard-container">
     <div class="row">
         <div class="col-md-8">
             <h2>Manage Services</h2>
+            <input type="text" id="search-bar" class="form-control" placeholder="Search services..." oninput="filterServices()">
             <div id="services-grid" class="row g-3"></div>
         </div>
         <div class="col-md-4">
@@ -45,15 +50,15 @@
         grid.innerHTML = '';
         Object.entries(services).forEach(([name, service]) => {
             const card = `
-            <div class="col-md-6 pb-4">
+            <div class="col-md-6 pb-4" data-service-name="${name}">
                 <a href="/services/console/${name}">
-                <div class="server-card card p-3">
-                    <div class="card-body">
-                        <h5 class="card-title">${name}</h5>
-                        <p class="server-status text-${service.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${service.status}</p>
-                        <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
+                    <div class="server-card card p-3">
+                        <div class="card-body">
+                            <h5 class="card-title">${name}</h5>
+                            <p class="server-status text-${service.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${service.status}</p>
+                            <p class="mb-2"><strong>Type:</strong> ${service.type}</p>
+                        </div>
                     </div>
-                </div>
                 </a>
             </div>
             `;
@@ -71,6 +76,19 @@
         document.getElementById('storage-allocated').textContent = stats.storage_allocated;
         document.getElementById('storage-usage').textContent = stats.storage_usage;
         document.getElementById('network-usage').textContent = stats.network_usage;
+    }
+
+    function filterServices() {
+        const query = document.getElementById('search-bar').value.toLowerCase();
+        const serviceCards = document.querySelectorAll('[data-service-name]');
+        serviceCards.forEach(card => {
+            const serviceName = card.getAttribute('data-service-name').toLowerCase();
+            if (serviceName.includes(query)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
     }
 
     fetchServices();
