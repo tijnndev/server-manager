@@ -14,9 +14,15 @@
         font-size: 0.9rem;
         font-weight: bold;
     }
+    #server-stats {
+        
+        background: var(--card-bg);
+        border: none;
+    }
     #search-bar {
         margin-top: 5px;
         margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 </style>
 
@@ -29,7 +35,7 @@
         </div>
         <div class="col-md-4">
             <h2>Server Stats</h2>
-            <div id="server-stats" class="p-3 border rounded">
+            <div id="server-stats" class="p-3 rounded">
                 <p><strong>CPU Name:</strong> <span id="cpu-name"></span></p>
                 <p><strong>CPU Usage:</strong> <span id="cpu-usage"></span>%</p>
                 <p><strong>Memory Allocated:</strong> <span id="memory-allocated"></span> MB</p>
