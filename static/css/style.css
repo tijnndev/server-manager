@@ -366,7 +366,7 @@ body.dark-theme {
 }
 
 .process-grid a:hover {
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 
 .server-status {
