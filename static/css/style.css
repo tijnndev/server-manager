@@ -365,7 +365,7 @@ body.dark-theme {
     font-size: 1.2rem;
 }
 
-.server-card:hover .card-title{
+.process-grid a:hover .card-title {
     
     border-bottom: 1px solid var(--primary-color);
 }
