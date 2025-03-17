@@ -365,8 +365,8 @@ body.dark-theme {
     font-size: 1.2rem;
 }
 
-.process-grid a:hover {
-    color: var(--primary-color) !important;
+a:hover {
+    text-decoration: none !important;
 }
 
 .server-status {
