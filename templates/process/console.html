@@ -69,11 +69,11 @@
             if (!isPageActive) return;
 
             const message = event.data.trim();
-            // if (message && !seenMessages.has(message)) {
+            if (message && !seenMessages.has(message)) {
                 seenMessages.add(message);
-                consoleOutput.innerHTML = message + '\n';
+                consoleOutput.innerHTML += message + '\n';
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            // }
+            }
         };
     }
 
