@@ -363,6 +363,10 @@ body.dark-theme {
     color: var(--text-light);
     margin-bottom: 1rem;
     font-size: 1.2rem;
+}
+
+.server-card:hover .card-title{
+    
     border-bottom: 1px solid var(--primary-color);
 }
 
