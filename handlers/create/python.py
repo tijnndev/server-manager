@@ -26,6 +26,7 @@ CMD ["sh", "-c", "$COMMAND"]
     except Exception as e:
         return Result(success=False, message=str(e))
 
+
 def create_docker_compose_file(process, compose_file_path):
     try:
         with open(compose_file_path, 'w') as f:

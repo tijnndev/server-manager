@@ -1,7 +1,8 @@
 from classes.result import Result
 import json, os
 
-def create_docker_file(process, dockerfile_path):
+
+def create_docker_file(_process, dockerfile_path):
     try:
         directory = os.path.dirname(dockerfile_path)
         package_json_path = os.path.join(directory, 'package.json')
@@ -31,6 +32,7 @@ CMD ["sh", "-c", "$COMMAND"]
     
     except Exception as e:
         return Result(success=False, message=str(e))
+
 
 def create_docker_compose_file(process, compose_file_path):
     try:

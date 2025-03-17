@@ -1,8 +1,7 @@
 from classes.result import Result
-import os, json
 
 
-def create_docker_file(process, dockerfile_path):
+def create_docker_file(_process, dockerfile_path):
     try:
         dockerfile_content = """FROM nginx:alpine
 WORKDIR /usr/share/nginx/html
