@@ -344,6 +344,9 @@ def ansi_to_html(ansi_code):
         '36': 'cyan',
         '37': 'white',
         '0': 'white',
+        "38;5;214": "orange",
+        "38;5;226": "yellow",
+        "38;5;196": "red",
     }
     codes = ansi_code.split(';')
     for code in codes:
