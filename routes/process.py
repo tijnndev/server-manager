@@ -348,12 +348,7 @@ def ansi_to_html(ansi_code):
         "38;5;226": "yellow",
         "38;5;196": "red",
     }
-    codes = ansi_code.split(';')
-    print(ansi_code)
-    for code in codes:
-        if code in color_map:
-            return color_map[code]
-    return 'black'
+    return color_map.get(ansi_code, "white")
 
 
 @process_routes.route('/settings/<string:name>', methods=['GET', 'POST'])
