@@ -18,7 +18,7 @@ def create_docker_file(process, dockerfile_path):
 WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
-CMD ["sh", "-c", "$COMMAND"]
+CMD ["sh", "-c", "python -u $COMMAND"]
 """
         with open(dockerfile_path, "w") as f:
             f.write(dockerfile_content)
@@ -39,11 +39,12 @@ services:
             dockerfile: Dockerfile
         volumes:
             - .:/app
-        command: ["sh", "-c", {json.dumps(process.command)}]
+        command: ["sh", "-c", "python -u {json.dumps(process.command)}"]
         ports:
             - "{8000 + process.port_id}:{8000 + process.port_id}"
         environment:
-            - COMMAND={json.dumps(process.command)}""")
+            - COMMAND="python -u {process.command}"
+""")
         
         return Result(success=True, message="Docker Compose file created successfully")
     except Exception as e:
