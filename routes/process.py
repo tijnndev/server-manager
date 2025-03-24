@@ -304,7 +304,9 @@ def console_stream_logs(name):
             if match:
                 try:
                     timestamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%S.%fZ")
+                    print(timestamp)
                     formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
+                    print(formatted_timestamp)
                     return f"{formatted_timestamp} {match.group(2)}"
                 except ValueError:
                     pass
