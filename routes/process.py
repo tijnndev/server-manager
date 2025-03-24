@@ -298,12 +298,24 @@ def console_stream_logs(name):
             bufsize=1
         )
 
+        def format_timestamp(log_line):
+            parts = log_line.split(" ", 1)
+            if len(parts) > 1:
+                try:
+                    timestamp = datetime.strptime(parts[0], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
+                    return formatted_timestamp + " " + parts[1]
+                except ValueError:
+                    pass
+            return log_line
+
         def generate():
             try:
                 if process.stdout is not None:
                     for line in process.stdout:
                         line_before_pipe = line.split(' | ')[-1]
-                        yield f"data: {colorize_log(line_before_pipe)}\n\n"
+                        formatted_line = format_timestamp(line_before_pipe)
+                        yield f"data: {colorize_log(formatted_line)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
             finally:
