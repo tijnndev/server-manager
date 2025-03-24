@@ -303,7 +303,8 @@ def console_stream_logs(name):
             print(match)
             if match:
                 try:
-                    timestamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%S.%fZ")
+                    raw_timestamp = match.group(1)[:26]
+                    timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
                     print(timestamp)
                     formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
                     print(formatted_timestamp)
