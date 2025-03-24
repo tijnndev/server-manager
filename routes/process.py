@@ -287,7 +287,7 @@ def console_stream_logs(name):
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        logs_command = ['docker-compose', 'logs', '--tail', '50']
+        logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps']
 
         process = subprocess.Popen(
             logs_command,
