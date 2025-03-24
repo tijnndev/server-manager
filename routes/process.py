@@ -299,12 +299,12 @@ def console_stream_logs(name):
         )
 
         def format_timestamp(log_line):
-            parts = log_line.split(" ", 1)
-            if len(parts) > 1:
+            match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
+            if match:
                 try:
-                    timestamp = datetime.strptime(parts[0], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    timestamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%S.%fZ")
                     formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
-                    return formatted_timestamp + " " + parts[1]
+                    return f"{formatted_timestamp} {match.group(2)}"
                 except ValueError:
                     pass
             return log_line
@@ -313,8 +313,7 @@ def console_stream_logs(name):
             try:
                 if process.stdout is not None:
                     for line in process.stdout:
-                        line_before_pipe = line.split(' | ')[-1]
-                        formatted_line = format_timestamp(line_before_pipe)
+                        formatted_line = format_timestamp(line.strip())
                         yield f"data: {colorize_log(formatted_line)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
