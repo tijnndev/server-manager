@@ -300,18 +300,14 @@ def console_stream_logs(name):
 
         def format_timestamp(log_line):
             match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
-            print(match)
             if match:
                 try:
                     raw_timestamp = match.group(1)[:26]
                     timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f")
-                    print(timestamp)
                     formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
-                    print(formatted_timestamp)
                     return f"{formatted_timestamp} {match.group(2)}"
                 except ValueError as e:
                     print(e)
-                    pass
             return log_line
 
         def generate():
