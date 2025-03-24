@@ -286,7 +286,6 @@ def console_stream_logs(name):
 
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
         logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps']
 
         process = subprocess.Popen(
@@ -298,12 +297,20 @@ def console_stream_logs(name):
             bufsize=1
         )
 
+        def format_timestamp(line):
+            match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)\s+(.*)", line)
+            if match:
+                timestamp, log_message = match.groups()
+                formatted_time = datetime.strptime(timestamp[:-1], "%Y-%m-%dT%H:%M:%S.%f").strftime("[%Y-%m-%d %H:%M:%S]")
+                return f"{formatted_time} {log_message}"
+            return line
+
         def generate():
             try:
                 if process.stdout is not None:
                     for line in process.stdout:
-                        line_before_pipe = line.split(' | ')[-1]
-                        yield f"data: {colorize_log(line_before_pipe)}\n\n"
+                        formatted_line = format_timestamp(line)
+                        yield f"data: {colorize_log(formatted_line)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
             finally:
