@@ -308,7 +308,8 @@ def console_stream_logs(name):
                     formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
                     print(formatted_timestamp)
                     return f"{formatted_timestamp} {match.group(2)}"
-                except ValueError:
+                except ValueError as e:
+                    print(e)
                     pass
             return log_line
 
