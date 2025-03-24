@@ -314,7 +314,8 @@ def console_stream_logs(name):
             try:
                 if process.stdout is not None:
                     for line in process.stdout:
-                        formatted_line = format_timestamp(line.strip())
+                        line_before_pipe = line.split(' | ')[-1]
+                        formatted_line = format_timestamp(line_before_pipe.strip())
                         yield f"data: {colorize_log(formatted_line)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
