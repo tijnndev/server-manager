@@ -756,7 +756,7 @@ def get_current_cron_jobs(process_name):
                         parts = line.split()
                         if len(parts) >= 6:
                             cron_jobs.append({
-                                "name": process.name,
+                                "name": process_name,
                                 "schedule": " ".join(parts[:5]),  # cron schedule part (e.g., * * * * *)
                                 "command": " ".join(parts[5:]),  # command part
                             })
