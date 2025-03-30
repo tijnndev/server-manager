@@ -714,7 +714,7 @@ def schedule(name):
     if request.method == 'GET':
         return render_template('process/schedule.html', process=process)
 
-    data = request.json
+    data = request.form
     if not data or 'action' not in data or 'schedule' not in data:
         return jsonify({"error": "Invalid request data"}), 400
 
