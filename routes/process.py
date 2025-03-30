@@ -715,9 +715,7 @@ def schedule(name):
         return jsonify({"error": "Process not found"}), 404
 
     if request.method == 'GET':
-        # Fetch current cron jobs for the process
         cron_jobs = get_current_cron_jobs(name)
-        print(cron_jobs)
         return render_template('process/schedule.html', process=process, cron_jobs=cron_jobs)
 
     data = request.form
@@ -734,7 +732,8 @@ def schedule(name):
     
     try:
         subprocess.run(cron_command, shell=True, check=True)
-        return jsonify({"message": f"Scheduled '{action}' event for process '{name}' at '{schedule}'"})
+        cron_jobs = get_current_cron_jobs(name)
+        return render_template('process/schedule.html', process=process, cron_jobs=cron_jobs)
     except subprocess.CalledProcessError as e:
         return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
 
