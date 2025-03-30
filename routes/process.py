@@ -743,12 +743,24 @@ def get_current_cron_jobs(process_name):
     Get the current cron jobs for a specific process.
     This will list all cron jobs related to the process's name in /etc/cron.d.
     """
+    cron_jobs = []
     try:
         cron_file_path = os.path.join('/etc/cron.d', f'{process_name}_power_event')
-        
+
         if os.path.exists(cron_file_path):
             with open(cron_file_path) as cron_file:
-                return cron_file.readlines()
-        return []
+                lines = cron_file.readlines()
+                for line in lines:
+                    # Ignore commented lines and empty lines
+                    if line.strip() and not line.startswith('#'):
+                        parts = line.split()
+                        if len(parts) >= 6:
+                            cron_jobs.append({
+                                "name": process.name,
+                                "schedule": " ".join(parts[:5]),  # cron schedule part (e.g., * * * * *)
+                                "command": " ".join(parts[5:]),  # command part
+                            })
+        return cron_jobs
     except Exception as e:
-        return str(e)
+        return {"error": str(e)}
+
