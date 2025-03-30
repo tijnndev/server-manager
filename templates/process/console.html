@@ -79,7 +79,7 @@
 
 
     async function fetchUptime() {
-        // setInterval(async () => {
+        setInterval(async () => {
             try {
                 const response = await fetch(`/process/console/{{ process.name }}/uptime`);
                 if (response.ok) {
@@ -92,7 +92,7 @@
             } catch (error) {
                 console.error('Error fetching uptime:', error);
             }
-        // }, 1000);
+        }, 1000);
     }
 
     startConsole();
