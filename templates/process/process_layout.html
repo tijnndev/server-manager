@@ -36,6 +36,11 @@
                         <a class="nav-link {% if "git" in g.page %} active {% endif %}" href="{{ url_for('git.git', name=process.name) }}">Git</a>
                     </li>
                     {% endif %}
+                    {% if has_permission(process.name, "schedule") %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if "schedule" in g.page %} active {% endif %}" href="{{ url_for('process.schedule', name=process.name) }}">Schedule</a>
+                    </li>
+                    {% endif %}
                     {% if has_permission(process.name, "sub_users") %}
                     <li class="nav-item">
                         <a class="nav-link {% if "subusers" in g.page %} active {% endif %}" href="{{ url_for('process.subusers', name=process.name) }}">Sub Users</a>

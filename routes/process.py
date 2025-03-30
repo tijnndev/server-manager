@@ -702,3 +702,32 @@ def delete_subuser(name, user_id):
         flash("Sub-user not found.", "danger")
     
     return redirect(url_for('process.subusers', name=name))
+
+
+@process_routes.route('/schedule/<string:name>', methods=['GET', 'POST'])
+@owner_required()
+def schedule(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
+    
+    if request.method == 'GET':
+        return render_template('process/schedule.html', process=process)
+
+    data = request.json
+    if not data or 'action' not in data or 'schedule' not in data:
+        return jsonify({"error": "Invalid request data"}), 400
+
+    action = data['action']  # start or stop
+    schedule = data['schedule']  # cron format
+
+    if action not in {'start', 'stop'}:
+        return jsonify({"error": "Invalid action. Use 'start' or 'stop'."}), 400
+
+    cron_command = f"echo '{schedule} root docker-compose -f {os.path.join(ACTIVE_SERVERS_DIR, name, 'docker-compose.yml')} {action}' | sudo tee -a /etc/cron.d/{name}_power_event"
+    
+    try:
+        subprocess.run(cron_command, shell=True, check=True)
+        return jsonify({"message": f"Scheduled '{action}' event for process '{name}' at '{schedule}'"})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500

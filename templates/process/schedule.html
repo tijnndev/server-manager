@@ -1,0 +1,151 @@
+{% extends 'process/process_layout.html' %}
+
+{% block process_content %}
+<div class="container">
+    <h2>Schedule Power Events for {{ process.name }}</h2>
+
+    <form method="POST">
+        <div class="mb-3">
+            <label for="schedule" class="form-label">Cron Schedule</label>
+            <div class="input-group">
+                <input type="text" class="form-control" id="schedule" name="schedule" 
+                       placeholder="e.g., 0 8 * * * (Runs at 8 AM daily)" required>
+                <button type="button" id="openModalBtn" class="btn-info">📋 Cheatsheet</button>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Action</label>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" id="action_start" name="action" value="start" required>
+                <label class="form-check-label" for="action_start">Start</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" id="action_stop" name="action" value="stop">
+                <label class="form-check-label" for="action_stop">Stop</label>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary">Schedule</button>
+    </form>
+</div>
+
+<!-- Cron Cheatsheet Modal (Plain JS) -->
+<div id="cronCheatsheetModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Cron Job Cheatsheet</h3>
+        <table class="cheatsheet-table">
+            <thead>
+                <tr>
+                    <th>Cron Expression</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>* * * * *</code></td>
+                    <td>Every minute</td>
+                </tr>
+                <tr>
+                    <td><code>0 * * * *</code></td>
+                    <td>Every hour</td>
+                </tr>
+                <tr>
+                    <td><code>0 8 * * *</code></td>
+                    <td>Every day at 8 AM</td>
+                </tr>
+                <tr>
+                    <td><code>0 0 * * 0</code></td>
+                    <td>Every Sunday at midnight</td>
+                </tr>
+                <tr>
+                    <td><code>0 0 1 * *</code></td>
+                    <td>On the 1st of every month at midnight</td>
+                </tr>
+                <tr>
+                    <td><code>0 9-17 * * 1-5</code></td>
+                    <td>Every hour from 9 AM to 5 PM, Monday-Friday</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="note">* Format: <code>minute hour day month weekday</code></p>
+    </div>
+</div>
+
+<script>
+document.getElementById("openModalBtn").onclick = function() {
+    document.getElementById("cronCheatsheetModal").style.display = "block";
+};
+document.querySelector(".close").onclick = function() {
+    document.getElementById("cronCheatsheetModal").style.display = "none";
+};
+window.onclick = function(event) {
+    if (event.target === document.getElementById("cronCheatsheetModal")) {
+        document.getElementById("cronCheatsheetModal").style.display = "none";
+    }
+};
+</script>
+
+<style>
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+.btn-info {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+.btn-primary {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    cursor: pointer;
+}
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+.modal-content {
+    background-color: #171717;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #232323;
+    width: 80%;
+    max-width: 400px;
+    text-align: center;
+}
+.close {
+    float: right;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.cheatsheet-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+.cheatsheet-table th, .cheatsheet-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+.cheatsheet-table th {
+    background-color: #000;
+}
+.note {
+    font-size: 12px;
+    color: #555;
+}
+</style>
+{% endblock process_content %}
