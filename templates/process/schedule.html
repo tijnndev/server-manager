@@ -40,13 +40,11 @@
             </tr>
         </thead>
         <tbody>
-            {% for integration in integrations %}
+            {% for job in cron_jobs %}
                 <tr>
-                    {% for job in cron_jobs %}
-                        <td class="text-light">{{ job.name }}</td>
-                        <td class="text-light">{{ job.schedule }}</td>
-                        <td class="text-light">{{ job.command }}</td>
-                    {% endfor %}
+                    <td class="text-light">{{ job.name }}</td>
+                    <td class="text-light">{{ job.schedule }}</td>
+                    <td class="text-light">{{ job.command }}</td>
                     <td>
                         <form action="{{ url_for('git.remove_git_integration', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline-block ml-2">
                             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
