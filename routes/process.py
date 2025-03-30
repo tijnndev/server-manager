@@ -759,6 +759,7 @@ def get_current_cron_jobs(process_name):
                                 "name": process_name,
                                 "schedule": " ".join(parts[:5]),
                                 "command": " ".join(parts[5:]),
+                                "line": line
                             })
         return cron_jobs
     except Exception as e:
@@ -776,10 +777,10 @@ def delete_cron_job(name):
         return jsonify({"error": "Process not found"}), 404
 
     data = request.form
-    if 'schedule' not in data:
-        return jsonify({"error": "Missing schedule parameter"}), 400
+    if 'line' not in data:
+        return jsonify({"error": "Missing line parameter"}), 400
 
-    schedule_to_remove = data['schedule']
+    schedule_to_remove = data['line']
     cron_file_path = os.path.join('/etc/cron.d', f'{name}_power_event')
 
     try:
