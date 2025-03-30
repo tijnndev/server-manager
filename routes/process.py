@@ -792,6 +792,6 @@ def delete_cron_job(name):
                 if line.strip() != schedule_to_remove:
                     cron_file.write(line)
 
-        return jsonify({"message": f"Cron job with schedule '{schedule_to_remove}' has been removed."})
+        return redirect(url_for('process.schedule', name=process.name))
     except Exception as e:
         return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
