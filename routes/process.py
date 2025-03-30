@@ -52,7 +52,7 @@ def calculate_uptime(startup_date):
     # Calculate weeks, days, hours, minutes, and seconds
     weeks = seconds // (7 * 24 * 3600)
     days = (seconds % (7 * 24 * 3600)) // 86400
-    hours = (seconds % 86400) // 3600
+    hours = (seconds % 86400) // 3600 - 2
     minutes = (seconds % 3600) // 60
     seconds %= 60
 
