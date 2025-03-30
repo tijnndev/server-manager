@@ -708,7 +708,7 @@ def delete_subuser(name, user_id):
 
 
 @process_routes.route('/schedule/<string:name>', methods=['GET', 'POST'])
-@owner_required()
+@owner_or_subuser_required()
 def schedule(name):
     process = find_process_by_name(name)
     if not process:
@@ -765,3 +765,33 @@ def get_current_cron_jobs(process_name):
     except Exception as e:
         return {"error": str(e)}
 
+
+@process_routes.route('/schedule/<string:name>/delete', methods=['POST'])
+@owner_or_subuser_required()
+def delete_cron_job(name):
+    """
+    This route handles the deletion of a specific cron job related to a process.
+    """
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
+
+    data = request.form
+    if 'schedule' not in data:
+        return jsonify({"error": "Missing schedule parameter"}), 400
+
+    schedule_to_remove = data['schedule']
+    cron_file_path = os.path.join('/etc/cron.d', f'{name}_power_event')
+
+    try:
+        with open(cron_file_path) as cron_file:
+            lines = cron_file.readlines()
+
+        with open(cron_file_path, 'w') as cron_file:
+            for line in lines:
+                if line.strip() != schedule_to_remove:
+                    cron_file.write(line)
+
+        return jsonify({"message": f"Cron job with schedule '{schedule_to_remove}' has been removed."})
+    except Exception as e:
+        return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500

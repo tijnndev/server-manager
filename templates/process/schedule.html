@@ -29,7 +29,7 @@
         <button type="submit" class="btn btn-primary">Schedule</button>
     </form>
 
-    <h3>Existing Cron Jobs</h3>
+    <h3 class="mt-4">Existing Cron Jobs</h3>
     <table class="table table-striped table-bordered">
         <thead class="thead-dark">
             <tr>
@@ -46,7 +46,7 @@
                     <td class="text-light">{{ job.schedule }}</td>
                     <td class="text-light">{{ job.command }}</td>
                     <td>
-                        <form action="" method="POST" class="d-inline-block ml-2">
+                        <form action="{{ url_for('process_routes.delete_cron_job', name=process.name) }}" method="POST" class="d-inline-block ml-2">
                             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
                         </form>
                     </td>
