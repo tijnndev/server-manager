@@ -46,7 +46,7 @@
                     <td class="text-light">{{ job.schedule }}</td>
                     <td class="text-light">{{ job.command }}</td>
                     <td>
-                        <form action="{{ url_for('process_routes.delete_cron_job', name=process.name) }}" method="POST" class="d-inline-block ml-2">
+                        <form action="{{ url_for('process.delete_cron_job', name=process.name) }}" method="POST" class="d-inline-block ml-2">
                             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
                         </form>
                     </td>
