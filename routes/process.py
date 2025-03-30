@@ -30,24 +30,34 @@ def colorize_log(log):
     ansi_escape = re.compile(r'\033\[(\d+(;\d+)*)m')
     return ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log).replace('\033[0m', '</span>')
 
+import pytz
 
 def calculate_uptime(startup_date):
-    startup_datetime = datetime.fromisoformat(startup_date[:-1])
-    current_time = datetime.now()
+    # Define the Amsterdam timezone
+    amsterdam_tz = pytz.timezone('Europe/Amsterdam')
 
+    # Parse the startup date and make it timezone-aware
+    startup_datetime = datetime.fromisoformat(startup_date[:-1])  # Remove 'Z' and parse
+    startup_datetime = amsterdam_tz.localize(startup_datetime)  # Localize to Amsterdam timezone
+
+    # Get the current time in Amsterdam timezone
+    current_time = datetime.now(amsterdam_tz)
+
+    # Calculate the uptime
     uptime = current_time - startup_datetime
 
+    # Convert uptime to seconds
     seconds = int(uptime.total_seconds())
 
+    # Calculate weeks, days, hours, minutes, and seconds
     weeks = seconds // (7 * 24 * 3600)
     days = (seconds % (7 * 24 * 3600)) // 86400
     hours = (seconds % 86400) // 3600
     minutes = (seconds % 3600) // 60
     seconds %= 60
 
-    uptime_str = ''
-
-    uptime_str += f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
+    # Build the uptime string
+    uptime_str = f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
 
     return uptime_str.strip()
 
