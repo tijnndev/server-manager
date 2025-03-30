@@ -28,6 +28,17 @@
 
         <button type="submit" class="btn-primary">Schedule</button>
     </form>
+
+    <h3>Existing Cron Jobs</h3>
+    {% if cron_jobs %}
+        <ul>
+            {% for job in cron_jobs %}
+                <li>{{ job }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No cron jobs scheduled for this process.</p>
+    {% endif %}
 </div>
 
 <!-- Cron Cheatsheet Modal (Plain JS) -->

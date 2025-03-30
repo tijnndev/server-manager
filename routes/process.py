@@ -33,30 +33,23 @@ def colorize_log(log):
 import pytz
 
 def calculate_uptime(startup_date):
-    # Define the Amsterdam timezone
     amsterdam_tz = pytz.timezone('Europe/Amsterdam')
 
-    # Parse the startup date and make it timezone-aware
-    startup_datetime = datetime.fromisoformat(startup_date[:-1])  # Remove 'Z' and parse
-    startup_datetime = amsterdam_tz.localize(startup_datetime)  # Localize to Amsterdam timezone
+    startup_datetime = datetime.fromisoformat(startup_date[:-1])
+    startup_datetime = amsterdam_tz.localize(startup_datetime)
 
-    # Get the current time in Amsterdam timezone
     current_time = datetime.now(amsterdam_tz)
 
-    # Calculate the uptime
     uptime = current_time - startup_datetime
 
-    # Convert uptime to seconds
     seconds = int(uptime.total_seconds())
 
-    # Calculate weeks, days, hours, minutes, and seconds
     weeks = seconds // (7 * 24 * 3600)
     days = (seconds % (7 * 24 * 3600)) // 86400
     hours = (seconds % 86400) // 3600 - 2
     minutes = (seconds % 3600) // 60
     seconds %= 60
 
-    # Build the uptime string
     uptime_str = f"{weeks}w {days}d {hours}h {minutes}m {seconds}s"
 
     return uptime_str.strip()
@@ -720,9 +713,11 @@ def schedule(name):
     process = find_process_by_name(name)
     if not process:
         return jsonify({"error": "Process not found"}), 404
-    
+
     if request.method == 'GET':
-        return render_template('process/schedule.html', process=process)
+        # Fetch current cron jobs for the process
+        cron_jobs = get_current_cron_jobs(name)
+        return render_template('process/schedule.html', process=process, cron_jobs=cron_jobs)
 
     data = request.form
     if not data or 'action' not in data or 'schedule' not in data:
@@ -741,3 +736,19 @@ def schedule(name):
         return jsonify({"message": f"Scheduled '{action}' event for process '{name}' at '{schedule}'"})
     except subprocess.CalledProcessError as e:
         return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
+
+
+def get_current_cron_jobs(process_name):
+    """
+    Get the current cron jobs for a specific process.
+    This will list all cron jobs related to the process's name in /etc/cron.d.
+    """
+    try:
+        cron_file_path = os.path.join('/etc/cron.d', f'{process_name}_power_event')
+        
+        if os.path.exists(cron_file_path):
+            with open(cron_file_path) as cron_file:
+                return cron_file.readlines()
+        return []
+    except Exception as e:
+        return str(e)
