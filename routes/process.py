@@ -780,7 +780,7 @@ def delete_cron_job(name):
     if 'line' not in data:
         return jsonify({"error": "Missing line parameter"}), 400
 
-    schedule_to_remove = data['line']
+    schedule_to_remove = data['line'].strip()
     cron_file_path = os.path.join('/etc/cron.d', f'{name}_power_event')
 
     try:
