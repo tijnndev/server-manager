@@ -745,21 +745,20 @@ def get_current_cron_jobs(process_name):
     This will list all cron jobs related to the process's name in /etc/cron.d.
     """
     cron_jobs = []
-    try:
+    try:  # noqa: PLR1702
         cron_file_path = os.path.join('/etc/cron.d', f'{process_name}_power_event')
 
         if os.path.exists(cron_file_path):
             with open(cron_file_path) as cron_file:
                 lines = cron_file.readlines()
                 for line in lines:
-                    # Ignore commented lines and empty lines
                     if line.strip() and not line.startswith('#'):
                         parts = line.split()
                         if len(parts) >= 6:
                             cron_jobs.append({
                                 "name": process_name,
-                                "schedule": " ".join(parts[:5]),  # cron schedule part (e.g., * * * * *)
-                                "command": " ".join(parts[5:]),  # command part
+                                "schedule": " ".join(parts[:5]),
+                                "command": " ".join(parts[5:]),
                             })
         return cron_jobs
     except Exception as e:
@@ -789,9 +788,12 @@ def delete_cron_job(name):
 
         with open(cron_file_path, 'w') as cron_file:
             for line in lines:
+                print(schedule_to_remove)
                 if line.strip() != schedule_to_remove:
                     cron_file.write(line)
 
         return redirect(url_for('process.schedule', name=process.name))
-    except Exception as e:
+    except FileNotFoundError as e:
+        return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
+    except PermissionError as e:
         return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
