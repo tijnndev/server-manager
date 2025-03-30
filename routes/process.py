@@ -790,6 +790,7 @@ def delete_cron_job(name):
         with open(cron_file_path, 'w') as cron_file:
             for line in lines:
                 print(schedule_to_remove)
+                print(line.strip() != schedule_to_remove)
                 if line.strip() != schedule_to_remove:
                     cron_file.write(line)
 
