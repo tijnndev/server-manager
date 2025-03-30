@@ -717,6 +717,7 @@ def schedule(name):
     if request.method == 'GET':
         # Fetch current cron jobs for the process
         cron_jobs = get_current_cron_jobs(name)
+        print(cron_jobs)
         return render_template('process/schedule.html', process=process, cron_jobs=cron_jobs)
 
     data = request.form
