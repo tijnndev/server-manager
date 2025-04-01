@@ -745,6 +745,7 @@ def get_current_cron_jobs(process_name):
     """
     cron_jobs = []
     try:  # noqa: PLR1702
+        print(process_name.replace(".", "_"))
         cron_file_path = os.path.join('/etc/cron.d', f'{process_name.replace(".", "_")}_power_event')
 
         if os.path.exists(cron_file_path):
