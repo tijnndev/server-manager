@@ -728,7 +728,7 @@ def schedule(name):
     if action not in {'start', 'stop'}:
         return jsonify({"error": "Invalid action. Use 'start' or 'stop'."}), 400
 
-    cron_command = f"echo '{schedule} root docker-compose -f {os.path.join(ACTIVE_SERVERS_DIR, name, 'docker-compose.yml')} {action}' | sudo tee -a /etc/cron.d/{name}_power_event"
+    cron_command = f"echo '{schedule} root docker-compose -f {os.path.join(ACTIVE_SERVERS_DIR, name, 'docker-compose.yml')} {action}' | sudo tee -a /etc/cron.d/{name.replace('.', '_')}_power_event"
     
     try:
         subprocess.run(cron_command, shell=True, check=True)
@@ -745,7 +745,7 @@ def get_current_cron_jobs(process_name):
     """
     cron_jobs = []
     try:  # noqa: PLR1702
-        cron_file_path = os.path.join('/etc/cron.d', f'{process_name}_power_event')
+        cron_file_path = os.path.join('/etc/cron.d', f'{process_name.replace(".", "_")}_power_event')
 
         if os.path.exists(cron_file_path):
             with open(cron_file_path) as cron_file:
@@ -780,7 +780,7 @@ def delete_cron_job(name):
         return jsonify({"error": "Missing line parameter"}), 400
 
     schedule_to_remove = data['line'].strip()
-    cron_file_path = os.path.join('/etc/cron.d', f'{name}_power_event')
+    cron_file_path = os.path.join('/etc/cron.d', f'{name.replace(".", "_")}_power_event')
 
     try:
         with open(cron_file_path) as cron_file:
