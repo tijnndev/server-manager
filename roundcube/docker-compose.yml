@@ -5,6 +5,7 @@ services:
     ports:
       - "8080:80"
     environment:
+      ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
       ROUNDCUBEMAIL_DEFAULT_HOST: mail.yourdomain.com
       ROUNDCUBEMAIL_SMTP_SERVER: mail.yourdomain.com
       ROUNDCUBEMAIL_SMTP_PORT: 587
