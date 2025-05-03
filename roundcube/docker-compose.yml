@@ -1,0 +1,31 @@
+services:
+  roundcube:
+    image: roundcube/roundcubemail:latest
+    container_name: roundcube
+    ports:
+      - "8080:80"
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: mail.yourdomain.com
+      ROUNDCUBEMAIL_SMTP_SERVER: mail.yourdomain.com
+      ROUNDCUBEMAIL_SMTP_PORT: 587
+    depends_on:
+      - mailserver
+
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    hostname: mail
+    domainname: yourdomain.com
+    volumes:
+      - ./maildata:/var/mail
+      - ./mailstate:/var/mail-state
+      - ./maillogs:/var/log/mail
+      - ./config/:/tmp/docker-mailserver/
+    ports:
+      - "25:25"
+      - "587:587"
+      - "993:993"
+    environment:
+      - ENABLE_SPAMASSASSIN=1
+      - ENABLE_CLAMAV=1
+    cap_add:
+      - NET_ADMIN
