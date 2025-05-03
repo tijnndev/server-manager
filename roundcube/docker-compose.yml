@@ -6,8 +6,8 @@ services:
       - "8080:80"
     environment:
       ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
-      ROUNDCUBEMAIL_DEFAULT_HOST: mail.yourdomain.com
-      ROUNDCUBEMAIL_SMTP_SERVER: mail.yourdomain.com
+      ROUNDCUBEMAIL_DEFAULT_HOST: mail.tijnn.dev
+      ROUNDCUBEMAIL_SMTP_SERVER: mail.tijnn.dev
       ROUNDCUBEMAIL_SMTP_PORT: 587
     depends_on:
       - mailserver
@@ -15,7 +15,7 @@ services:
   mailserver:
     image: ghcr.io/docker-mailserver/docker-mailserver:latest
     hostname: mail
-    domainname: yourdomain.com
+    domainname: tijnn.dev
     volumes:
       - ./maildata:/var/mail
       - ./mailstate:/var/mail-state
