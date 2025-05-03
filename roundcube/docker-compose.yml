@@ -30,6 +30,7 @@ services:
       - ./config/:/tmp/docker-mailserver/  # Configuration files for the mailserver
     ports:
       - "25:25"  # SMTP
+      - "465:465"  # SMTPS (secure SMTP)
       - "587:587"  # SMTP (submission)
       - "993:993"  # IMAPS (secure IMAP)
     environment:
