@@ -6,8 +6,6 @@ services:
     container_name: roundcube
     ports:
       - "8080:80"  # Expose Roundcube's web UI on port 8080
-    volumes:
-      - /root/roundcube_config/config:/var/www/html/config
     environment:
       ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
       ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail.tijnn.dev:993
