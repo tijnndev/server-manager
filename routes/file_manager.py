@@ -100,7 +100,7 @@ def delete_file(name):
 
 @file_manager_routes.route('/<name>/files/delete', methods=['POST'])
 @owner_or_subuser_required()
-def delete_files(_name):
+def delete_files(name):
     filename = request.form.get('filename', "").replace("\\", "/")
     permanent = request.args.get('permanent', 'false').lower() == 'true'
 
