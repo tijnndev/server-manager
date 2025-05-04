@@ -9,10 +9,10 @@ services:
     environment:
       ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/  # Path to access Roundcube
       ROUNDCUBEMAIL_DEFAULT_HOST: mailserver   # IMAP server hostname
-      ROUNDCUBEMAIL_SMTP_SERVER: mailserver    # Changed to internal Docker service name
+      ROUNDCUBEMAIL_SMTP_SERVER: mail.tijnn.dev  # SMTP server hostname
       ROUNDCUBEMAIL_SMTP_PORT: 587  # SMTP port for sending emails
-      ROUNDCUBEMAIL_SMTP_USER: smtp@tijnn.dev  
-      ROUNDCUBEMAIL_SMTP_PASSWORD: yourpassword
+      ROUNDCUBEMAIL_SMTP_USER: smtp@tijnn.dev  # Optional: add SMTP user if needed
+      ROUNDCUBEMAIL_SMTP_PASSWORD: yourpassword  # Optional: add SMTP password if needed
     depends_on:
       - mailserver
     networks:
@@ -21,43 +21,29 @@ services:
   mailserver:
     image: ghcr.io/docker-mailserver/docker-mailserver:latest
     container_name: mailserver
-    hostname: mail.tijnn.dev              # Updated to match the external hostname
+    hostname: mail
     domainname: tijnn.dev
     volumes:
       - ./maildata:/var/mail  # Store mail data
       - ./mailstate:/var/mail-state  # Store mail server state
       - ./maillogs:/var/log/mail  # Store mail logs
       - ./config/:/tmp/docker-mailserver/  # Configuration files for the mailserver
-      - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/etc/ssl/certs/mailserver.crt
-      - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/etc/ssl/private/mailserver.key
+      - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/etc/ssl/certs/mailserver.crt  # Mount the certificate
+      - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/etc/ssl/private/mailserver.key  # Mount the private key
     ports:
-      - "25:25"    # SMTP
+      - "25:25"  # SMTP
       - "465:465"  # SMTPS (secure SMTP)
       - "587:587"  # SMTP (submission)
       - "993:993"  # IMAPS (secure IMAP)
     environment:
-      - ENABLE_SPAMASSASSIN=1
-      - ENABLE_CLAMAV=1
-      - MAIL_USER=smtp@tijnn.dev
-      - MAIL_PASS=yourpassword
-      - SSL_TYPE=manual                # Specify that you're using manual SSL setup
-      - SSL_CERT_PATH=/etc/ssl/certs/mailserver.crt
-      - SSL_KEY_PATH=/etc/ssl/private/mailserver.key
-      - PERMIT_DOCKER=network         # Allow connections from Docker network
-      - POSTFIX_INET_PROTOCOLS=all    # Support both IPv4 and IPv6
-      - ENABLE_POSTFIX_VIRTUAL_TRANSPORT=1
-      - POSTFIX_DAGENT=lmtp:dovecot:24
-      - ENABLE_SASLAUTHD=1
-      - SASLAUTHD_MECHANISMS=pam
-      - ENABLE_POSTGREY=0             # Disable greylisting for testing
-      - OVERRIDE_HOSTNAME=mail.tijnn.dev
-      - ONE_DIR=1
-      - DMS_DEBUG=1                   # Enable debugging for troubleshooting
+      - ENABLE_SPAMASSASSIN=1  # Enable SpamAssassin
+      - ENABLE_CLAMAV=1  # Enable ClamAV antivirus
+      - MAIL_USER=smtp@tijnn.dev  # Example mail user to configure
+      - MAIL_PASS=yourpassword  # Example password for the mail user
     cap_add:
-      - NET_ADMIN
+      - NET_ADMIN  # Required for certain networking operations (e.g., handling email traffic)
     networks:
       - mailnetwork
-    restart: always
 
 networks:
   mailnetwork:
