@@ -4,37 +4,34 @@
 <div class="container mt-4">
     <h2>NGINX Configuration for {{ process.name }}</h2>
 
-
     <form method="POST">
-    
-    <button type="submit" name="action" value="restart_nginx" class="btn btn-danger">Restart Nginx</button>
-    <div class="mb-3">
-        <label for="domain_name" class="form-label">Domain Name</label>
-        <input type="text" class="form-control" id="domain_name" name="domain_name" value="{{process.domain}}" placeholder="Enter your domain name">
-    </div>
-
-    {% if nginx_content %}
-        <div class="nginx-config" role="alert">
-            <label for="nginx_config" class="form-label">NGINX Configuration</label>
-            <input type="hidden" id="nginx_config" name="nginx_config">
-            <div id="editor" style="height: 300px;"></div>
-
+        <button type="submit" name="action" value="restart_nginx" class="btn btn-danger">Restart Nginx</button>
+        <div class="mb-3">
+            <label for="domain_name" class="form-label">Domain Name</label>
+            <input type="text" class="form-control" id="domain_name" name="domain_name" value="{{process.domain}}" placeholder="Enter your domain name">
         </div>
-        </div>
-            <button type="submit" name="action" value="save_nginx" class="btn btn-primary">Save Configuration</button>
-            {% if cert_exists %}
-                <button type="submit" name="action" value="renew_cert" class="btn btn-primary">Renew Certificate</button>
-                <button type="submit" name="action" value="delete_cert" class="btn btn-danger">Delete Certificate</button>
-            {% else %}
-                <button type="submit" name="action" value="add_cert" class="btn btn-success">Add Certificates</button>
-            {% endif %}
-            <button type="submit" name="action" value="remove_nginx" class="btn btn-warning">Remove Nginx</button>
-        </form>
 
-    {% else %}
-            <button type="submit" name="action" value="create_nginx" class="btn btn-warning">Create NGINX</button>
-        </form>
-    {% endif %}
+        {% if nginx_content %}
+            <div class="nginx-config" role="alert">
+                <label for="nginx_config" class="form-label">NGINX Configuration</label>
+                <input type="hidden" id="nginx_config" name="nginx_config">
+                <div id="editor" style="height: 300px;"></div>
+
+            </div>
+            </div>
+                <button type="submit" name="action" value="save_nginx" class="btn btn-primary">Save Configuration</button>
+                {% if cert_exists %}
+                    <button type="submit" name="action" value="renew_cert" class="btn btn-primary">Renew Certificate</button>
+                    <button type="submit" name="action" value="delete_cert" class="btn btn-danger">Delete Certificate</button>
+                {% else %}
+                    <button type="submit" name="action" value="add_cert" class="btn btn-success">Add Certificates</button>
+                {% endif %}
+                <button type="submit" name="action" value="remove_nginx" class="btn btn-warning">Remove Nginx</button>
+
+        {% else %}
+                <button type="submit" name="action" value="create_nginx" class="btn btn-warning">Create NGINX</button>
+        {% endif %}
+    </form>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
 <script>
