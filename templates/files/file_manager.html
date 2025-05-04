@@ -217,7 +217,7 @@
                                     <button type="submit" class="btn btn-info btn-sm mr-2">Unzip</button>
                                 </form>
                                 {% endif %}
-                                <a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
+                                <a href="{{ url_for('files.download_file', name=process.name, filename=file.name) }}" class="btn btn-info btn-sm mr-2">Download</a>
                                 <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" style="display:inline;" onsubmit="return confirmDelete(this, '{{ file.name }}');">
                                     <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
                                     <input type="hidden" name="location" value="{{ current_location }}">
@@ -321,34 +321,64 @@ function toggleActionsOverlay() {
 }
 
 function deleteSelectedFiles() {
-        if (selectedFiles.length === 0) return;
-        if (confirm("Are you sure you want to delete the selected files?")) {
-            alert('Deleting files: ' + selectedFiles.join(', '));
-            selectedFiles.forEach(element => {
-                form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + element + "&permanent=true";
+    if (selectedFiles.length === 0) return;
+
+    if (confirm("Are you sure you want to delete the selected files?")) {
+        selectedFiles.forEach(filePath => {
+            fetch("{{ url_for('files.delete_files', name=process.name) }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    'filename': filePath,
+                    'location': "{{ current_location }}",
+                    'permanent': true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Deleted file: ' + filePath);
+                    location.reload();
+                } else {
+                    alert('Error deleting file: ' + filePath);
+                }
+            })
+            .catch(error => {
+                console.log(error)
+                console.error('Error:', error);
+                alert('Error deleting file: ' + filePath);
             });
+        });
+    }
+}
+
+
+function downloadSelectedFiles() {
+    if (selectedFiles.length === 0) return;
+    alert('Downloading files: ' + selectedFiles.join(', '));
+    selectedFiles.forEach(filePath => {
+        const filename = filePath.split("\\").pop();
+        const downloadUrl = "{{ url_for('files.download_file', name=process.name, filename='__FILENAME__') }}".replace('__FILENAME__', encodeURIComponent(filename));
+        window.open(downloadUrl, '_blank');
+    });
+}
+
+function confirmDelete(form, filename) {
+    const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
+
+    if (userConfirmed) {
+        const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
+        if (action) {
+            form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename + "&permanent=true";
+        } else {
+            form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename;
         }
     }
 
-    function downloadSelectedFiles() {
-        if (selectedFiles.length === 0) return;
-        alert('Downloading files: ' + selectedFiles.join(', '));
-    }
-
-    function confirmDelete(form, filename) {
-        const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
-
-        if (userConfirmed) {
-            const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
-            if (action) {
-                form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename + "&permanent=true";
-            } else {
-                form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename;
-            }
-        }
-
-        return true;
-    }
+    return true;
+}
 
 function moveSelectedFiles() {
     if (selectedFiles.length === 0) return;

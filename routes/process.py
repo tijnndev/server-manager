@@ -2,7 +2,7 @@ import shutil
 import time, yaml
 import subprocess
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
-import os, json, re
+import os, json, re, pytz
 from datetime import datetime, timezone, UTC
 from db import db
 from models.process import Process
@@ -30,7 +30,6 @@ def colorize_log(log):
     ansi_escape = re.compile(r'\033\[(\d+(;\d+)*)m')
     return ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log).replace('\033[0m', '</span>')
 
-import pytz
 
 def calculate_uptime(startup_date):
     amsterdam_tz = pytz.timezone('Europe/Amsterdam')

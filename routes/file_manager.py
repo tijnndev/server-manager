@@ -98,17 +98,43 @@ def delete_file(name):
 
     return redirect(url_for('files.file_manager', name=process.name, location=current_location))
 
-
-@file_manager_routes.route('/file-manager/download/<filename>', methods=['GET'])
+@file_manager_routes.route('/<name>/files/delete', methods=['POST'])
 @owner_or_subuser_required()
-def download_file(filename):
+def delete_files(_name):
+    filename = request.form.get('filename', "").replace("\\", "/")
+    permanent = request.args.get('permanent', 'false').lower() == 'true'
+
     try:
         file_path = sanitize_path(ACTIVE_SERVERS_DIR, filename)
     except ValueError:
         return jsonify({"error": "Invalid path."}), 400
 
+    trash_path = os.path.join(TRASH_DIR, f"{filename.replace('/', '_')}-{int(time.time())}")
     if os.path.exists(file_path):
-        return send_from_directory(ACTIVE_SERVERS_DIR, filename, as_attachment=True)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path) if permanent else shutil.move(file_path, trash_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path) if permanent else shutil.move(file_path, trash_path)
+            return jsonify({"success": True}), 200
+        
+        except Exception:
+            pass
+
+    return jsonify({"error": "Files not found."}), 400
+
+
+@file_manager_routes.route('/<name>/file-manager/download/<filename>', methods=['GET'])
+@owner_or_subuser_required()
+def download_file(name, filename):
+    try:
+        process_path = sanitize_path(ACTIVE_SERVERS_DIR, name)
+        file_path = sanitize_path(process_path, filename)
+    except ValueError:
+        return jsonify({"error": "Invalid path."}), 400
+
+    if os.path.exists(file_path):
+        return send_from_directory(process_path, filename, as_attachment=True)
     return jsonify({"error": "File not found"}), 404
 
 

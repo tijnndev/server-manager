@@ -53,6 +53,7 @@
         const response = await fetch("{{ url_for('process.get_process') }}");
         const process = await response.json();
         const grid = document.getElementById('process-grid');
+        
         grid.innerHTML = '';
         Object.entries(process).forEach(([name, process]) => {
             const card = `
