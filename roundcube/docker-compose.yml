@@ -30,7 +30,6 @@ services:
       - ./config/:/tmp/docker-mailserver/  # Configuration files for the mailserver
       - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/etc/ssl/certs/mailserver.crt  # Mount the certificate
       - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/etc/ssl/private/mailserver.key  # Mount the private key
-  ports:
     ports:
       - "25:25"  # SMTP
       - "465:465"  # SMTPS (secure SMTP)
