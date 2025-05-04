@@ -7,12 +7,12 @@ services:
     ports:
       - "8080:80"  # Expose Roundcube's web UI on port 8080
     environment:
-      ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/  # Path to access Roundcube
-      ROUNDCUBEMAIL_DEFAULT_HOST: mailserver   # IMAP server hostname
-      ROUNDCUBEMAIL_SMTP_SERVER: mail.tijnn.dev  # SMTP server hostname
-      ROUNDCUBEMAIL_SMTP_PORT: 587  # SMTP port for sending emails
-      ROUNDCUBEMAIL_SMTP_USER: smtp@tijnn.dev  # Optional: add SMTP user if needed
-      ROUNDCUBEMAIL_SMTP_PASSWORD: yourpassword  # Optional: add SMTP password if needed
+      ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
+      ROUNDCUBEMAIL_DEFAULT_HOST: mailserver
+      ROUNDCUBEMAIL_SMTP_SERVER: mailserver
+      ROUNDCUBEMAIL_SMTP_PORT: 587
+      ROUNDCUBEMAIL_SMTP_USER: smtp@tijnn.dev
+      ROUNDCUBEMAIL_SMTP_PASSWORD: yourpassword
     depends_on:
       - mailserver
     networks:
@@ -21,30 +21,51 @@ services:
   mailserver:
     image: ghcr.io/docker-mailserver/docker-mailserver:latest
     container_name: mailserver
-    hostname: mail
+    hostname: mail.tijnn.dev
     domainname: tijnn.dev
     volumes:
-      - ./maildata:/var/mail  # Store mail data
-      - ./mailstate:/var/mail-state  # Store mail server state
-      - ./maillogs:/var/log/mail  # Store mail logs
-      - ./config/:/tmp/docker-mailserver/  # Configuration files for the mailserver
-      - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/etc/ssl/certs/mailserver.crt  # Mount the certificate
-      - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/etc/ssl/private/mailserver.key  # Mount the private key
+      - ./maildata:/var/mail
+      - ./mailstate:/var/mail-state
+      - ./maillogs:/var/log/mail
+      - ./config/:/tmp/docker-mailserver/
+      - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/etc/ssl/certs/ssl-cert-snakeoil.pem:ro
+      - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/etc/ssl/private/ssl-cert-snakeoil.key:ro
     ports:
-      - "25:25"  # SMTP
-      - "465:465"  # SMTPS (secure SMTP)
-      - "587:587"  # SMTP (submission)
-      - "993:993"  # IMAPS (secure IMAP)
+      - "25:25"     # SMTP (standard)
+      - "465:465"   # SMTPS (SMTP over SSL)
+      - "587:587"   # SMTP submission
+      - "993:993"   # IMAPS
     environment:
-      - ENABLE_SPAMASSASSIN=1  # Enable SpamAssassin
-      - ENABLE_CLAMAV=1  # Enable ClamAV antivirus
-      - MAIL_USER=smtp@tijnn.dev  # Example mail user to configure
-      - MAIL_PASS=yourpassword  # Example password for the mail user
+      - ENABLE_SPAMASSASSIN=1
+      - ENABLE_CLAMAV=1
+      - MAIL_USER=smtp@tijnn.dev
+      - MAIL_PASS=yourpassword
+      - SSL_TYPE=manual
+      - TLS_LEVEL=modern
+      - ONE_DIR=1
+      - PERMIT_DOCKER=network
+      - PERMIT_DOCKER=host
+      - POSTFIX_INET_PROTOCOLS=ipv4
+      - ENABLE_SMTPS=1              # Enable SMTPS explicitly (port 465)
+      - SMTP_ONLY=0
+      - ENABLE_POSTFIX_VIRTUAL_TRANSPORT=1
+      - POSTMASTER_ADDRESS=postmaster@tijnn.dev
+      - OVERRIDE_HOSTNAME=mail.tijnn.dev
+      - RELAY_HOST=                 # Leave empty for direct delivery
+      - RELAY_PORT=25
+      - RELAY_USER=
+      - RELAY_PASSWORD=
+      - SSL_CERT_PATH=/etc/ssl/certs/ssl-cert-snakeoil.pem
+      - SSL_KEY_PATH=/etc/ssl/private/ssl-cert-snakeoil.key
+      - DMS_DEBUG=1                 # Enable debug mode
+      - ENABLE_SASLAUTHD=0
     cap_add:
-      - NET_ADMIN  # Required for certain networking operations (e.g., handling email traffic)
+      - NET_ADMIN
+      - SYS_PTRACE
+    restart: always
     networks:
       - mailnetwork
-
+      
 networks:
   mailnetwork:
     driver: bridge
