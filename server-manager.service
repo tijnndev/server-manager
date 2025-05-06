@@ -1,0 +1,16 @@
+[Unit]
+Description=Server Manager Flask App
+After=network.target
+
+[Service]
+WorkingDirectory=/etc/server-manager/
+Environment=\"PATH=/etc/server-manager/venv/\"
+Environment="MAIL_USERNAME=mail@tijnn.dev"
+Environment="MAIL_PASSWORD=fEbye1^^xLeA*cMh"
+Environment="MAIL_SERVER=mail.tijnn.dev"
+Environment="MAIL_PORT=465"
+ExecStart=/etc/server-manager/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:7001 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

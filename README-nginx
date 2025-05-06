@@ -1,0 +1,8 @@
+Add following rules to nginx path for roundcube inside the first server-block:
+location /roundcube/ {
+    proxy_pass http://yourip:8080/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    rewrite ^/roundcube(/.*)$ $1 break;  # Rewrite URL so that Roundcube can handle it
+}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Roundcube Docker Compose
+After=docker.service
+Requires=docker.service
+
+[Service]
+WorkingDirectory=/etc/server-manager/roundcube
+ExecStart=/usr/bin/docker-compose up
+ExecStop=/usr/bin/docker-compose down
+Restart=always
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
