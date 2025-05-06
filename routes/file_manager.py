@@ -98,6 +98,7 @@ def delete_file(name):
 
     return redirect(url_for('files.file_manager', name=process.name, location=current_location))
 
+
 @file_manager_routes.route('/<name>/files/delete', methods=['POST'])
 @owner_or_subuser_required()
 def delete_files(name):
