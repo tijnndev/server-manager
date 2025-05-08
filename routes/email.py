@@ -47,6 +47,9 @@ def email(name):
         capture_output=True,
         text=True, check=False
     )
+
+    print("Raw Docker Output:")
+    print(list_result.stdout)
     if list_result.returncode == 0:
         users = [line.split()[0] for line in list_result.stdout.strip().splitlines() if line.strip()]
 
