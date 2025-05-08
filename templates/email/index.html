@@ -7,14 +7,14 @@
     }
 
     .action-btn {
-        width: auto;
-        padding: 0;
+        display: flex;
+        gap: 10px; /* Adds space between buttons */
     }
 
-    .action-btn td {
+    .action-btn button {
         width: auto;
     }
-    
+
     /* Dark Mode Styling for the Modal */
     .modal-content {
         background-color: #333;
@@ -94,7 +94,7 @@
 
         <div class="form-group" id="generated-password-container" style="display: none;">
             <label for="generated-password">Generated Password (click to copy)</label>
-            <input type="text" id="generated-password" class="form-control"  onclick="copyGeneratedPassword()" style="cursor: pointer;" disabled>
+            <input type="text" id="generated-password" class="form-control" onclick="copyGeneratedPassword()" style="cursor: pointer;" disabled>
         </div>
 
         <button type="button" class="btn btn-primary" onclick="createEmail()">Add Account</button>
@@ -125,7 +125,6 @@
         </table>
     </div>
     {% endif %}
-
 </div>
 
 <!-- Modal for Editing Password -->
