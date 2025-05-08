@@ -1,0 +1,65 @@
+{% extends 'process/process_layout.html' %}
+
+{% block process_content %}
+<style>
+    #generated-password {
+        background-color: #000;
+    }
+</style>
+<div class="container mt-4">
+    <h2>Add New Email Account</h2>
+    <form method="POST">
+        <input type="hidden" name="action" value="create">
+
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="text" name="email" id="email" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <div class="input-group" style="padding-left: 0 !important;">
+                <input type="password" name="password" id="password" class="form-control" required style="padding-left: .75rem !important;">
+                <div class="input-group-append">
+                    <button type="button" class="btn btn-secondary" onclick="generatePassword()">Generate</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" id="generated-password-container" style="display: none;">
+            <label for="generated-password">Generated Password (click to copy)</label>
+            <input type="text" id="generated-password" class="form-control"  onclick="copyGeneratedPassword()" style="cursor: pointer;" disabled>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Add Account</button>
+    </form>
+</div>
+
+<script>
+function generatePassword() {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+";
+    let password = "";
+    for (let i = 0; i < 16; i++) {
+        password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+
+    document.getElementById("password").value = password;
+
+    const container = document.getElementById("generated-password-container");
+    const displayField = document.getElementById("generated-password");
+
+    displayField.value = password;
+    container.style.display = "block";
+}
+
+function copyGeneratedPassword() {
+    console.log('test')
+    const tempInput = document.createElement("input");
+    tempInput.value = document.getElementById("generated-password").value;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand("copy");
+    document.body.removeChild(tempInput);
+    alert("Password copied to clipboard!");
+}
+</script>
+{% endblock %}

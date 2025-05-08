@@ -31,6 +31,11 @@
                         <a class="nav-link {% if "nginx" in g.page %} active {% endif %}" href="{{ url_for('nginx.nginx', name=process.name) }}">Nginx</a>
                     </li>
                     {% endif %}
+                    {% if has_permission(process.name, "email") %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if "email" in g.page %} active {% endif %}" href="{{ url_for('email.email', name=process.name) }}">Email</a>
+                    </li>
+                    {% endif %}
                     {% if has_permission(process.name, "git") %}
                     <li class="nav-item">
                         <a class="nav-link {% if "git" in g.page %} active {% endif %}" href="{{ url_for('git.git', name=process.name) }}">Git</a>
