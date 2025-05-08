@@ -70,5 +70,5 @@ def delete_email(name):
 
     if result.returncode == 0:
         return jsonify({"message": f"Email {email} deleted successfully"}), 200
-    
+    print(result.stderr)
     return jsonify({"error": result.stderr}), 500
