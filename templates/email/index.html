@@ -18,7 +18,7 @@
 
 <div class="container mt-4">
     <h2>Add New Email Account</h2>
-    <form method="POST">
+    <form id="create-email-form">
         <input type="hidden" name="action" value="create">
 
         <div class="form-group">
@@ -40,7 +40,7 @@
             <input type="text" id="generated-password" class="form-control"  onclick="copyGeneratedPassword()" style="cursor: pointer;" disabled>
         </div>
 
-        <button type="submit" class="btn btn-primary">Add Account</button>
+        <button type="button" class="btn btn-primary" onclick="createEmail()">Add Account</button>
     </form>
     {% if users|length > 0 %}
     <hr>
@@ -97,6 +97,35 @@ function copyGeneratedPassword() {
     alert("Password copied to clipboard!");
 }
 
+function createEmail() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    if (!email || !password) {
+        alert("Email and password are required.");
+        return;
+    }
+
+    fetch(`/email/{{ process.name }}/create`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.message) {
+            alert(data.message);
+        } else if (data.error) {
+            alert(`Error: ${data.error}`);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("An error occurred while creating the email.");
+    });
+}
 
 function deleteEmail(email) {
     if (confirm(`Are you sure you want to delete the email account: ${email}?`)) {
