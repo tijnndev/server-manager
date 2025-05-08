@@ -51,7 +51,14 @@ def email(name):
     print("Raw Docker Output:")
     print(list_result.stdout)
     if list_result.returncode == 0:
-        users = [line.split()[0] for line in list_result.stdout.strip().splitlines() if line.strip()]
+        users = []
+        for line in list_result.stdout.strip().splitlines():
+            # Each line starts with "* email_address", so we split by spaces and take the first part
+            parts = line.split()
+            if parts:  # Ensure the line is not empty
+                email = parts[0].strip("*")  # Remove the asterisk before the email
+                if "@" in email:  # Check if it's a valid email
+                    users.append(email)
 
     return render_template("email/index.html", process=process, users=users)
 
