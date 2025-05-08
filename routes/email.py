@@ -56,9 +56,8 @@ def email(name):
             # Each line starts with "* email_address", so we split by spaces and take the first part
             parts = line.split()
             print('parts', parts)
-            if parts:  # Ensure the line is not empty
-                email = parts[0].strip("*")  # Remove the asterisk before the email
-                print('Email' + email)
+            if parts and len(parts) > 0:  # Ensure the line is not empty
+                email = parts[1]
                 if "@" in email:  # Check if it's a valid email
                     users.append(email)
 
