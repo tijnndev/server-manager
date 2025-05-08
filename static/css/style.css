@@ -914,3 +914,8 @@ textarea.form-control {
 .navbar2 ul {
     list-style: none;
 }
+
+.overflow-table {
+    max-width: 100%; 
+    overflow-x: auto;
+}

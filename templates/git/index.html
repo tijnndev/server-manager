@@ -7,36 +7,38 @@
     {% if show_add_repo_button %}
     <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-primary mb-3">Add Repository</a>
     {% endif %}
-
-    <table class="table table-striped table-bordered">
-        <thead class="thead-dark">
-            <tr>
-                <th>Repository URL</th>
-                <th>Directory</th>
-                <th>Branch</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for integration in integrations %}
+    
+    <div class="overflow-table">
+        <table class="table table-striped table-bordered">
+            <thead class="thead-dark">
                 <tr>
-                    <td class="text-light">{{ integration.repository_url }}</td>
-                    <td class="text-light">{{ integration.directory }}</td>
-                    <td class="text-light">{{ integration.branch }}</td>
-                    <td class="text-light">{{ integration.status }}</td>
-                    <td>
-                        <form action="{{ url_for('git.pull_latest_git', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline-block">
-                            <button type="submit" class="btn btn-sm btn-info">Pull Latest</button>
-                        </form>
-                        <form action="{{ url_for('git.remove_git_integration', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline-block ml-2">
-                            <button type="submit" class="btn btn-sm btn-danger">Remove</button>
-                        </form>
-                    </td>
+                    <th>Repository URL</th>
+                    <th>Directory</th>
+                    <th>Branch</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for integration in integrations %}
+                    <tr>
+                        <td class="text-light">{{ integration.repository_url }}</td>
+                        <td class="text-light">{{ integration.directory }}</td>
+                        <td class="text-light">{{ integration.branch }}</td>
+                        <td class="text-light">{{ integration.status }}</td>
+                        <td>
+                            <form action="{{ url_for('git.pull_latest_git', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline-block">
+                                <button type="submit" class="btn btn-sm btn-info">Pull Latest</button>
+                            </form>
+                            <form action="{{ url_for('git.remove_git_integration', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline-block ml-2">
+                                <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
 
