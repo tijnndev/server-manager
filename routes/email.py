@@ -48,7 +48,7 @@ def email(name):
         text=True, check=False
     )
     if list_result.returncode == 0:
-        users = [line.strip() for line in list_result.stdout.strip().splitlines() if line.strip()]
+        users = [line.split()[0] for line in list_result.stdout.strip().splitlines() if line.strip()]
 
     return render_template("email/index.html", process=process, users=users)
 
