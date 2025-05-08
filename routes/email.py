@@ -48,17 +48,13 @@ def email(name):
         text=True, check=False
     )
 
-    print("Raw Docker Output:")
-    print(list_result.stdout)
     if list_result.returncode == 0:
         users = []
         for line in list_result.stdout.strip().splitlines():
-            # Each line starts with "* email_address", so we split by spaces and take the first part
             parts = line.split()
-            print('parts', parts)
-            if parts and len(parts) > 0:  # Ensure the line is not empty
+            if parts and len(parts) > 0:
                 email = parts[1]
-                if "@" in email:  # Check if it's a valid email
+                if "@" in email:
                     users.append(email)
 
     return render_template("email/index.html", process=process, users=users)
@@ -81,5 +77,5 @@ def delete_email(name):
 
     if result.returncode == 0:
         return jsonify({"message": f"Email {email} deleted successfully"}), 200
-    print(result.stderr)
+
     return jsonify({"error": result.stderr}), 500

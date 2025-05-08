@@ -92,7 +92,6 @@ function copyGeneratedPassword() {
 
 function deleteEmail(email) {
     if (confirm(`Are you sure you want to delete the email account: ${email}?`)) {
-        console.log("{{process.name}}")
         fetch(`/email/{{ process.name }}/delete`, {
             method: 'POST',
             headers: {
@@ -104,7 +103,7 @@ function deleteEmail(email) {
         .then(data => {
             if (data.message) {
                 alert(data.message);
-                location.reload(); // Reload the page to update the table
+                location.reload();
             } else if (data.error) {
                 alert(`Error: ${data.error}`);
             }
