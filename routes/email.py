@@ -56,6 +56,7 @@ def email(name):
 @email_routes.route('<name>/delete', methods=['POST'])
 @owner_or_subuser_required()
 def delete_email(name):
+    print(name)
     email = request.json.get('email')
 
     if not email:
