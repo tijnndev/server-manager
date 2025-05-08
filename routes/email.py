@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, flash
+from flask import Blueprint, render_template, request, redirect, flash, jsonify
 import subprocess
 from decorators import owner_or_subuser_required
 from utils import find_process_by_name
@@ -51,3 +51,23 @@ def email(name):
         users = [line.strip() for line in list_result.stdout.strip().splitlines() if line.strip()]
 
     return render_template("email/index.html", process=process, users=users)
+
+
+@email_routes.route('<name>/delete', methods=['POST'])
+@owner_or_subuser_required()
+def delete_email(name):
+    email = request.json.get('email')
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    result = subprocess.run(
+        ["docker", "exec", "mailserver", "setup", "email", "del", email],
+        capture_output=True,
+        text=True, check=False
+    )
+
+    if result.returncode == 0:
+        return jsonify({"message": f"Email {email} deleted successfully"}), 200
+    
+    return jsonify({"error": result.stderr}), 500
