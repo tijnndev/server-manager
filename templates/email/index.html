@@ -92,7 +92,8 @@ function copyGeneratedPassword() {
 
 function deleteEmail(email) {
     if (confirm(`Are you sure you want to delete the email account: ${email}?`)) {
-        fetch(`/email/{{ name }}/delete`, {
+        console.log("{{process.name}}")
+        fetch(`/email/{{ process.name }}/delete`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
