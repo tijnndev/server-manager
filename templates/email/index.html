@@ -42,6 +42,7 @@
 
         <button type="button" class="btn btn-primary" onclick="createEmail()">Add Account</button>
     </form>
+
     {% if users|length > 0 %}
     <hr>
     <h3 class="mt-5">Current Email Accounts</h3>
@@ -58,6 +59,7 @@
                     <tr>
                         <td class="text-white">{{ user }}</td>
                         <td class="action-btn">
+                            <button class="btn btn-warning btn-sm" onclick="editPassword('{{ user }}')">Edit Password</button>
                             <button class="btn btn-danger btn-sm" onclick="deleteEmail('{{ user }}')">Delete</button>
                         </td>
                     </tr>
@@ -67,6 +69,35 @@
     </div>
     {% endif %}
 
+</div>
+
+<!-- Modal for Editing Password -->
+<div class="modal" tabindex="-1" id="editPasswordModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Password</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-password-form">
+            <div class="form-group">
+                <label for="email-modal">Email</label>
+                <input type="text" id="email-modal" class="form-control" disabled>
+            </div>
+            <div class="form-group">
+                <label for="new-password">New Password</label>
+                <input type="password" id="new-password" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="confirm-password">Confirm New Password</label>
+                <input type="password" id="confirm-password" class="form-control" required>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="updatePassword()">Update Password</button>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -87,7 +118,6 @@ function generatePassword() {
 }
 
 function copyGeneratedPassword() {
-    console.log('test')
     const tempInput = document.createElement("input");
     tempInput.value = document.getElementById("generated-password").value;
     document.body.appendChild(tempInput);
@@ -124,6 +154,48 @@ function createEmail() {
     .catch(err => {
         console.error(err);
         alert("An error occurred while creating the email.");
+    });
+}
+
+function editPassword(email) {
+    document.getElementById('email-modal').value = email;
+    new bootstrap.Modal(document.getElementById('editPasswordModal')).show();
+}
+
+function updatePassword() {
+    const email = document.getElementById('email-modal').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+
+    if (!newPassword || !confirmPassword) {
+        alert("Both new password and confirmation are required.");
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        alert("Passwords do not match.");
+        return;
+    }
+
+    fetch(`/email/{{ process.name }}/update-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password: newPassword })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.message) {
+            alert(data.message);
+            location.reload();
+        } else if (data.error) {
+            alert(`Error: ${data.error}`);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("An error occurred while updating the password.");
     });
 }
 

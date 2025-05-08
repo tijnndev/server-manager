@@ -71,3 +71,26 @@ def delete_email(name):
         return jsonify({"message": f"Email {email} deleted successfully"}), 200
 
     return jsonify({"error": result.stderr}), 500
+
+
+@email_routes.route('<name>/update-password', methods=['POST'])
+@owner_or_subuser_required()
+def update_email_password(name):
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    result = subprocess.run(
+        ["docker", "exec", "mailserver", "setup", "email", "update", email, password],
+        capture_output=True,
+        text=True,
+        check=False
+    )
+
+    if result.returncode == 0:
+        return jsonify({"message": f"Password updated successfully for {email}"}), 200
+
+    return jsonify({"error": result.stderr}), 500
