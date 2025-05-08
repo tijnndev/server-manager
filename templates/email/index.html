@@ -5,7 +5,17 @@
     #generated-password {
         background-color: #000;
     }
+
+    .action-btn {
+        width: auto;
+        padding: 0;
+    }
+
+    .action-btn td {
+        width: auto;
+    }
 </style>
+
 <div class="container mt-4">
     <h2>Add New Email Account</h2>
     <form method="POST">
@@ -32,6 +42,7 @@
 
         <button type="submit" class="btn btn-primary">Add Account</button>
     </form>
+    {% if users|length > 0 %}
     <hr>
     <h3 class="mt-5">Current Email Accounts</h3>
     <div class="overflow-table">
@@ -50,14 +61,11 @@
                             <button class="btn btn-danger btn-sm" onclick="deleteEmail('{{ user }}')">Delete</button>
                         </td>
                     </tr>
-                {% else %}
-                    <tr>
-                        <td class="text-white" colspan="1">No users found.</td>
-                    </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% endif %}
 
 </div>
 

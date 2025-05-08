@@ -26,7 +26,7 @@ def email(name):
                 ["docker", "exec", "mailserver", "setup", "email", "add", email, password],
                 capture_output=True,
                 text=True, check=False
-            )
+            ) 
         elif action == "delete":
             result = subprocess.run(
                 ["docker", "exec", "mailserver", "setup", "email", "del", "-y", email],

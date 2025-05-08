@@ -93,7 +93,7 @@ def delete_file(name):
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path) if permanent else shutil.move(file_path, trash_path)
             return redirect(url_for('files.file_manager', name=process.name, location=current_location))
-        except Exception:
+        except (OSError, shutil.Error):
             pass
 
     return redirect(url_for('files.file_manager', name=process.name, location=current_location))
@@ -119,7 +119,7 @@ def delete_files(name):
                 shutil.rmtree(file_path) if permanent else shutil.move(file_path, trash_path)
             return jsonify({"success": True}), 200
         
-        except Exception:
+        except (OSError, shutil.Error):
             pass
 
     return jsonify({"error": "Files not found."}), 400
