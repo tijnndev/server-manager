@@ -5,10 +5,12 @@ from utils import find_process_by_name
 
 email_routes = Blueprint('email', __name__)
 
+
 @email_routes.route('<name>', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def email(name):
     process = find_process_by_name(name)
+    users = []
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -17,34 +19,35 @@ def email(name):
 
         if not email or not password:
             flash("Email and password are required.", "danger")
-            return render_template("email/index.html", process=process)
-        print(action)
+            return render_template("email/index.html", process=process, users=users)
+
         if action == "create":
             result = subprocess.run(
-                ["docker", "exec", "-it", "mailserver", "setup", "email", "add", email, password],
-                # ["docker", "ps"],
+                ["docker", "exec", "mailserver", "setup", "email", "add", email, password],
                 capture_output=True,
-                text=True
+                text=True, check=False
             )
-            print("STDOUT:", result.stdout)
-            print("STDERR:", result.stderr)
-            print("Return Code:", result.returncode)
-
         elif action == "delete":
             result = subprocess.run(
-                ["docker", "exec", "-it", "mailserver", "setup", "email", "del", email],
+                ["docker", "exec", "mailserver", "setup", "email", "del", email],
                 capture_output=True,
-                text=True
+                text=True, check=False
             )
         else:
             flash("Invalid action.", "danger")
-            return render_template("email/index.html", process=process)
+            return render_template("email/index.html", process=process, users=users)
 
         if result.returncode == 0:
             flash(f"{action.title()} successful for {email}", "success")
         else:
             flash(f"{action.title()} failed: {result.stderr}", "danger")
 
-        return render_template("email/index.html", process=process)
+    list_result = subprocess.run(
+        ["docker", "exec", "mailserver", "setup", "email", "list"],
+        capture_output=True,
+        text=True, check=False
+    )
+    if list_result.returncode == 0:
+        users = [line.strip() for line in list_result.stdout.strip().splitlines() if line.strip()]
 
-    return render_template("email/index.html", process=process)
+    return render_template("email/index.html", process=process, users=users)
