@@ -65,15 +65,15 @@
     }
 
     .btn-close {
-        font-size: 0.5rem; /* Enlarge the button */
-        color: #fff; /* Ensure the color is white */
+        font-size: 0.5rem;
+        color: #fff;
         border: none;
         background: none;
-        padding: 0.5rem; /* Add padding to make the button larger */
+        padding: 0.5rem;
     }
 
     .btn-close i {
-        font-size: 1rem; /* Enlarge the icon */
+        font-size: 1rem;
     }
 </style>
 
@@ -132,7 +132,6 @@
 </div>
 
 <!-- Modal for Editing Password -->
-<!-- Modal for Editing Password -->
 <div class="modal" tabindex="-1" id="editPasswordModal">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -162,12 +161,11 @@
         </div>
       </div>
     </div>
-  </div>
+</div>
   
-  <!-- Add Bootstrap Icons CDN if it's not already included -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+<!-- Add Bootstrap Icons CDN if it's not already included -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
   
-
 <script>
 function generatePassword() {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+";
@@ -292,4 +290,9 @@ function deleteEmail(email) {
     }
 }
 </script>
+
+<!-- Bootstrap JS and dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>
+
 {% endblock %}
