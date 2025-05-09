@@ -326,7 +326,7 @@ def console_stream_logs(name):
                 if process.stdout is not None:
                     for line in iter(process.stdout.readline, ''):
                         formatted_line = format_timestamp(line.strip())
-                        console.log(formatted_line)
+                        print(formatted_line)
                         yield f"data: {colorize_log(formatted_line)}\n\n"
                 
                 if process.stderr is not None:
