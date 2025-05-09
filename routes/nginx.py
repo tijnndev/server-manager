@@ -40,6 +40,7 @@ def nginx(name):
             action_handlers[action]()
 
     return render_template('nginx/index.html',
+                           page_title="Nginx",
                            process=process,
                            nginx_content=read_nginx_config(nginx_file_path),
                            cert_exists=os.path.exists(cert_path))
@@ -66,7 +67,7 @@ def create_nginx_config(process, domain_name, nginx_file_path, nginx_enabled_pat
     if not os.path.exists(nginx_enabled_path):
         subprocess.run(["sudo", "ln", "-s", nginx_file_path, nginx_enabled_path], check=True)
 
-    reload_nginx()
+    restart_nginx()
     return render_template('nginx/index.html', process=process, nginx_content=config)
 
 

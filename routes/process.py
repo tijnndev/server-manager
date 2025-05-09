@@ -99,7 +99,7 @@ def get_process():
 def create_process():
     types = find_types()
 
-    return render_template('create_process.html', types=types)
+    return render_template('create_process.html', page_title="Create Process", types=types)
 
 
 @process_routes.route('/add', methods=['POST'])
@@ -110,7 +110,7 @@ def add_process():
         return jsonify({"error": "Invalid or duplicate process name"}), 400
 
     process_name = data.get("name", "").strip().lower()
-    type = data.get("type", "").strip()
+    process_type = data.get("type", "").strip()
     command = data.get("command", "").strip()
     dependencies = [dep.strip() for dep in data.get("dependencies", "").split(",")]
 
@@ -129,7 +129,7 @@ def add_process():
             name=process_name,
             owner_id=session.get("user_id"),
             command=command,
-            type=type,
+            type=process_type,
             file_location=process_dir,
             dependencies=dependencies,
             id="pending",
@@ -141,8 +141,8 @@ def add_process():
         compose_file_path = os.path.join(process_dir, "docker-compose.yml")
         dockerfile_path = os.path.join(process_dir, "Dockerfile")
 
-        compose_result = execute_handler(f"create.{type}", "create_docker_compose_file", new_process, compose_file_path)
-        docker_result = execute_handler(f"create.{type}", "create_docker_file", new_process, dockerfile_path)
+        compose_result = execute_handler(f"create.{process_type}", "create_docker_compose_file", new_process, compose_file_path)
+        docker_result = execute_handler(f"create.{process_type}", "create_docker_file", new_process, dockerfile_path)
 
         if not compose_result.success or not docker_result.success:
             return jsonify({"error": compose_result.message if not compose_result.success else docker_result.message}), 400
@@ -246,7 +246,7 @@ def console(name):
         status = response["status"]
     except KeyError:
         status = "Failed"
-    return render_template('process/console.html', process=process, process_status=status)
+    return render_template('process/console.html', page_title="Console", process=process, process_status=status)
 
 
 @process_routes.route('/console/<name>/uptime')
@@ -410,7 +410,7 @@ def settings(name):
         print('Process settings updated successfully!')
         return redirect(url_for('process.console', name=new_name))
 
-    return render_template('process/settings.html', process=process, types=types)
+    return render_template('process/settings.html', page_title="Settings", process=process, types=types)
 
 
 def update_compose_file(compose_path, process_name, command):
@@ -492,7 +492,7 @@ def discord(name):
             print("Webhook URL is required!", "danger")
 
     integration = DiscordIntegration.query.filter_by(process_name=process.name).first()
-    return render_template('process/discord.html', process=process, integration=integration)
+    return render_template('process/discord.html', page_title="Discord", process=process, integration=integration)
 
 
 @process_routes.route('/subusers/<string:name>', methods=['GET'])
@@ -500,7 +500,7 @@ def discord(name):
 def subusers(name):
     process = find_process_by_name(name)
     users = SubUser.query.filter_by(process=name).all()
-    return render_template('process/subusers.html', process=process, users=users)
+    return render_template('process/subusers.html', page_title="Sub Users", process=process, users=users)
 
 
 @process_routes.route('/subusers/<string:name>/invite', methods=['GET', 'POST'])
@@ -715,7 +715,7 @@ def schedule(name):
 
     if request.method == 'GET':
         cron_jobs = get_current_cron_jobs(name)
-        return render_template('process/schedule.html', process=process, cron_jobs=cron_jobs)
+        return render_template('process/schedule.html', page_title="Schedule", process=process, cron_jobs=cron_jobs)
 
     data = request.form
     if not data or 'action' not in data or 'schedule' not in data:
@@ -732,7 +732,7 @@ def schedule(name):
     try:
         subprocess.run(cron_command, shell=True, check=True)
         cron_jobs = get_current_cron_jobs(name)
-        return render_template('process/schedule.html', process=process, cron_jobs=cron_jobs)
+        return render_template('process/schedule.html', page_title="Schedule", process=process, cron_jobs=cron_jobs)
     except subprocess.CalledProcessError as e:
         return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
 

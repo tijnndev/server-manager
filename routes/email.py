@@ -27,7 +27,7 @@ def email(name):
                 if "@" in email:
                     users.append(email)
 
-    return render_template("email/index.html", process=process, users=users)
+    return render_template("email/index.html", process=process, users=users, page_title="Email")
 
 
 @email_routes.route('<name>/create', methods=['POST'])

@@ -22,10 +22,11 @@ def login():
             session['username'] = user.username
             session["role"] = user.role
             return redirect(url_for('dashboard'))
-        else:
-            flash("Invalid username or password")
+        
+        flash("Invalid username or password")
 
-    return render_template('auth/login.html')
+    return render_template('auth/login.html', page_title="Login")
+
 
 @auth_route.route('/register', methods=['GET', 'POST'])
 def register():
@@ -56,7 +57,7 @@ def register():
         flash("Registration successful! Please log in.")
         return redirect(url_for('auth.login'))
 
-    return render_template('auth/register.html')
+    return render_template('auth/register.html', page_title="Register")
 
 
 @auth_route.route('/reset_password', methods=['GET', 'POST'])
@@ -84,7 +85,8 @@ def reset_password():
 
         return redirect(url_for('auth.login'))
 
-    return render_template('auth/reset_password.html')
+    return render_template('auth/reset_password.html', page_title="Reset Password")
+
 
 @auth_route.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_token(token):
@@ -106,7 +108,8 @@ def reset_token(token):
         flash('Your password has been updated!', 'success')
         return redirect(url_for('auth.login'))
 
-    return render_template('auth/reset_token.html', token=token)
+    return render_template('auth/reset_token.html', token=token, page_title="Reset Password")
+
 
 @auth_route.route('/logout')
 def logout():

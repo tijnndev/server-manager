@@ -13,14 +13,14 @@ def git(name):
     process = find_process_by_name(name)
     integrations = GitIntegration.query.filter_by(process_name=name).all()
     show_add_repo_button = len(integrations) == 0
-    return render_template('git/index.html', process=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
+    return render_template('git/index.html', page_title="Git", process=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
 
 
 @git_routes.route('/<name>/add_form', methods=['GET'])
 @owner_or_subuser_required()
 def add_git_form(name):
     process = find_process_by_name(name)
-    return render_template('git/add_form.html', process=process)
+    return render_template('git/add_form.html', page_title="Add Git", process=process)
 
 
 @git_routes.route('/<name>/add_git_integration', methods=['POST'])
