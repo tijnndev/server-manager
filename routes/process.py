@@ -35,7 +35,7 @@ def format_timestamp(log_line):
     if not log_line.strip():
         return log_line
     
-    match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
+    match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)", log_line)
     if match:
         try:
             raw_timestamp = match.group(1)[:26]
