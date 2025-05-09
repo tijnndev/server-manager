@@ -33,7 +33,7 @@ def colorize_log(log):
 
 def format_timestamp(log_line):
     if not log_line.strip():
-        return log_line
+        return log_line + "Joeh"
     
     match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
     if match:
