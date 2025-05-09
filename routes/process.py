@@ -33,7 +33,7 @@ def colorize_log(log):
 
 def format_timestamp(log_line):
     if not log_line.strip():
-        return log_line + "Joeh"
+        return log_line
     
     match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
     if match:
@@ -48,6 +48,8 @@ def format_timestamp(log_line):
             return f"{formatted_timestamp} {match.group(2)}"
         except ValueError as e:
             print(e)
+    else:
+        return log_line + "Not matching lol"
     
     return log_line
 
@@ -326,7 +328,6 @@ def console_stream_logs(name):
                 if process.stdout is not None:
                     for line in iter(process.stdout.readline, ''):
                         formatted_line = format_timestamp(line.strip())
-                        print(formatted_line)
                         yield f"data: {colorize_log(formatted_line)}\n\n"
                 
                 if process.stderr is not None:
