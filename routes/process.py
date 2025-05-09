@@ -3,7 +3,7 @@ import time, yaml
 import subprocess
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
 import os, json, re, pytz
-from datetime import datetime, timezone, UTC
+from datetime import datetime, UTC, timedelta
 from db import db
 from models.process import Process
 from models.discord_integration import DiscordIntegration
@@ -30,6 +30,22 @@ def colorize_log(log):
     ansi_escape = re.compile(r'\033\[(\d+(;\d+)*)m')
     return ansi_escape.sub(lambda match: f'<span style="color: {ansi_to_html(match.group(1))};">', log).replace('\033[0m', '</span>')
 
+
+def format_timestamp(log_line):
+    match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
+    if match:
+        try:
+            raw_timestamp = match.group(1)[:26]
+            timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f")
+            
+            timestamp += timedelta(hours=2)
+            
+            formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
+            
+            return f"{formatted_timestamp} {match.group(2)}"
+        except ValueError as e:
+            print(e)
+    return log_line
 
 def calculate_uptime(startup_date):
     amsterdam_tz = pytz.timezone('Europe/Amsterdam')
@@ -289,7 +305,7 @@ def console_stream_logs(name):
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps']
+        logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
 
         process = subprocess.Popen(
             logs_command,
@@ -300,25 +316,17 @@ def console_stream_logs(name):
             bufsize=1
         )
 
-        def format_timestamp(log_line):
-            match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
-            if match:
-                try:
-                    raw_timestamp = match.group(1)[:26]
-                    timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f")
-                    formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
-                    return f"{formatted_timestamp} {match.group(2)}"
-                except ValueError as e:
-                    print(e)
-            return log_line
-
         def generate():
             try:
                 if process.stdout is not None:
-                    for line in process.stdout:
-                        line_before_pipe = line.split(' | ')[-1]
-                        formatted_line = format_timestamp(line_before_pipe.strip())
+                    for line in iter(process.stdout.readline, ''):
+                        formatted_line = format_timestamp(line.strip())
                         yield f"data: {colorize_log(formatted_line)}\n\n"
+                
+                if process.stderr is not None:
+                    for line in iter(process.stderr.readline, ''):
+                        formatted_line = format_timestamp(line.strip())
+                        yield f"data: [stderr] {colorize_log(formatted_line)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
             finally:
@@ -371,43 +379,54 @@ def ansi_to_html(ansi_code):
 def settings(name):
     process = find_process_by_name(name)
     types = find_types()
-    
+
     if not process:
-        return render_template('process/settings.html', process=None, types=types)
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         old_name = process.name
-        new_name = request.form.get('name')
-        
-        process.name = new_name
-        process.description = request.form.get('description')
-        process.command = request.form.get('command')
-        process.type = request.form.get('type')
-        process.params = request.form.get('params', '')
+        new_name = request.form.get('name', '').strip()
+        description = request.form.get('description', '').strip()
+        command = request.form.get('command', '').strip()
+        type_ = request.form.get('type', '').strip()
+        params = request.form.get('params', '').strip()
 
-        if not process.command:
-            return "Process command not found", 400
+        if not command:
+            return "Process command is required", 400
 
         old_dir = os.path.join(ACTIVE_SERVERS_DIR, old_name)
         new_dir = os.path.join(ACTIVE_SERVERS_DIR, new_name)
 
-        if old_name != new_name and os.path.exists(old_dir):
+        if old_name != new_name:
             if os.path.exists(new_dir):
-                return f"Process directory '{new_name}' already exists", 400
-            os.rename(old_dir, new_dir)
-            print(f"Renamed process directory: {old_dir} → {new_dir}")
+                return f"Directory '{new_name}' already exists", 400
+            if os.path.exists(old_dir):
+                try:
+                    os.rename(old_dir, new_dir)
+                except OSError as e:
+                    return f"Failed to rename directory: {str(e)}", 500
 
         compose_path = os.path.join(new_dir, 'docker-compose.yml')
         dockerfile_path = os.path.join(new_dir, 'Dockerfile')
 
-        if not update_compose_file(compose_path, new_name, process.command):
-            return f"Process '{new_name}' not found in docker-compose.yml", 404
+        if not update_compose_file(compose_path, new_name, command):
+            return f"Failed to update docker-compose.yml for '{new_name}'", 404
 
         if os.path.exists(dockerfile_path):
-            update_dockerfile(dockerfile_path, process.command)
+            update_dockerfile(dockerfile_path, command)
 
-        db.session.commit()
-        print('Process settings updated successfully!')
+        process.name = new_name
+        process.description = description
+        process.command = command
+        process.type = type_
+        process.params = params
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return f"Database commit failed: {str(e)}", 500
+
         return redirect(url_for('process.console', name=new_name))
 
     return render_template('process/settings.html', page_title="Settings", process=process, types=types)
@@ -440,7 +459,7 @@ def update_dockerfile(dockerfile_path, command):
 
     for idx, line in enumerate(lines):
         if line.startswith(("CMD", "ENTRYPOINT")):
-            lines[idx] = f'CMD [{", ".join([f"\"{word}\"" for word in command.split()])}]\n'
+            lines[idx] = 'CMD [{}]\n'.format(", ".join(f'"{word}"' for word in command.split()))
             break
     else:
         lines.append(f'CMD {command.split()}\n')
@@ -458,15 +477,19 @@ def settings_rebuild(name):
     if not process:
         return redirect(url_for('process.index'))
 
+    project_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+
+    if not os.path.isdir(project_dir):
+        return jsonify({"error": "Project directory not found"}), 404
+
     try:
-        os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('docker-compose down')
-        os.system('docker-compose build')
-
+        subprocess.run(['docker-compose', 'down'], cwd=project_dir, check=True)
+        subprocess.run(['docker-compose', 'build'], cwd=project_dir, check=True)
         return redirect(url_for('process.console', name=process.name))
-
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Command failed: {e}"}), 500
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 
 @process_routes.route('/discord/<string:name>', methods=['GET', 'POST'])
@@ -713,28 +736,28 @@ def schedule(name):
     if not process:
         return jsonify({"error": "Process not found"}), 404
 
-    if request.method == 'GET':
-        cron_jobs = get_current_cron_jobs(name)
-        return render_template('process/schedule.html', page_title="Schedule", process=process, cron_jobs=cron_jobs)
+    cron_jobs = []
 
-    data = request.form
-    if not data or 'action' not in data or 'schedule' not in data:
-        return jsonify({"error": "Invalid request data"}), 400
+    if request.method == 'POST':
+        data = request.form
+        if not data or 'action' not in data or 'schedule' not in data:
+            return jsonify({"error": "Invalid request data"}), 400
 
-    action = data['action']  # start or stop
-    schedule = data['schedule']  # cron format
+        action = data['action']
+        schedule = data['schedule']
 
-    if action not in {'start', 'stop'}:
-        return jsonify({"error": "Invalid action. Use 'start' or 'stop'."}), 400
+        if action not in {'start', 'stop'}:
+            return jsonify({"error": "Invalid action. Use 'start' or 'stop'."}), 400
 
-    cron_command = f"echo '{schedule} root docker-compose -f {os.path.join(ACTIVE_SERVERS_DIR, name, 'docker-compose.yml')} {action}' | sudo tee -a /etc/cron.d/{name.replace('.', '_')}_power_event"
-    
-    try:
-        subprocess.run(cron_command, shell=True, check=True)
-        cron_jobs = get_current_cron_jobs(name)
-        return render_template('process/schedule.html', page_title="Schedule", process=process, cron_jobs=cron_jobs)
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
+        cron_command = f"echo '{schedule} root docker-compose -f {os.path.join(ACTIVE_SERVERS_DIR, name, 'docker-compose.yml')} {action}' | sudo tee -a /etc/cron.d/{name.replace('.', '_')}_power_event"
+
+        try:
+            subprocess.run(cron_command, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
+
+    cron_jobs = get_current_cron_jobs(name)
+    return render_template('process/schedule.html', page_title="Schedule", process=process, cron_jobs=cron_jobs)
 
 
 def get_current_cron_jobs(process_name):

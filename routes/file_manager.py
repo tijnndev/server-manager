@@ -32,13 +32,13 @@ def file_manager(name):
     try:
         current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
     except ValueError:
-        return render_template('files/file_manager.html', process=process, files=[], error="Invalid path.", current_location="/")
+        return redirect(url_for('files.file_manager', name=process.name, location=""))
     
     if os.path.join(ACTIVE_SERVERS_DIR, name) not in current_location:
-        return redirect(url_for('files.file_manager', name=process.name, location="", page_title="File Manager"))
+        return redirect(url_for('files.file_manager', name=process.name, location=""))
 
     if not os.path.exists(current_location):
-        return render_template('files/file_manager.html', page_title="File Manager", process=process, files=[], error="Location does not exist.", current_location="/")
+        return redirect(url_for('files.file_manager', name=process.name, location=""))
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
     files = [
@@ -160,7 +160,7 @@ def create_file(name):
                     f.write(file_code)
                 return redirect(url_for('files.file_manager', name=process.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
             except ValueError:
-                return render_template('files/create_file.html', page_title="Create File", process=process, error="Invalid file path.", location=location)
+                return redirect(url_for('files.file_manager', name=process.name, location=location))
 
     return render_template('files/create_file.html', page_title="Create File", process=process, location=os.path.relpath(location, ACTIVE_SERVERS_DIR))
 
@@ -247,10 +247,6 @@ def edit_file(name):
         with open(new_file_path, 'w', newline='') as f:
             f.write(new_content)
         file_path = new_file_path
-        with open(new_file_path) as f:
-            file_content = f.read()
-
-        return render_template('files/edit_file.html', page_title="Edit File", process=process, file_path=new_file_path, file_content=file_content, file_name=new_name)
 
     with open(file_path) as f:
         file_content = f.read()

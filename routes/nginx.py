@@ -68,7 +68,7 @@ def create_nginx_config(process, domain_name, nginx_file_path, nginx_enabled_pat
         subprocess.run(["sudo", "ln", "-s", nginx_file_path, nginx_enabled_path], check=True)
 
     restart_nginx()
-    return render_template('nginx/index.html', process=process, nginx_content=config)
+    return render_template('nginx/index.html', page_title="Nginx", process=process, nginx_content=config)
 
 
 def delete_cert(process, domain_name, nginx_file_path):

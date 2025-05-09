@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, flash, jsonify
+from flask import Blueprint, render_template, request, jsonify
 import subprocess
 from decorators import owner_or_subuser_required
 from utils import find_process_by_name
