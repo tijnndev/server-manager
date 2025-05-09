@@ -32,6 +32,9 @@ def colorize_log(log):
 
 
 def format_timestamp(log_line):
+    if not log_line.strip():
+        return log_line
+    
     match = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z) (.*)", log_line)
     if match:
         try:
@@ -45,7 +48,9 @@ def format_timestamp(log_line):
             return f"{formatted_timestamp} {match.group(2)}"
         except ValueError as e:
             print(e)
+    
     return log_line
+
 
 def calculate_uptime(startup_date):
     amsterdam_tz = pytz.timezone('Europe/Amsterdam')
