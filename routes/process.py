@@ -49,7 +49,19 @@ def format_timestamp(log_line):
         except ValueError as e:
             print(e)
     else:
-        return log_line + "Not matching lol"
+        # Second regex to check if the log line only contains a timestamp
+        match_only_timestamp = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)$", log_line.strip())
+        if match_only_timestamp:
+            try:
+                raw_timestamp = match_only_timestamp.group(1)[:26]
+                timestamp = datetime.strptime(raw_timestamp, "%Y-%m-%dT%H:%M:%S.%f")
+                timestamp += timedelta(hours=2)
+                formatted_timestamp = timestamp.strftime("[%Y-%m-%d %H:%M:%S]")
+                return formatted_timestamp
+            except ValueError as e:
+                print(e)
+        else:
+            return log_line  # Return the original line if neither regex matches
     
     return log_line
 
