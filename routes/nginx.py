@@ -19,8 +19,8 @@ def nginx(name):
     process.domain = domain_name
     db.session.commit()
 
-    nginx_file_path = f'/etc/nginx/sites-available/{domain_name}'
-    nginx_enabled_path = f'/etc/nginx/sites-enabled/{domain_name}'
+    nginx_file_path = f'/etc/nginx/sites-available/{name}'
+    nginx_enabled_path = f'/etc/nginx/sites-enabled/{name}'
     cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
 
     if request.method == 'POST':
