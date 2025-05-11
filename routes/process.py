@@ -340,10 +340,10 @@ def console_stream_logs(name):
                         formatted_line = format_timestamp(line.strip())
                         yield f"data: {colorize_log(formatted_line)}\n\n"
                 
-                if process.stderr is not None:
-                    for line in iter(process.stderr.readline, ''):
-                        formatted_line = format_timestamp(line.strip())
-                        yield f"data: [stderr] {colorize_log(formatted_line)}\n\n"
+                # if process.stderr is not None:
+                #     for line in iter(process.stderr.readline, ''):
+                #         formatted_line = format_timestamp(line.strip())
+                #         yield f"data: [stderr] {colorize_log(formatted_line)}\n\n"
             except Exception as e:
                 print(f"Error while streaming logs: {e}")
             finally:
