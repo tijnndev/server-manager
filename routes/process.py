@@ -1,3 +1,5 @@
+from collections import defaultdict
+from queue import Queue
 import shutil
 import threading
 import time, yaml
@@ -311,6 +313,9 @@ def get_console_uptime(name):
         return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': f"Failed to get process status: {e.stderr}"})
     except Exception as e:
         return jsonify({'uptime': '0w 0d 0h 0m 0s', 'error': str(e)})
+    
+
+live_log_streams = defaultdict(Queue)
 
 
 @process_routes.route('/console/<string:name>/logs', methods=['GET'])
@@ -320,41 +325,40 @@ def console_stream_logs(name):
     if not process:
         return jsonify({"error": "Process not found"}), 404
 
-    try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+    process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-        logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
+    logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
+    docker_logs = subprocess.Popen(
+        logs_command,
+        cwd=process_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1
+    )
 
-        process = subprocess.Popen(
-            logs_command,
-            cwd=process_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
-        )
+    def generate():
+        try:
+            if docker_logs.stdout is not None:
+                for line in iter(docker_logs.stdout.readline, ''):
+                    yield f"data: {colorize_log(format_timestamp(line.strip()))}\n\n"
 
-        def generate():
-            try:
-                if process.stdout is not None:
-                    for line in iter(process.stdout.readline, ''):
-                        formatted_line = format_timestamp(line.strip())
-                        yield f"data: {colorize_log(formatted_line)}\n\n"
-                
-                # if process.stderr is not None:
-                #     for line in iter(process.stderr.readline, ''):
-                #         formatted_line = format_timestamp(line.strip())
-                #         yield f"data: [stderr] {colorize_log(formatted_line)}\n\n"
-            except Exception as e:
-                print(f"Error while streaming logs: {e}")
-            finally:
-                process.terminate()
-                process.wait()
+            while True:
+                try:
+                    line = live_log_streams[name].get(timeout=1)
+                    yield f"data: {line}\n\n"
+                except:
+                    if docker_logs.poll() is not None:
+                        break
 
-        return Response(generate(), content_type='text/event-stream')
+        except Exception as e:
+            yield f"data: [stream error] {str(e)}\n\n"
+        finally:
+            docker_logs.terminate()
+            docker_logs.wait()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return Response(generate(), content_type='text/event-stream')
+
 
 
 # @process_routes.route('/console/<string:name>/send', methods=['POST'])
@@ -488,12 +492,31 @@ def update_dockerfile(dockerfile_path, command):
     print(f"Dockerfile for {dockerfile_path} updated with new command: {command}")
 
 
-def rebuild_process(project_dir):
+def rebuild_process(project_dir, name):
     try:
         subprocess.run(['docker-compose', 'down'], cwd=project_dir, check=True)
-        subprocess.run(['docker-compose', 'build'], cwd=project_dir, check=True)
+
+        process = subprocess.Popen(
+            ['docker-compose', 'build'],
+            cwd=project_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+        if process.stdout is not None:
+            with process.stdout:
+                for line in iter(process.stdout.readline, ''):
+                    formatted = format_timestamp(line.strip())
+                    colored = colorize_log(formatted)
+                    live_log_streams[name].put(colored)
+
+        process.wait()
+        live_log_streams[name].put('[rebuild] Build process finished.')
+
     except Exception as e:
-        print(f"Rebuild failed: {e}")
+        live_log_streams[name].put(f'[rebuild error] {str(e)}')
+
 
 
 @process_routes.route('/rebuild/<name>', methods=['POST'])
