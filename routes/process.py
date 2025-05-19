@@ -532,7 +532,7 @@ def settings_rebuild(name):
     if not os.path.isdir(project_dir):
         return jsonify({"error": "Project directory not found"}), 404
 
-    threading.Thread(target=rebuild_process, args=(project_dir,)).start()
+    threading.Thread(target=rebuild_process, args=(project_dir, process.name)).start()
 
     return redirect(url_for('process.console', name=process.name))
 
