@@ -1,4 +1,5 @@
 import shutil
+import threading
 import time, yaml
 import subprocess
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
@@ -487,6 +488,14 @@ def update_dockerfile(dockerfile_path, command):
     print(f"Dockerfile for {dockerfile_path} updated with new command: {command}")
 
 
+def rebuild_process(project_dir):
+    try:
+        subprocess.run(['docker-compose', 'down'], cwd=project_dir, check=True)
+        subprocess.run(['docker-compose', 'build'], cwd=project_dir, check=True)
+    except Exception as e:
+        print(f"Rebuild failed: {e}")
+
+
 @process_routes.route('/rebuild/<name>', methods=['POST'])
 @owner_required()
 def settings_rebuild(name):
@@ -499,14 +508,9 @@ def settings_rebuild(name):
     if not os.path.isdir(project_dir):
         return jsonify({"error": "Project directory not found"}), 404
 
-    try:
-        subprocess.run(['docker-compose', 'down'], cwd=project_dir, check=True)
-        subprocess.run(['docker-compose', 'build'], cwd=project_dir, check=True)
-        return redirect(url_for('process.console', name=process.name))
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": f"Command failed: {e}"}), 500
-    except Exception as e:
-        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+    threading.Thread(target=rebuild_process, args=(project_dir,)).start()
+
+    return redirect(url_for('process.console', name=process.name))
 
 
 @process_routes.route('/discord/<string:name>', methods=['GET', 'POST'])
