@@ -509,6 +509,7 @@ def rebuild_process(project_dir, name):
                 for line in iter(process.stdout.readline, ''):
                     formatted = format_timestamp(line.strip())
                     colored = colorize_log(formatted)
+                    print(colored)
                     live_log_streams[name].put(colored)
 
         process.wait()
