@@ -7,7 +7,7 @@ services:
     environment:
       ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
       ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail.tijnn.dev
-      ROUNDCUBEMAIL_IMAP_PORT: 993
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
       ROUNDCUBEMAIL_SMTP_SERVER: tls://mail.tijnn.dev
       ROUNDCUBEMAIL_SMTP_PORT: 587
       ROUNDCUBEMAIL_SMTP_USER: smtp@tijnn.dev
