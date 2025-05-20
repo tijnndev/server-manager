@@ -6,8 +6,8 @@ services:
       - "8080:80"  # Expose Roundcube's web UI on port 8080
     environment:
       ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
-      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail.tijnn.dev:993
-      ROUNDCUBEMAIL_SMTP_SERVER: tls://mail.tijnn.dev:587
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail.tijnn.dev
+      ROUNDCUBEMAIL_SMTP_SERVER: tls://mail.tijnn.dev
       ROUNDCUBEMAIL_SMTP_PORT: 587
       ROUNDCUBEMAIL_SMTP_USER: smtp@tijnn.dev
       ROUNDCUBEMAIL_SMTP_PASSWORD: yourpassword
