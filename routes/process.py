@@ -212,7 +212,6 @@ def settings_delete(name):
                 print(f"Process {name} stopped and removed successfully via docker-compose")
             except subprocess.CalledProcessError as e:
                 print(f"Error stopping process {name}: {e}")
-                return jsonify({"error": "Failed to stop process via docker-compose"}), 500
 
             shutil.rmtree(process_dir)
             print(f"Process directory {process_dir} removed successfully")
