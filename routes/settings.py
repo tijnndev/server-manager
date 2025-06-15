@@ -19,7 +19,7 @@ def git_status():
     try:
         subprocess.check_output(['git', 'fetch'], stderr=subprocess.STDOUT)
 
-        status_output = subprocess.check_output(['git', 'status', '-uno'], stderr=subprocess.STDOUT).decode('utf-8')
+        status_output = subprocess.check_output(['git', 'status', '-u'], stderr=subprocess.STDOUT).decode('utf-8')
 
         local_changes = subprocess.check_output(['git', 'status', '--porcelain']).decode('utf-8').strip()
 
@@ -31,7 +31,7 @@ def git_status():
             return jsonify({"status": msg, "update_available": True})
 
         if local_changes:
-            return jsonify({"status": "You have uncommitted local changes.", "update_available": False})
+            return jsonify({"status": "You have uncommitted local changes.", "update_available": False, "status_output": status_output})
 
         if "up to date" in status_output:
             return jsonify({"status": "You're up to date!", "update_available": False})
