@@ -59,7 +59,6 @@
 
                 window.location.href = redirectUrl;
             } else {
-                console.log(response)
                 const responseData = await response.json();
                 alert('Failed to add process :' + responseData);
             }
