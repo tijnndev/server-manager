@@ -29,9 +29,9 @@ def git_status():
         elif behind_count > 0:
             status_msg = "New version available. You're behind the remote."
             update_available = True
-        # elif local_changes:
-        #     status_msg = "You have uncommitted local changes."
-        #     update_available = False
+        elif local_changes:
+            status_msg = "You have uncommitted local changes."
+            update_available = False
         else:
             status_msg = "You're up to date!"
             update_available = False
