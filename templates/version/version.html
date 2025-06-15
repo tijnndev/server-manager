@@ -1,0 +1,48 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+    .version-card {
+        background: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+    .version-status {
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+</style>
+
+<div class="container mt-4">
+    <h2>Version Check</h2>
+    <div class="version-card">
+        <p><strong>Local Version:</strong> <span id="local-version">...</span></p>
+        <p><strong>Remote Version:</strong> <span id="remote-version">...</span></p>
+        <p class="version-status" id="version-status">Checking...</p>
+    </div>
+</div>
+
+<script>
+    async function checkVersion() {
+        const res = await fetch("{{ url_for('version.check_version') }}");
+        const data = await res.json();
+        
+        document.getElementById("local-version").textContent = data.local_version || "N/A";
+        document.getElementById("remote-version").textContent = data.remote_version || "N/A";
+
+        const statusEl = document.getElementById("version-status");
+        if (data.update_available) {
+            statusEl.textContent = `New version available: ${data.remote_version}`;
+            statusEl.classList.add("text-danger");
+        } else {
+            statusEl.textContent = `You're up to date!`;
+            statusEl.classList.add("text-success");
+        }
+    }
+
+    checkVersion();
+</script>
+{% endblock content %}
