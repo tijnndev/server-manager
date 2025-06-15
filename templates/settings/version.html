@@ -46,7 +46,7 @@
                 method: "POST"
             });
             const data = await res.json();
-
+            console.log(data.status)
             statusEl.textContent = data.status;
             if (data.update_available) {
                 updateBtn.style.display = "inline-block";
