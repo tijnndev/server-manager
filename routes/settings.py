@@ -19,27 +19,24 @@ def git_status():
     try:
         subprocess.check_output(['git', 'fetch'], stderr=subprocess.STDOUT)
 
+        status_output = subprocess.check_output(['git', 'status', '-uno'], stderr=subprocess.STDOUT).decode('utf-8')
+
         local_changes = subprocess.check_output(['git', 'status', '--porcelain']).decode('utf-8').strip()
-        behind_output = subprocess.check_output(['git', 'rev-list', '--left-right', '--count', 'HEAD...@{u}']).decode('utf-8').strip()
-        behind_count = int(behind_output.split()[1])
 
-        if local_changes and behind_count > 0:
-            status_msg = "You have local changes and updates are available."
-            update_available = True
-        elif behind_count > 0:
-            status_msg = "New version available. You're behind the remote."
-            update_available = True
-        elif local_changes:
-            status_msg = "You have uncommitted local changes."
-            update_available = False
-        else:
-            status_msg = "You're up to date!"
-            update_available = False
+        if "Your branch is behind" in status_output:
+            if local_changes:
+                msg = "You have local changes and updates are available."
+            else:
+                msg = "New version available. You're behind the remote."
+            return jsonify({"status": msg, "update_available": True})
 
-        return jsonify({
-            "status": status_msg,
-            "update_available": update_available
-        })
+        if local_changes:
+            return jsonify({"status": "You have uncommitted local changes.", "update_available": False})
+
+        if "up to date" in status_output:
+            return jsonify({"status": "You're up to date!", "update_available": False})
+
+        return jsonify({"status": "Unknown state", "update_available": False})
 
     except subprocess.CalledProcessError as e:
         return jsonify({'error': e.output.decode('utf-8')}), 500
