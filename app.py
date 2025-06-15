@@ -161,7 +161,7 @@ app.register_blueprint(email_routes, url_prefix='/email')
 @auth_check()
 def dashboard():
     user = session.get('username')
-    return render_template('dashboard.html', user=user)
+    return render_template('dashboard.html', page_title="Dashboard", user=user)
 
 
 @app.route('/api/server/stats')

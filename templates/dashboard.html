@@ -7,29 +7,54 @@
         border-radius: 8px;
         transition: transform 0.2s;
     }
+    
     .server-card:hover {
         transform: translateY(-5px);
     }
+
     .server-status {
         font-size: 0.9rem;
         font-weight: bold;
     }
+
     #server-stats {
-        
         background: var(--card-bg);
         border: none;
     }
+
     #search-bar {
         margin-top: 5px;
         margin-bottom: 20px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .container-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    @media screen and (max-width: 523px) {
+        .container-head {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
     }
 </style>
 
 <div class="container mt-4 dashboard-container">
     <div class="row">
         <div class="col-md-8">
-            <h2>Manage Processes</h2>
+            <div class="container-head">
+                <h2>Manage Processes</h2>
+                <select id="sort-select" class="form-select w-auto" onchange="sortProcesses()">
+                    <option value="alpha">Alphabet (A-Z)</option>
+                    <option value="alpha-reverse">Alphabet (Z-A)</option>
+                    <option value="created">Created At (Oldest)</option>
+                    <option value="created-reverse">Created At (Newest)</option>
+                </select>
+            </div>
             <input type="text" id="search-bar" class="form-control" placeholder="Search process..." oninput="filterProcesses()">
             <div id="process-grid" class="row g-3"></div>
         </div>
@@ -49,13 +74,45 @@
 </div>
 
 <script>
+
+    async function fetchServerStats() {
+        const response = await fetch("{{ url_for('get_server_stats') }}");
+        const stats = await response.json();
+        document.getElementById('cpu-name').textContent = stats.cpu_name;
+        document.getElementById('cpu-usage').textContent = stats.cpu_usage;
+        document.getElementById('memory-allocated').textContent = stats.memory_allocated;
+        document.getElementById('memory-usage').textContent = stats.memory_usage;
+        document.getElementById('storage-allocated').textContent = stats.storage_allocated;
+        document.getElementById('storage-usage').textContent = stats.storage_usage;
+        document.getElementById('network-usage').textContent = stats.network_usage;
+    }
+    fetchServerStats();
+
+    function filterProcesses() {
+        const query = document.getElementById('search-bar').value.toLowerCase();
+        const processCards = document.querySelectorAll('[data-process-name]');
+        processCards.forEach(card => {
+            const processName = card.getAttribute('data-process-name').toLowerCase();
+            if (processName.includes(query)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    let allProcesses = {};
+
     async function fetchProcesses() {
         const response = await fetch("{{ url_for('process.get_process') }}");
-        const process = await response.json();
+        allProcesses = await response.json();
+        renderProcesses(Object.entries(allProcesses));
+    }
+
+    function renderProcesses(processEntries) {
         const grid = document.getElementById('process-grid');
-        
         grid.innerHTML = '';
-        Object.entries(process).forEach(([name, process]) => {
+        processEntries.forEach(([name, process]) => {
             const card = `
             <div class="col-md-6 pb-4" data-process-name="${name}">
                 <a href="/process/console/${name}">
@@ -71,34 +128,26 @@
             `;
             grid.innerHTML += card;
         });
-    }
-
-    async function fetchServerStats() {
-        const response = await fetch("{{ url_for('get_server_stats') }}");
-        const stats = await response.json();
-        document.getElementById('cpu-name').textContent = stats.cpu_name;
-        document.getElementById('cpu-usage').textContent = stats.cpu_usage;
-        document.getElementById('memory-allocated').textContent = stats.memory_allocated;
-        document.getElementById('memory-usage').textContent = stats.memory_usage;
-        document.getElementById('storage-allocated').textContent = stats.storage_allocated;
-        document.getElementById('storage-usage').textContent = stats.storage_usage;
-        document.getElementById('network-usage').textContent = stats.network_usage;
-    }
-
-    function filterProcesses() {
-        const query = document.getElementById('search-bar').value.toLowerCase();
-        const processCards = document.querySelectorAll('[data-process-name]');
-        processCards.forEach(card => {
-            const processName = card.getAttribute('data-process-name').toLowerCase();
-            if (processName.includes(query)) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
+        filterProcesses();
     }
 
     fetchProcesses();
-    fetchServerStats();
+
+    function sortProcesses() {
+        const sortValue = document.getElementById('sort-select').value;
+        let entries = Object.entries(allProcesses);
+
+        if (sortValue === 'alpha') {
+            entries.sort((a, b) => a[0].localeCompare(b[0]));
+        } else if (sortValue === 'alpha-reverse') {
+            entries.sort((a, b) => b[0].localeCompare(a[0]));
+        } else if (sortValue === 'created') {
+            entries.sort((a, b) => new Date(a[1].created_at) - new Date(b[1].created_at));
+        } else if (sortValue === 'created-reverse') {
+            entries.sort((a, b) => new Date(b[1].created_at) - new Date(a[1].created_at));
+        }
+
+        renderProcesses(entries);
+    }
 </script>
 {% endblock content %}

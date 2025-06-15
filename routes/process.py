@@ -119,7 +119,8 @@ def load_process():
                 "command": process.command,
                 "file_location": process.file_location,
                 "name": process.name,
-                "status": response["status"]
+                "status": response["status"],
+                "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
     return process_dict
