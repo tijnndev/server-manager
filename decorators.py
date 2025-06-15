@@ -17,6 +17,19 @@ def auth_check():
     return decorator
 
 
+def admin_required():
+    def decorator(func):
+        @functools.wraps(func)
+        def decorated_auth_check(*args, **kwargs):
+            if session.get("role") == "admin":
+                return func(*args, **kwargs)
+
+            return redirect('/')
+
+        return decorated_auth_check
+    return decorator
+
+
 def owner_or_subuser_required():
     def decorator(func):
         @functools.wraps(func)

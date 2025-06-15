@@ -33,7 +33,6 @@ body.dark-theme {
 /* Navbar Styles */
 .custom-navbar {
     background: var(--bg-darker);
-    box-shadow: 0 2px 10px rgba(0, 146, 128, 0.2);
     padding: 1rem 0;
 }
 

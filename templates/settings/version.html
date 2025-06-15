@@ -1,0 +1,90 @@
+{% extends 'settings/version_layout.html' %}
+
+{% block version_content %}
+<style>
+    .version-card {
+        background: var(--card-bg);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+    .version-status {
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+
+    .btn-update {
+        margin-top: 15px;
+        display: none;
+    }
+</style>
+
+<div class="mt-4">
+    <h2>Version Check</h2>
+    <div class="version-card">
+        <p class="version-status" id="version-status">Press 'Check for Updates' to begin.</p>
+        <button class="btn btn-secondary" id="check-update-btn">Check for Updates</button>
+        <button class="btn btn-primary btn-update" id="update-btn">Update Now</button>
+        <div class="mt-3" id="update-result" style="white-space: pre-wrap;"></div>
+    </div>    
+</div>
+
+<script>
+    async function checkGitStatus() {
+        const statusEl = document.getElementById("version-status");
+        const updateBtn = document.getElementById("update-btn");
+        const resultBox = document.getElementById("update-result");
+        resultBox.textContent = "";
+
+        statusEl.textContent = "Checking git status...";
+        updateBtn.style.display = "none";
+
+        try {
+            const res = await fetch("{{ url_for('settings.git_status') }}", {
+                method: "POST"
+            });
+            const data = await res.json();
+
+            statusEl.textContent = data.status;
+            if (data.update_available) {
+                updateBtn.style.display = "inline-block";
+                statusEl.classList.remove("text-success");
+                statusEl.classList.add("text-danger");
+            } else {
+                updateBtn.style.display = "none";
+                statusEl.classList.remove("text-danger");
+                statusEl.classList.add("text-success");
+            }
+        } catch (err) {
+            statusEl.textContent = "Failed to check git status.";
+        }
+    }
+
+    async function runUpdate() {
+        const btn = document.getElementById("update-btn");
+        const resultBox = document.getElementById("update-result");
+        btn.disabled = true;
+        btn.textContent = "Updating...";
+
+        try {
+            const res = await fetch("{{ url_for('settings.git_pull') }}", {
+                method: "POST"
+            });
+            const data = await res.json();
+            resultBox.textContent = data.message || "Update completed.";
+        } catch (err) {
+            resultBox.textContent = "Error during update.";
+        }
+
+        btn.disabled = false;
+        btn.textContent = "Update Now";
+        checkGitStatus();
+    }
+
+    document.getElementById("check-update-btn").addEventListener("click", checkGitStatus);
+    document.getElementById("update-btn").addEventListener("click", runUpdate);
+</script>
+
+{% endblock version_content %}

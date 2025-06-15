@@ -5,7 +5,7 @@ from routes.file_manager import file_manager_routes
 from routes.auth import auth_route
 from routes.process import process_routes
 from routes.email import email_routes
-from routes.version import version_routes
+from routes.settings import settings_routes
 from flask_migrate import Migrate
 from routes.process import process_routes
 from models.discord_integration import DiscordIntegration
@@ -155,7 +155,7 @@ app.register_blueprint(nginx_routes, url_prefix='/nginx')
 app.register_blueprint(git_routes, url_prefix='/git')
 app.register_blueprint(auth_route, url_prefix='/auth')
 app.register_blueprint(email_routes, url_prefix='/email')
-app.register_blueprint(version_routes, url_prefix='/version')
+app.register_blueprint(settings_routes, url_prefix='/settings')
 
 
 # WEB
