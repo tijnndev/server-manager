@@ -1,6 +1,8 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
+<script src="https://tijnn.dev/assets/notify-library/index.js"></script>
+<link rel="stylesheet" href="https://tijnn.dev/assets/notify-library/index.css">
 <style>
     .file-editor-container {
       border: 1px solid #ccc;
@@ -67,6 +69,8 @@
         editor.session.setMode(`ace/mode/${mode}`);
     }
 
+    const notify = new Notify();
+
     document.getElementById("save-button").addEventListener("click", function() {
         let content = editor.getValue();
         content = content.replace(/\r\n|\r/g, "\n");
@@ -83,9 +87,10 @@
         }).then(response => response.json())
           .then(data => {
               if (data.success) {
-                  console.log("File saved successfully");
+                  notify.show("File successfully saved!", 'success', 3000);
               } else {
                   console.error("Error saving file", data.error);
+                  notify.show("Error while saving file!", 'error', 3000);
               }
           })
           .catch(error => console.error("Fetch error:", error));

@@ -248,6 +248,8 @@ def edit_file(name):
             f.write(new_content)
         file_path = new_file_path
 
+        return {"success": True, "file_path": os.path.relpath(file_path, ACTIVE_SERVERS_DIR)}
+
     with open(file_path) as f:
         file_content = f.read()
 
