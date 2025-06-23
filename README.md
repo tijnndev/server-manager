@@ -25,7 +25,7 @@ curl -O https://tijnn.dev/assets/server-manager/run.sh && chmod +x run.sh && sud
 
 Option 2, a non-automatic setup:
 ```bash
-git clone https://your-repository-url.git
+git clone https://github.com/tijnndev/server-manager.git
 cd server-manager
 ```
 ## Step 2: Set Up the Virtual Environment
