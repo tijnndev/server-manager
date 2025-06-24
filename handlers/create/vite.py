@@ -4,12 +4,15 @@ from classes.result import Result
 def create_docker_file(_process, dockerfile_path):
     try:
         dockerfile_content = """# Stage 1: Build the Vite project
-FROM node:18 AS build
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+# Ensure npm is available and install dependencies
+RUN which npm || (apk add --no-cache npm)
+
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production
 
 COPY . .
 RUN npm run build
@@ -64,15 +67,6 @@ services:
             - "{8000 + process.port_id}:80"
         environment:
             - NODE_ENV=production
-
-    build-vite:
-        image: node:18
-        working_dir: /app
-        command: ["sh", "-c", "'npm install && npm run build'"]
-        volumes:
-        - .:/app
-        depends_on:
-        - {process.name}
 
 """)
 
