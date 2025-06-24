@@ -68,8 +68,7 @@ services:
     build-vite:
         image: node:18
         working_dir: /app
-        command: >
-        sh -c "npm install && npm run build"
+        command: ["sh", "-c", "'npm install && npm run build'"]
         volumes:
         - .:/app
         depends_on:
