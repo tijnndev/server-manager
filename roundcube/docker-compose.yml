@@ -27,8 +27,9 @@ services:
       - ./mailstate:/var/mail-state
       - ./maillogs:/var/log/mail
       - ./config/:/tmp/docker-mailserver/
-      - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/etc/ssl/certs/ssl-cert-snakeoil.pem:ro
-      - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/etc/ssl/private/ssl-cert-snakeoil.key:ro
+      - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/tmp/docker-mailserver/ssl/mail.tijnn.dev.crt:ro
+      - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/tmp/docker-mailserver/ssl/mail.tijnn.dev.key:ro
+
     ports:
       - "25:25"     # SMTP (standard)
       - "465:465"   # SMTPS (SMTP over SSL)
@@ -54,8 +55,9 @@ services:
       - RELAY_PORT=25
       - RELAY_USER=
       - RELAY_PASSWORD=
-      - SSL_CERT_PATH=/etc/ssl/certs/ssl-cert-snakeoil.pem
-      - SSL_KEY_PATH=/etc/ssl/private/ssl-cert-snakeoil.key
+      - SSL_TYPE=manual
+      - SSL_CERT_PATH=/tmp/docker-mailserver/ssl/mail.tijnn.dev.crt
+      - SSL_KEY_PATH=/tmp/docker-mailserver/ssl/mail.tijnn.dev.key
       - DMS_DEBUG=1                 # Enable debug mode
       - ENABLE_SASLAUTHD=0
     cap_add:
