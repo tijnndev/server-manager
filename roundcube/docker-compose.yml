@@ -40,7 +40,6 @@ services:
       - ENABLE_CLAMAV=1
       - MAIL_USER=smtp@tijnn.dev
       - MAIL_PASS=yourpassword
-      - SSL_TYPE=manual
       - TLS_LEVEL=modern
       - ONE_DIR=1
       - PERMIT_DOCKER=network
