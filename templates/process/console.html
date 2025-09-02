@@ -342,7 +342,6 @@
             const result = await response.json();
             
             if (!result.success) {
-                addLogMessage(`Command failed: ${result.error}`, 'error');
                 commandInput.value = '';
             }
         } catch (error) {

@@ -621,13 +621,13 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
 
         # Execute the command inside the container
         log_file = f"/tmp/{name}_process.log"
-        # Add timestamp to every output line using awk
         full_command = (
             f"cd {working_dir} && "
-            f"echo '[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] $ {command}' >> {log_file} && "
-            f"({command} 2>&1 | awk '{{ print \"[\" strftime(\"%Y-%m-%d %H:%M:%S\") \"]\", $0 }}' >> {log_file})"
+            f"echo \"[$(date -u +'%Y-%m-%d %H:%M:%S')] $ {command}\" >> {log_file} && "
+            f"{command} 2>&1 | while IFS= read -r line; do "
+            f"echo \"[$(date -u +'%Y-%m-%d %H:%M:%S')] $line\" >> {log_file}; "
+            f"done"
         )
-        
         result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', full_command], 
                               capture_output=True, text=True, timeout=timeout)
         
@@ -639,11 +639,7 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                 "return_code": result.returncode
             }
         else:
-            # Also log errors to the persistent log file
-            error_log_command = f"echo '[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [ERROR] Command failed with code {result.returncode}' >> {log_file}"
-            subprocess.run(['docker', 'exec', container_id, 'sh', '-c', error_log_command], 
-                          capture_output=True, text=True)
-            
+            # Do NOT log error to the persistent log file, only stream it with timestamp
             return {
                 "success": False,
                 "error": f"Command failed with return code {result.returncode}",
