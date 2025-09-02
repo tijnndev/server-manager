@@ -352,7 +352,53 @@ chmod +x /tmp/start_process.sh'''
     except Exception as e:
         print(f"[DEBUG] Exception in start_process_in_container: {e}")
         return {"success": False, "error": str(e)}
-
+    
+import psutil
+def kill_process_tree(pid, inside_container=False, container_id=None):
+    """
+    Kill a process and all its children.
+    If inside_container is True, kill processes inside the specified container using docker exec.
+    Otherwise, kill processes on the host (use with caution).
+    """
+    if inside_container and container_id:
+        try:
+            # Get child PIDs inside the container
+            ps_result = subprocess.run([
+                'docker', 'exec', container_id, 'ps', '-o', 'pid,ppid', '--no-headers'
+            ], capture_output=True, text=True)
+            if ps_result.returncode != 0:
+                return {"success": False, "message": "Failed to get process tree inside container."}
+            pid_map = {}
+            for line in ps_result.stdout.split('\n'):
+                parts = line.split()
+                if len(parts) == 2:
+                    pid_map[parts[0]] = parts[1]
+            # Find all children recursively
+            def get_children(target_pid):
+                children = [p for p, parent in pid_map.items() if parent == target_pid]
+                all_children = []
+                for child in children:
+                    all_children.append(child)
+                    all_children.extend(get_children(child))
+                return all_children
+            all_pids = [pid] + get_children(pid)
+            # Kill all processes inside the container
+            for p in all_pids:
+                subprocess.run(['docker', 'exec', container_id, 'kill', '-TERM', p], capture_output=True, text=True)
+            return {"success": True, "message": f"Killed process tree for PID {pid} inside container."}
+        except Exception as e:
+            return {"success": False, "message": f"Failed to kill process tree inside container: {e}"}
+    else:
+        # Host process tree kill (use with caution)
+        try:
+            parent = psutil.Process(pid)
+            children = parent.children(recursive=True)
+            for child in children:
+                child.kill()
+            parent.kill()
+            return {"success": True, "message": f"Process tree for PID {pid} killed on host."}
+        except Exception as e:
+            return {"success": False, "message": f"Failed to kill process tree: {e}"}
 
 def stop_process_in_container(name):
     """Stop the main process inside the container without stopping the container"""
@@ -493,30 +539,11 @@ def stop_process_in_container(name):
         # Kill active processes first
         all_processes_to_kill = processes_to_kill + port_processes
         for pid, process_description in all_processes_to_kill:
-            print(f"[DEBUG] Killing process PID {pid} - {process_description}")
-            # Try SIGTERM first
-            kill_result = subprocess.run(['docker', 'exec', container_id, 'kill', '-TERM', pid], 
-                                       capture_output=True, text=True)
-            print(f"[DEBUG] SIGTERM result - return code: {kill_result.returncode}")
-            
-            if kill_result.returncode == 0:
+            print(f"[DEBUG] Killing process tree for PID {pid} - {process_description}")
+            kill_result = kill_process_tree(pid, inside_container=True, container_id=container_id)
+            print(f"[DEBUG] kill_process_tree result: {kill_result}")
+            if kill_result.get("success"):
                 processes_killed += 1
-                print(f"[DEBUG] Successfully sent SIGTERM to process PID {pid}")
-                
-                # Wait a bit and check if process is still there
-                import time
-                time.sleep(1)
-                
-                # Check if process still exists, if so use SIGKILL
-                check_result = subprocess.run(['docker', 'exec', container_id, 'kill', '-0', pid], 
-                                            capture_output=True, text=True)
-                if check_result.returncode == 0:
-                    print(f"[DEBUG] Process {pid} still alive, sending SIGKILL")
-                    kill_result = subprocess.run(['docker', 'exec', container_id, 'kill', '-KILL', pid], 
-                                               capture_output=True, text=True)
-                    print(f"[DEBUG] SIGKILL result - return code: {kill_result.returncode}")
-            else:
-                print(f"[DEBUG] Failed to kill process PID {pid}: {kill_result.stderr}")
 
         # Clean up zombie processes (they're already dead, just need parent to reap them)
         if zombie_processes:

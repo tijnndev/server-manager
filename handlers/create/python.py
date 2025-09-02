@@ -19,7 +19,7 @@ def create_docker_file(process, dockerfile_path):
 WORKDIR /app
 COPY . /app
 RUN pip install -r requirements.txt
-CMD ["sh", "-c", "python -u $COMMAND"]
+CMD ["sh", "-c", "python -u $MAIN_COMMAND"]
 """
         with open(dockerfile_path, "w") as f:
             f.write(dockerfile_content)
@@ -41,7 +41,7 @@ def create_docker_compose_file(process, compose_file_path):
         # Always keep container running - process will be controlled via docker exec
         command: ["tail", "-f", "/dev/null"]
         ports:
-            - "{process.port}:{process.port}"
+            - "{8000 + process.port_id}:{8000 + process.port_id}"
         environment:
             - MAIN_COMMAND={json.dumps(process.command)}
         restart: unless-stopped

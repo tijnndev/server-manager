@@ -29,7 +29,7 @@ def create_docker_compose_file(process, compose_file_path):
         # Always keep container running - process will be controlled via docker exec
         command: ["tail", "-f", "/dev/null"]
         ports:
-            - "{process.port}:{process.port}"
+            - "{8000 + process.port_id}:{8000 + process.port_id}"
         environment:
             - MAIN_COMMAND={json.dumps(process.command)}
         restart: unless-stopped
