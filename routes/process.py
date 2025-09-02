@@ -383,7 +383,10 @@ def console_stream_logs(name):
                         if log_result.returncode == 0 and log_result.stdout:
                             for line in log_result.stdout.split('\n'):
                                 if line.strip():
-                                    yield f"data: {colorize_log(line.strip())}\n\n"
+                                    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                    log_line = f"[{ts}] {colorize_log(line.strip())}"
+                                    print(log_line)
+                                    yield f"data: {log_line}\n\n"
                     except Exception as e:
                         print(f"[DEBUG] Error getting process logs: {e}")
                 
@@ -411,10 +414,11 @@ def console_stream_logs(name):
                     try:
                         # Stream from live log queue (this handles manual messages)
                         try:
+                            ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                             line = live_log_streams[name].get(timeout=0.1)
-                            yield f"data: {colorize_log(line)}\n\n"
+                            yield f"data: [{ts}] {colorize_log(line)}\n\n"
                             continue
-                        except:
+                        except Exception:
                             pass  # Timeout, continue to other sources
                         
                         # Get new logs from process log file (Windows-compatible approach)
@@ -433,7 +437,8 @@ def console_stream_logs(name):
                                         if tail_result.returncode == 0 and tail_result.stdout:
                                             for line in tail_result.stdout.split('\n'):
                                                 if line.strip():
-                                                    yield f"data: {colorize_log(line.strip())}\n\n"
+                                                    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                                                    yield f"data: [{ts}] {colorize_log(line.strip())}\n\n"
                                         last_log_position = current_size
                             except subprocess.TimeoutExpired:
                                 pass  # Timeout, continue
