@@ -29,11 +29,11 @@ def create_docker_compose_file(process, compose_file_path):
             context: .
             dockerfile: Dockerfile
         volumes:
-            - .:/app
+            - .:/usr/share/nginx/html
         # Always keep container running - process will be controlled via docker exec
         command: ["tail", "-f", "/dev/null"]
         ports:
-            - "{8000 + process.port_id}:{8000 + process.port_id}"
+            - "{8000 + process.port_id}:80"
         environment:
             - MAIN_COMMAND={json.dumps(process.command)}
         restart: unless-stopped
