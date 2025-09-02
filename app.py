@@ -20,7 +20,6 @@ from hashlib import sha256
 
 load_dotenv()
 
-os.environ['DOCKER_CONTEXT'] = 'desktop-linux'
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
