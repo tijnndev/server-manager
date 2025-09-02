@@ -1,5 +1,6 @@
 from classes.result import Result
-import json, os
+import json
+import os
 
 
 def create_docker_file(_process, dockerfile_path):
@@ -37,21 +38,23 @@ CMD ["sh", "-c", "$COMMAND"]
 def create_docker_compose_file(process, compose_file_path):
     try:
         with open(compose_file_path, 'w') as f:
-            f.write(f"""version: '3.7'
-
-services:
+            f.write(f"""services:
     {process.name}:
         build:
             context: .
             dockerfile: Dockerfile
         volumes:
             - .:/app
-        command: ["sh", "-c", {json.dumps(process.command)}]
+        # Always keep container running - process will be controlled via docker exec
+        command: ["tail", "-f", "/dev/null"]
         ports:
-            - "{8000 + process.port_id}:{8000 + process.port_id}"
+            - "{process.port}:{process.port}"
         environment:
-            - COMMAND={json.dumps(process.command)}""")
-        
+            - MAIN_COMMAND={json.dumps(process.command)}
+        restart: unless-stopped
+        stdin_open: true
+        tty: true
+""")
         return Result(success=True, message="Docker Compose file created successfully")
     except Exception as e:
         return Result(success=False, message=str(e))

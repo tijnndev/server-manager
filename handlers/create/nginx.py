@@ -1,4 +1,5 @@
 from classes.result import Result
+import json
 
 
 def create_docker_file(_process, dockerfile_path):
@@ -22,20 +23,23 @@ CMD ["nginx", "-g", "daemon off;"]
 def create_docker_compose_file(process, compose_file_path):
     try:
         with open(compose_file_path, 'w') as f:
-            f.write(f"""version: '3.7'
-
-services:
+            f.write(f"""services:
     {process.name}:
         build:
             context: .
             dockerfile: Dockerfile
         volumes:
-            - .:/usr/share/nginx/html
+            - .:/app
+        # Always keep container running - process will be controlled via docker exec
+        command: ["tail", "-f", "/dev/null"]
         ports:
-            - "{8000 + process.port_id}:80"
+            - "{process.port}:{process.port}"
+        environment:
+            - MAIN_COMMAND={json.dumps(process.command)}
+        restart: unless-stopped
+        stdin_open: true
+        tty: true
 """)
-
-        return Result(success=True, message="Docker Compose file for Nginx created successfully")
-    
+        return Result(success=True, message="Docker Compose file created successfully")
     except Exception as e:
         return Result(success=False, message=str(e))

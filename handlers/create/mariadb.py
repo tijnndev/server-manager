@@ -1,5 +1,5 @@
 from classes.result import Result
-
+import json
 
 def create_docker_file(_process, dockerfile_path):
     try:
@@ -22,34 +22,23 @@ EXPOSE 3306
 def create_docker_compose_file(process, compose_file_path):
     try:
         with open(compose_file_path, 'w') as f:
-            f.write(f"""version: '3.7'
-
-services:
-    mariadb:
+            f.write(f"""services:
+    {process.name}:
         build:
             context: .
             dockerfile: Dockerfile
-        environment:
-            MYSQL_ROOT_PASSWORD: root_password
-            MYSQL_DATABASE: my_database
-            MYSQL_USER: my_user
-            MYSQL_PASSWORD: my_password
-        ports:
-            - "{8000 + process.port_id}:3306"
         volumes:
-            - mariadb-data:/var/lib/mysql
-        networks:
-            - mynetwork
-
-volumes:
-    mariadb-data:
-
-networks:
-    mynetwork:
-        driver: bridge
+            - .:/app
+        # Always keep container running - process will be controlled via docker exec
+        command: [\"tail\", \"-f\", \"/dev/null\"]
+        ports:
+            - \"{process.port}:{process.port}\"
+        environment:
+            - MAIN_COMMAND={json.dumps(process.command)}
+        restart: unless-stopped
+        stdin_open: true
+        tty: true
 """)
-
-        return Result(success=True, message="Docker Compose file for MariaDB created successfully")
-    
+        return Result(success=True, message="Docker Compose file created successfully")
     except Exception as e:
         return Result(success=False, message=str(e))

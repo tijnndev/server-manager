@@ -19,22 +19,23 @@ CMD ["sh", "-c", "$COMMAND"]
 def create_docker_compose_file(process, compose_file_path):
     try:
         with open(compose_file_path, 'w') as f:
-            f.write(f"""version: '3.7'
-
-services:
-  {process.name}:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - .:/app
-    command: ["sh", "-c", {json.dumps(process.command)}]
-    ports:
-      - "{8000 + process.port_id}:{8000 + process.port_id}"
-    environment:
-      - GO_ENV=production
-      - COMMAND={json.dumps(process.command)}""")
-            
+            f.write(f"""services:
+    {process.name}:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            - .:/app
+        # Always keep container running - process will be controlled via docker exec
+        command: ["tail", "-f", "/dev/null"]
+        ports:
+            - "{process.port}:{process.port}"
+        environment:
+            - MAIN_COMMAND={json.dumps(process.command)}
+        restart: unless-stopped
+        stdin_open: true
+        tty: true
+""")
         return Result(success=True, message="Docker Compose file created successfully")
     except Exception as e:
         return Result(success=False, message=str(e))

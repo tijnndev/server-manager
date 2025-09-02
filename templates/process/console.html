@@ -41,10 +41,28 @@
 
     <div class="console-output" id="console-output"></div>
 
+    <!-- Command Input Section -->
+    <div class="mt-3 mb-3">
+        <div class="input-group">
+            <span class="input-group-text bg-dark text-light border-secondary">$</span>
+            <input type="text" 
+                   class="form-control bg-dark text-light border-secondary" 
+                   id="command-input" 
+                   placeholder="Enter command to execute in container..."
+                   style="font-family: monospace;">
+            <button class="btn btn-primary" type="button" onclick="executeCommand()">Execute</button>
+            <button class="btn btn-secondary" type="button" onclick="openShell()">Shell</button>
+        </div>
+        <small class="text-muted">
+            Commands will be executed in the container's /app directory. Press Enter to execute.
+        </small>
+    </div>
+
     <div class="mt-3 mb-6">
         <button class="btn btn-success mt-2 " onclick="startProcess('{{ process.name }}')">Start</button>
         <button class="btn btn-danger mt-2" onclick="stopProcess('{{ process.name }}')">Stop</button>
         <button class="btn btn-warning mt-2" onclick="restartProcess('{{ process.name }}')">Restart</button>
+        <button class="btn btn-info mt-2" onclick="clearLogs('{{ process.name }}')">Clear Logs</button>
     </div>
 </div>
 
@@ -97,6 +115,87 @@
 
     startConsole();
     fetchUptime();
+
+    // Add Enter key support for command input
+    commandInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            executeCommand();
+        }
+    });
+
+    async function executeCommand() {
+        const command = commandInput.value.trim();
+        if (!command) {
+            alert('Please enter a command');
+            return;
+        }
+
+        // Clear the input
+        commandInput.value = '';
+        
+        // Show command in console
+        // consoleOutput.innerHTML += `$ ${command}\n`;
+        // consoleOutput.scrollTop = consoleOutput.scrollHeight;
+
+        try {
+            const response = await fetch(`/process/execute/{{ process.name }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    command: command,
+                    working_dir: '/app',
+                    timeout: 30
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                // Output will be shown via live log stream automatically
+                console.log('Command executed successfully');
+            } else {
+                // consoleOutput.innerHTML += `[ERROR] ${result.error}\n`;
+                // consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        } catch (error) {
+            // consoleOutput.innerHTML += `[ERROR] Failed to execute command: ${error.message}\n`;
+            // consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            // console.error('Execute command error:', error);
+        }
+    }
+
+    async function openShell() {
+        try {
+            const response = await fetch(`/process/execute/{{ process.name }}/shell`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    working_dir: '/app',
+                    shell: '/bin/bash'
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                consoleOutput.innerHTML += `[SHELL] Interactive shell session started (PID: ${result.process_pid})\n`;
+                consoleOutput.innerHTML += `[SHELL] Working directory: ${result.working_dir}\n`;
+                consoleOutput.innerHTML += `[SHELL] Use 'exit' to close the shell session\n`;
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            } else {
+                consoleOutput.innerHTML += `[ERROR] Failed to open shell: ${result.error}\n`;
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        } catch (error) {
+            consoleOutput.innerHTML += `[ERROR] Failed to open shell: ${error.message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            console.error('Open shell error:', error);
+        }
+    }
 
     async function startProcess(name) {
     try {
@@ -169,6 +268,31 @@
             }, 2000);
         } else {
             alert('Failed to stop process');
+        }
+    }
+
+    async function clearLogs(name) {
+        try {
+            const response = await fetch(`/process/clear-logs/${name}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                // Clear the console display
+                consoleOutput.innerHTML = '';
+                console.log('Logs cleared successfully');
+            } else {
+                alert(`Failed to clear logs: ${result.error}`);
+                console.error('Clear logs error:', result.error);
+            }
+        } catch (error) {
+            alert(`Error clearing logs: ${error.message}`);
+            console.error('Clear logs error:', error);
         }
     }
 

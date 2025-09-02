@@ -14,7 +14,7 @@ from models.git import GitIntegration
 from models.subuser import SubUser
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
-from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler
+from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler, is_always_running_container, start_process_in_container, stop_process_in_container, execute_command_in_container, execute_interactive_command_in_container
 
 process_routes = Blueprint('process', __name__)
 
@@ -235,13 +235,23 @@ def start_process_console(name):
         return jsonify({"error": "Process not found"}), 404
 
     try:
-        os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        
-        subprocess.run(['docker-compose', 'up', '-d'], check=True)
+        # Check if this is an always-running container
+        if is_always_running_container(name):
+            # Use process-level control
+            result = start_process_in_container(name)
+            if result["success"]:
+                return jsonify({"message": result["message"], "status": get_process_status(process.name), "ok": True})
+            else:
+                return jsonify({"error": result["error"], "ok": False}), 500
+        else:
+            # Use traditional container-level control
+            os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
+            
+            subprocess.run(['docker-compose', 'up', '-d'], check=True)
 
-        time.sleep(2)
+            time.sleep(2)
 
-        return jsonify({"message": f"Process {name} started successfully.", "status": get_process_status(process.name), "ok": True})
+            return jsonify({"message": f"Process {name} started successfully.", "status": get_process_status(process.name), "ok": True})
 
     except subprocess.CalledProcessError as e:
         error_message = e.stderr.decode() if isinstance(e.stderr, bytes) else str(e.stderr)
@@ -259,10 +269,20 @@ def stop_process_console(name):
         return jsonify({"error": "Process not found"}), 404
 
     try:
-        os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-        os.system('docker-compose stop')
+        # Check if this is an always-running container
+        if is_always_running_container(name):
+            # Use process-level control
+            result = stop_process_in_container(name)
+            if result["success"]:
+                return jsonify({"message": result["message"]})
+            else:
+                return jsonify({"error": result["error"]}), 500
+        else:
+            # Use traditional container-level control
+            os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
+            os.system('docker-compose stop')
 
-        return jsonify({"message": f"Process {name} stopped successfully."})
+            return jsonify({"message": f"Process {name} stopped successfully."})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -327,57 +347,337 @@ def console_stream_logs(name):
 
     process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
-    logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
-    docker_logs = subprocess.Popen(
-        logs_command,
-        cwd=process_dir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1
-    )
-
     def generate():
         try:
-            if docker_logs.stdout is not None:
-                for line in iter(docker_logs.stdout.readline, ''):
-                    yield f"data: {colorize_log(format_timestamp(line.strip()))}\n\n"
-
-            while True:
+            # Check if this is an always-running container
+            is_always_running = is_always_running_container(name)
+            print(f"[DEBUG] Log streaming for {name}, is_always_running: {is_always_running}")
+            
+            if is_always_running:
+                # For always-running containers, stream both container logs and process logs
+                container_id = None
                 try:
-                    line = live_log_streams[name].get(timeout=1)
-                    yield f"data: {line}\n\n"
+                    result = subprocess.run(['docker-compose', 'ps', '-q', name], 
+                                          capture_output=True, text=True, check=True, cwd=process_dir)
+                    container_id = result.stdout.strip()
+                    print(f"[DEBUG] Container ID for log streaming: {container_id}")
                 except:
-                    if docker_logs.poll() is not None:
+                    print(f"[DEBUG] Failed to get container ID")
+                
+                # Stream existing container logs first (last 20 lines)
+                if container_id:
+                    try:
+                        container_logs = subprocess.run(['docker-compose', 'logs', '--tail', '20', '--timestamps', '--no-log-prefix'], 
+                                                      capture_output=True, text=True, cwd=process_dir)
+                        if container_logs.stdout:
+                            for line in container_logs.stdout.split('\n'):
+                                if line.strip():
+                                    yield f"data: {colorize_log(format_timestamp(line.strip()))}\n\n"
+                    except Exception as e:
+                        print(f"[DEBUG] Error getting container logs: {e}")
+                
+                # Stream existing process logs from log file (if exists)
+                if container_id:
+                    log_file = f"/tmp/{name}_process.log"
+                    try:
+                        log_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-20', log_file], 
+                                                  capture_output=True, text=True)
+                        if log_result.returncode == 0 and log_result.stdout:
+                            for line in log_result.stdout.split('\n'):
+                                if line.strip():
+                                    yield f"data: {colorize_log(line.strip())}\n\n"
+                    except Exception as e:
+                        print(f"[DEBUG] Error getting process logs: {e}")
+                
+                # Start continuous streaming of process logs in background
+                log_streaming_process = None
+                if container_id:
+                    try:
+                        log_file = f"/tmp/{name}_process.log"
+                        log_streaming_process = subprocess.Popen(
+                            ['docker', 'exec', container_id, 'tail', '-f', log_file],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            bufsize=1
+                        )
+                        print(f"[DEBUG] Started log streaming process for {name}")
+                    except Exception as e:
+                        print(f"[DEBUG] Failed to start log streaming: {e}")
+                
+                # Stream live logs using a simpler approach that works on Windows
+                last_log_position = 0
+                heartbeat_counter = 0
+                
+                while True:
+                    try:
+                        # Stream from live log queue (this handles manual messages)
+                        try:
+                            line = live_log_streams[name].get(timeout=0.1)
+                            yield f"data: {colorize_log(line)}\n\n"
+                            continue
+                        except:
+                            pass  # Timeout, continue to other sources
+                        
+                        # Get new logs from process log file (Windows-compatible approach)
+                        if container_id:
+                            try:
+                                log_file = f"/tmp/{name}_process.log"
+                                # Get file size first
+                                size_result = subprocess.run(['docker', 'exec', container_id, 'wc', '-c', log_file], 
+                                                           capture_output=True, text=True, timeout=2)
+                                if size_result.returncode == 0:
+                                    current_size = int(size_result.stdout.strip().split()[0])
+                                    if current_size > last_log_position:
+                                        # Get new content since last position
+                                        tail_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-c', f'+{last_log_position + 1}', log_file], 
+                                                                   capture_output=True, text=True, timeout=2)
+                                        if tail_result.returncode == 0 and tail_result.stdout:
+                                            for line in tail_result.stdout.split('\n'):
+                                                if line.strip():
+                                                    yield f"data: {colorize_log(line.strip())}\n\n"
+                                        last_log_position = current_size
+                            except subprocess.TimeoutExpired:
+                                pass  # Timeout, continue
+                            except Exception as e:
+                                print(f"[DEBUG] Error getting new logs: {e}")
+                        
+                        # Send heartbeat every 10 iterations (about 1 second)
+                        heartbeat_counter += 1
+                        if heartbeat_counter >= 10:
+                            yield f"data: \n\n"  # Heartbeat to keep connection alive
+                            heartbeat_counter = 0
+                        
+                        # Small delay to prevent excessive polling
+                        import time
+                        time.sleep(0.1)
+                        
+                    except GeneratorExit:
+                        print(f"[DEBUG] Client disconnected from log stream for {name}")
                         break
+                    except Exception as e:
+                        print(f"[DEBUG] Error in log streaming loop: {e}")
+                        yield f"data: [stream error] {str(e)}\n\n"
+                        break
+                
+                # Cleanup
+                if log_streaming_process:
+                    try:
+                        log_streaming_process.terminate()
+                        log_streaming_process.wait(timeout=5)
+                    except:
+                        try:
+                            log_streaming_process.kill()
+                        except:
+                            pass
+            
+            else:
+                # Traditional container log streaming (existing behavior)
+                logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
+                docker_logs = subprocess.Popen(
+                    logs_command,
+                    cwd=process_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1
+                )
+
+                if docker_logs.stdout is not None:
+                    for line in iter(docker_logs.stdout.readline, ''):
+                        yield f"data: {colorize_log(format_timestamp(line.strip()))}\n\n"
+
+                while True:
+                    try:
+                        line = live_log_streams[name].get(timeout=1)
+                        yield f"data: {line}\n\n"
+                    except:
+                        if docker_logs.poll() is not None:
+                            break
+
+                docker_logs.terminate()
+                docker_logs.wait()
 
         except Exception as e:
             yield f"data: [stream error] {str(e)}\n\n"
-        finally:
-            docker_logs.terminate()
-            docker_logs.wait()
 
     return Response(generate(), content_type='text/event-stream')
 
 
+@process_routes.route('/execute/<string:name>', methods=['POST'])
+@owner_or_subuser_required()
+def execute_command(name):
+    """Execute a command inside the container"""
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
 
-# @process_routes.route('/console/<string:name>/send', methods=['POST'])
-# def send_command(name):
-#     process = find_process_by_name(name)
-#     if not process or not request.json:
-#         return jsonify({"error": "Process not found"}), 404
+    try:
+        data = request.get_json()
+        if not data or 'command' not in data:
+            return jsonify({"error": "Command is required"}), 400
 
-#     command = request.json.get('command')
-#     if not command:
-#         return jsonify({"error": "No command provided"}), 400
+        command = data.get('command', '').strip()
+        working_dir = data.get('working_dir', '/app')
+        timeout = data.get('timeout', 30)
 
-#     try:
-#         container = client.containers.get(process.id)
-#         exec_id = container.exec_run(command, tty=True, stdin=True)
-#         return jsonify({"message": "Command executed", "output": exec_id.output.decode('utf-8')})
-#     except Exception as e:
-#         return jsonify({"error": str(e)}), 500
-    
+        if not command:
+            return jsonify({"error": "Command cannot be empty"}), 400
+
+        print(f"[DEBUG] Executing command via API: {command}")
+        
+        # Execute the command
+        result = execute_command_in_container(name, command, working_dir, timeout)
+        
+        # Add command and result to live log stream for real-time viewing
+        live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
+        
+        if result['success']:
+            # Add output to live stream
+            if result.get('stdout'):
+                for line in result['stdout'].split('\n'):
+                    if line.strip():
+                        live_log_streams[name].put(line)
+            if result.get('stderr'):
+                for line in result['stderr'].split('\n'):
+                    if line.strip():
+                        live_log_streams[name].put(f'[ERROR] {line}')
+        else:
+            live_log_streams[name].put(f'[ERROR] {result.get("error", "Command failed")}')
+        
+        return jsonify(result)
+
+    except Exception as e:
+        error_message = str(e)
+        print(f"[DEBUG] Exception in execute_command route: {error_message}")
+        return jsonify({"success": False, "error": error_message}), 500
+
+
+@process_routes.route('/execute/<string:name>/interactive', methods=['POST'])
+@owner_or_subuser_required()
+def start_interactive_command(name):
+    """Start an interactive command inside the container"""
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
+
+    try:
+        data = request.get_json()
+        if not data or 'command' not in data:
+            return jsonify({"error": "Command is required"}), 400
+
+        command = data.get('command', '').strip()
+        working_dir = data.get('working_dir', '/app')
+
+        if not command:
+            return jsonify({"error": "Command cannot be empty"}), 400
+
+        print(f"[DEBUG] Starting interactive command via API: {command}")
+        
+        # Start the interactive command
+        result = execute_interactive_command_in_container(name, command, working_dir)
+        
+        # Add command start notification to live log stream
+        live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Starting interactive: {command}')
+        
+        if result['success']:
+            # Store process reference for potential future interaction
+            # Note: In a real implementation, you'd want to store this in a session or database
+            # for tracking active interactive sessions
+            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Interactive command started (PID: {result["process"].pid})')
+            return jsonify({
+                "success": True,
+                "message": result["message"],
+                "process_pid": result["process"].pid
+            })
+        else:
+            live_log_streams[name].put(f'[ERROR] Failed to start interactive command: {result.get("error")}')
+            return jsonify(result)
+
+    except Exception as e:
+        error_message = str(e)
+        print(f"[DEBUG] Exception in start_interactive_command route: {error_message}")
+        return jsonify({"success": False, "error": error_message}), 500
+
+
+@process_routes.route('/execute/<string:name>/shell', methods=['POST'])
+@owner_or_subuser_required()
+def open_shell(name):
+    """Open a shell session inside the container"""
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
+
+    try:
+        data = request.get_json() or {}
+        working_dir = data.get('working_dir', '/app')
+        shell = data.get('shell', '/bin/bash')
+
+        print(f"[DEBUG] Opening shell session in container: {name}")
+        
+        # Try bash first, fallback to sh if bash doesn't exist
+        shell_command = f"cd {working_dir} && if command -v {shell} >/dev/null 2>&1; then exec {shell}; else exec /bin/sh; fi"
+        
+        # Start the interactive shell
+        result = execute_interactive_command_in_container(name, shell_command, working_dir)
+        
+        # Add shell start notification to live log stream
+        live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Opening shell session')
+        
+        if result['success']:
+            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Shell session started (PID: {result["process"].pid})')
+            return jsonify({
+                "success": True,
+                "message": "Shell session started",
+                "process_pid": result["process"].pid,
+                "working_dir": working_dir,
+                "shell": shell
+            })
+        else:
+            live_log_streams[name].put(f'[ERROR] Failed to start shell: {result.get("error")}')
+            return jsonify(result)
+
+    except Exception as e:
+        error_message = str(e)
+        print(f"[DEBUG] Exception in open_shell route: {error_message}")
+        return jsonify({"success": False, "error": error_message}), 500
+
+
+@process_routes.route('/clear-logs/<string:name>', methods=['POST'])
+@owner_or_subuser_required()
+def clear_logs(name):
+    """Clear the persistent log file for a process"""
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
+
+    try:
+        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+        os.chdir(process_dir)
+
+        # Get container ID
+        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        container_id = result.stdout.strip()
+
+        if not container_id:
+            return jsonify({"error": "Container is not running"}), 400
+
+        # Clear the log file
+        log_file = f"/tmp/{name}_process.log"
+        result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', f'> {log_file}'], 
+                              capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            # Add notification to live stream
+            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] ===== LOGS CLEARED =====')
+            return jsonify({"success": True, "message": "Logs cleared successfully"})
+        else:
+            return jsonify({"success": False, "error": "Failed to clear logs"}), 500
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 def ansi_to_html(ansi_code):
     """Map ANSI codes to HTML colors."""
     color_map = {
