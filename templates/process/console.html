@@ -198,6 +198,8 @@
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
     
+    const seenMessages = new Set();
+    
     let eventSource = null;
     let uptimeInterval = null;
     let isPageActive = true;
@@ -251,7 +253,6 @@
 
         try {
             eventSource = new EventSource(`/process/console/{{ process.name }}/logs`);
-            const seenMessages = new Set();
 
             eventSource.onmessage = function(event) {
                 if (!isPageActive) return;
@@ -489,7 +490,9 @@
             
             if (result.success) {
                 consoleOutput.innerHTML = '';
+                seenMessages.clear();
                 addLogMessage('Logs cleared successfully', 'system');
+                refreshLogs()
             } else {
                 addLogMessage(`Failed to clear logs: ${result.error}`, 'error');
             }
