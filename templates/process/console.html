@@ -3,139 +3,328 @@
 {% block process_content %}
 <style>
     .console-output {
-        background-color: #333;
-        color: white;
-        font-family: monospace;
-        padding: 15px;
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        padding: 20px;
         height: 600px;
-        overflow-y: scroll;
-        font-size: 13px;
+        overflow-y: auto;
+        font-size: 14px;
         white-space: pre-wrap;
+        word-wrap: break-word;
+        border: 1px solid #444;
+        border-radius: 8px;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .console-output::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .console-output::-webkit-scrollbar-track {
+        background: #2a2a2a;
+    }
+    
+    .console-output::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 4px;
+    }
+    
+    .console-output::-webkit-scrollbar-thumb:hover {
+        background: #666;
+    }
+    
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-dot.running {
+        background-color: #28a745;
+    }
+    
+    .status-dot.stopped {
+        background-color: #dc3545;
+    }
+    
+    .status-dot.restarting {
+        background-color: #ffc107;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .command-input-section {
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 20px 0;
+    }
+    
+    .btn-group-process {
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .loading-overlay {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    
+    .spinner {
+        border: 3px solid #444;
+        border-top: 3px solid #007bff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 </style>
 
 <div class="container mt-4">
-    
-    <h2 class="">Console for {{ process.name }}</h2>
-    
-    <div class="text-light">
-        Status: 
-        <span class="server-status text-{{ 'success' if process_status == 'Running' else 'danger' }}">
-            <span class="server-status-label">{{ process_status | capitalize }}</span>
-        </span>
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="d-flex align-items-center">
+            <div class="spinner"></div>
+            <span id="loading-text">Processing...</span>
+        </div>
     </div>
-    <div class="text-light mb-4">
-        URL: 
-        {% if not process.domain %}
-        <a href="http://{{ server_ip }}:{{ 8000 + process.port_id}}">http://{{ server_ip }}:{{ 8000 + process.port_id}}</a>
-        {% else %}
-        <a href="https://{{process.domain}}">{{process.domain}}</a>
-        {% endif %}
-    </div>
-
-
-    <div class="text-light mb-4">
-        Uptime: 
-        <span id="process-uptime">Fetching uptime...</span>
+    
+    <h2 class="mb-4">Console for {{ process.name }}</h2>
+    
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="text-light">
+                <strong>Status:</strong>
+                <span class="status-indicator">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span class="server-status-label" id="status-label">{{ process_status | capitalize }}</span>
+                </span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-light">
+                <strong>Uptime:</strong>
+                <span id="process-uptime">Fetching...</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-light">
+                <strong>URL:</strong>
+                {% if not process.domain %}
+                <a href="http://{{ server_ip }}:{{ 8000 + process.port_id}}" target="_blank" class="text-info">
+                    http://{{ server_ip }}:{{ 8000 + process.port_id}}
+                </a>
+                {% else %}
+                <a href="https://{{process.domain}}" target="_blank" class="text-info">
+                    {{process.domain}}
+                </a>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <div class="console-output" id="console-output"></div>
 
-    <!-- Command Input Section -->
-    <div class="mt-3 mb-3">
+    <div class="command-input-section">
+        <h6 class="text-light mb-3">Execute Commands</h6>
         <div class="input-group">
-            <span class="input-group-text bg-dark text-light border-secondary">$</span>
+            <span class="input-group-text bg-dark text-success border-secondary">$</span>
             <input type="text" 
                    class="form-control bg-dark text-light border-secondary" 
                    id="command-input" 
                    placeholder="Enter command to execute in container..."
                    style="font-family: monospace;">
-            <button class="btn btn-primary" type="button" onclick="executeCommand()">Execute</button>
-            <button class="btn btn-secondary" type="button" onclick="openShell()">Shell</button>
+            <button class="btn btn-primary" type="button" onclick="executeCommand()" id="execute-btn">
+                Execute
+            </button>
         </div>
-        <small class="text-muted">
-            Commands will be executed in the container's /app directory. Press Enter to execute.
+        <small class="text-muted mt-2 d-block">
+            Commands execute in /app directory.
         </small>
     </div>
 
-    <div class="mt-3 mb-6">
-        <button class="btn btn-success mt-2 " onclick="startProcess('{{ process.name }}')">Start</button>
-        <button class="btn btn-danger mt-2" onclick="stopProcess('{{ process.name }}')">Stop</button>
-        <button class="btn btn-warning mt-2" onclick="restartProcess('{{ process.name }}')">Restart</button>
-        <button class="btn btn-info mt-2" onclick="clearLogs('{{ process.name }}')">Clear Logs</button>
+    <div class="btn-group-process d-flex flex-wrap">
+        <button class="btn btn-success" onclick="startProcess('{{ process.name }}')" id="start-btn">
+            <i class="fas fa-play"></i> Start
+        </button>
+        <button class="btn btn-danger" onclick="stopProcess('{{ process.name }}')" id="stop-btn">
+            <i class="fas fa-stop"></i> Stop
+        </button>
+        <button class="btn btn-warning" onclick="restartProcess('{{ process.name }}')" id="restart-btn">
+            <i class="fas fa-redo"></i> Restart
+        </button>
+        <button class="btn btn-info" onclick="clearLogs('{{ process.name }}')" id="clear-logs-btn">
+            <i class="fas fa-broom"></i> Clear Logs
+        </button>
+        <button class="btn btn-secondary" onclick="refreshLogs()" id="refresh-logs-btn">
+            <i class="fas fa-sync"></i> Refresh Logs
+        </button>
     </div>
 </div>
 
 <script>
     const consoleOutput = document.getElementById('console-output');
-    const commandInput = document.getElementById('command-input');
+    let commandInput = document.getElementById('command-input');
     const uptimeElement = document.getElementById('process-uptime');
-    const startButton = document.querySelector('button[onclick="startProcess(\'{{ process.name }}\')"]');
-    const stopButton = document.querySelector('button[onclick="stopProcess(\'{{ process.name }}\')"]');
-    const restartButton = document.querySelector('button[onclick="restartProcess(\'{{ process.name }}\')"]');
+    const statusDot = document.getElementById('status-dot');
+    const statusLabel = document.getElementById('status-label');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    
+    let eventSource = null;
+    let uptimeInterval = null;
+    let isPageActive = true;
+    let lastLogTimestamp = Date.now();
 
-    async function startConsole() {
-        const eventSource = new EventSource(`/process/console/{{ process.name }}/logs`);
-        const seenMessages = new Set();
-        let isPageActive = true;
+    // Page visibility handling
+    document.addEventListener("visibilitychange", () => {
+        isPageActive = !document.hidden;
+        if (isPageActive) {
+            refreshLogs();
+        }
+    });
 
-        document.addEventListener("visibilitychange", () => {
-            isPageActive = !document.hidden;
-        });
-
-        eventSource.onmessage = function(event) {
-            if (!isPageActive) return;
-
-            const message = event.data.trim();
-            if (message && !seenMessages.has(message)) {
-                seenMessages.add(message);
-                consoleOutput.innerHTML += message + '\n';
-                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    // Initialize console
+    function initializeConsole() {
+        startConsole();
+        startUptimeUpdates();
+        updateUIBasedOnStatus('{{ process_status }}');
+        
+        // Add command input event listener
+        commandInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                executeCommand();
             }
-        };
+        });
     }
 
+    function showLoading(message = 'Processing...') {
+        loadingText.textContent = message;
+        loadingOverlay.style.display = 'flex';
+    }
 
-    async function fetchUptime() {
-        setInterval(async () => {
+    function hideLoading() {
+        loadingOverlay.style.display = 'none';
+    }
+
+    function addLogMessage(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const prefix = type === 'error' ? '[ERROR]' : type === 'system' ? '[SYSTEM]' : '';
+        const logLine = `[${timestamp}] ${prefix} ${message}\n`;
+        
+        consoleOutput.innerHTML += logLine;
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        lastLogTimestamp = Date.now();
+    }
+
+    function startConsole() {
+        if (eventSource) {
+            eventSource.close();
+        }
+
+        try {
+            eventSource = new EventSource(`/process/console/{{ process.name }}/logs`);
+            const seenMessages = new Set();
+
+            eventSource.onmessage = function(event) {
+                if (!isPageActive) return;
+
+                const message = event.data.trim();
+                if (message && !seenMessages.has(message)) {
+                    seenMessages.add(message);
+                    consoleOutput.innerHTML += message + '\n';
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                    lastLogTimestamp = Date.now();
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                console.error('EventSource error:', event);
+                addLogMessage('Connection to log stream lost. Attempting to reconnect...', 'error');
+                
+                // Attempt to reconnect after a delay
+                setTimeout(() => {
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        startConsole();
+                    }
+                }, 5000);
+            };
+
+            eventSource.onopen = function(event) {
+                console.log('Log stream connected');
+            };
+
+        } catch (error) {
+            console.error('Failed to start console:', error);
+            addLogMessage('Failed to connect to log stream', 'error');
+        }
+    }
+
+    function refreshLogs() {
+        addLogMessage('Refreshing logs...', 'system');
+        startConsole();
+    }
+
+    function startUptimeUpdates() {
+        if (uptimeInterval) {
+            clearInterval(uptimeInterval);
+        }
+
+        uptimeInterval = setInterval(async () => {
             try {
                 const response = await fetch(`/process/console/{{ process.name }}/uptime`);
                 if (response.ok) {
                     const data = await response.json();
-                    uptimeElement.innerText = data.uptime;
+                    uptimeElement.textContent = data.uptime || 'N/A';
                 } else {
-                    console.error('Failed to fetch uptime');
-                    console.log(await response.text())
+                    uptimeElement.textContent = 'Unavailable';
                 }
             } catch (error) {
                 console.error('Error fetching uptime:', error);
+                uptimeElement.textContent = 'Error';
             }
-        }, 1000);
+        }, 2000);
     }
 
-    startConsole();
-    fetchUptime();
-
-    // Add Enter key support for command input
-    commandInput.addEventListener('keypress', function(event) {
-        if (event.key === 'Enter') {
-            executeCommand();
-        }
-    });
-
     async function executeCommand() {
+        commandInput = document.getElementById('command-input');
         const command = commandInput.value.trim();
         if (!command) {
             alert('Please enter a command');
             return;
         }
 
-        // Clear the input
-        commandInput.value = '';
+        const executeBtn = document.getElementById('execute-btn');
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Executing...';
         
-        // Show command in console
-        // consoleOutput.innerHTML += `$ ${command}\n`;
-        // consoleOutput.scrollTop = consoleOutput.scrollHeight;
 
         try {
             const response = await fetch(`/process/execute/{{ process.name }}`, {
@@ -152,126 +341,143 @@
 
             const result = await response.json();
             
-            if (result.success) {
-                // Output will be shown via live log stream automatically
-                console.log('Command executed successfully');
-            } else {
-                // consoleOutput.innerHTML += `[ERROR] ${result.error}\n`;
-                // consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            if (!result.success) {
+                addLogMessage(`Command failed: ${result.error}`, 'error');
+                commandInput.value = '';
             }
         } catch (error) {
-            // consoleOutput.innerHTML += `[ERROR] Failed to execute command: ${error.message}\n`;
-            // consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            // console.error('Execute command error:', error);
-        }
-    }
-
-    async function openShell() {
-        try {
-            const response = await fetch(`/process/execute/{{ process.name }}/shell`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    working_dir: '/app',
-                    shell: '/bin/bash'
-                })
-            });
-
-            const result = await response.json();
-            
-            if (result.success) {
-                consoleOutput.innerHTML += `[SHELL] Interactive shell session started (PID: ${result.process_pid})\n`;
-                consoleOutput.innerHTML += `[SHELL] Working directory: ${result.working_dir}\n`;
-                consoleOutput.innerHTML += `[SHELL] Use 'exit' to close the shell session\n`;
-                consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            } else {
-                consoleOutput.innerHTML += `[ERROR] Failed to open shell: ${result.error}\n`;
-                consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            }
-        } catch (error) {
-            consoleOutput.innerHTML += `[ERROR] Failed to open shell: ${error.message}\n`;
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            console.error('Open shell error:', error);
+            addLogMessage(`Failed to execute command: ${error.message}`, 'error');
+            commandInput.value = '';
+        } finally {
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = 'Execute';
+            commandInput.value = '';
         }
     }
 
     async function startProcess(name) {
-    try {
-        consoleOutput.innerHTML += `| Process start command received\n`;
-        
-        const response = await fetch(`{{ url_for('process.start_process_console', name="") }}${name}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
+        showLoading('Starting process...');
+        updateProcessStatus('starting');
+        addLogMessage('Process start command received', 'system');
 
-        if (!response.ok) {
-            const errorResponse = await response.json(); // Ensure to handle error responses
-            alert(`Failed to start process: ${errorResponse.error}`);
-            console.log(errorResponse);
-            return;
-        }
+        try {
+            const response = await fetch(`{{ url_for('process.start_process_console', name="") }}${name}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
 
-        const responseData = await response.json(); // Parse the JSON only when the response is okay
-        if (responseData && responseData.ok) {
-            consoleOutput.innerHTML += `| Process started\n`;
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            updateProcessStatus('running');
-        } else {
-            alert('Failed to start process');
-            console.log(responseData);
+            const result = await response.json();
+            
+            if (response.ok && result.ok) {
+                addLogMessage('Process started successfully', 'system');
+                updateProcessStatus('running');
+                
+                // Refresh logs after starting
+                setTimeout(() => {
+                    refreshLogs();
+                }, 1000);
+            } else {
+                const errorMsg = result.error || 'Unknown error occurred';
+                addLogMessage(`Failed to start process: ${errorMsg}`, 'error');
+                updateProcessStatus('exited');
+            }
+        } catch (error) {
+            addLogMessage(`Error starting process: ${error.message}`, 'error');
+            updateProcessStatus('exited');
+        } finally {
+            hideLoading();
         }
-    } catch (error) {
-        alert('An error occurred while starting the process');
-        console.error('Fetch error:', error);
-        console.log(error);
     }
-}
-
 
     async function stopProcess(name) {
-        consoleOutput.innerHTML += `| Process stop command received\n`;
-        const response = await fetch(`{{ url_for('process.stop_process_console', name="") }}` + name, { method: 'POST' });
-        if (response.ok) {
-            consoleOutput.innerHTML += `| Process stopped\n`;
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            updateProcessStatus('exited');
-        } else {
-            const errorMessage = await response.text();
-            alert('Failed to stop process: ' + errorMessage);
-            console.log('Response Error:', errorMessage);
+        showLoading('Stopping process...');
+        updateProcessStatus('stopping');
+        addLogMessage('Process stop command received', 'system');
+
+        try {
+            const response = await fetch(`{{ url_for('process.stop_process_console', name="") }}${name}`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                addLogMessage('Process stopped successfully', 'system');
+                updateProcessStatus('exited');
+                
+                // Refresh logs after stopping
+                setTimeout(() => {
+                    refreshLogs();
+                }, 1000);
+            } else {
+                const errorMessage = await response.text();
+                addLogMessage(`Failed to stop process: ${errorMessage}`, 'error');
+            }
+        } catch (error) {
+            addLogMessage(`Error stopping process: ${error.message}`, 'error');
+        } finally {
+            hideLoading();
         }
     }
 
     async function restartProcess(name) {
-        consoleOutput.innerHTML += `| Restarting process...\n`;
-        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        showLoading('Restarting process...');
         updateProcessStatus('restarting');
-        
-        const stopResponse = await fetch(`{{ url_for('process.stop_process_console', name="") }}` + name, { method: 'POST' });
-        if (stopResponse.ok) {
-            consoleOutput.innerHTML += `| Process stopped successfully.\n`;
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            
-            setTimeout(async () => {
-                const startResponse = await fetch(`{{ url_for('process.start_process_console', name="") }}` + name, { method: 'POST' });
-                if (startResponse.ok) {
-                    consoleOutput.innerHTML += `| Process started successfully.\n`;
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
-                    updateProcessStatus('running');
-                } else {
-                    alert('Failed to start process after stopping');
-                }
-            }, 2000);
-        } else {
-            alert('Failed to stop process');
+        addLogMessage('Restarting process...', 'system');
+
+        try {
+            // Stop the process first
+            const stopResponse = await fetch(`{{ url_for('process.stop_process_console', name="") }}${name}`, {
+                method: 'POST'
+            });
+
+            if (stopResponse.ok) {
+                addLogMessage('Process stopped, starting again...', 'system');
+                
+                // Wait a moment before starting
+                setTimeout(async () => {
+                    try {
+                        const startResponse = await fetch(`{{ url_for('process.start_process_console', name="") }}${name}`, {
+                            method: 'POST'
+                        });
+
+                        if (startResponse.ok) {
+                            addLogMessage('Process restarted successfully', 'system');
+                            updateProcessStatus('running');
+                            
+                            // Refresh logs after restarting
+                            setTimeout(() => {
+                                refreshLogs();
+                            }, 1000);
+                        } else {
+                            addLogMessage('Failed to start process after stopping', 'error');
+                            updateProcessStatus('exited');
+                        }
+                    } catch (error) {
+                        addLogMessage(`Error starting process: ${error.message}`, 'error');
+                        updateProcessStatus('exited');
+                    } finally {
+                        hideLoading();
+                    }
+                }, 2000);
+            } else {
+                addLogMessage('Failed to stop process for restart', 'error');
+                hideLoading();
+            }
+        } catch (error) {
+            addLogMessage(`Error restarting process: ${error.message}`, 'error');
+            updateProcessStatus('exited');
+            hideLoading();
         }
     }
 
     async function clearLogs(name) {
+        if (!confirm('Are you sure you want to clear all logs?')) {
+            return;
+        }
+
+        showLoading('Clearing logs...');
+
         try {
             const response = await fetch(`/process/clear-logs/${name}`, {
                 method: 'POST',
@@ -283,75 +489,75 @@
             const result = await response.json();
             
             if (result.success) {
-                // Clear the console display
                 consoleOutput.innerHTML = '';
-                console.log('Logs cleared successfully');
+                addLogMessage('Logs cleared successfully', 'system');
             } else {
-                alert(`Failed to clear logs: ${result.error}`);
-                console.error('Clear logs error:', result.error);
+                addLogMessage(`Failed to clear logs: ${result.error}`, 'error');
             }
         } catch (error) {
-            alert(`Error clearing logs: ${error.message}`);
-            console.error('Clear logs error:', error);
+            addLogMessage(`Error clearing logs: ${error.message}`, 'error');
+        } finally {
+            hideLoading();
         }
     }
 
     function updateProcessStatus(status) {
-        const statusText = document.querySelector('.server-status');
-        const statusLabel = document.querySelector('.server-status-label');
+        updateUIBasedOnStatus(status);
+        statusLabel.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    }
 
-        if (status === 'running') {
-            statusText.classList.remove('text-danger', 'text-warning');
-            statusText.classList.add('text-success');
-            statusLabel.innerText = 'Running';
-            changeStartButton(true);
-            changeStopButton(false);
-            changeRestartButton(false);
-        } else if (status === 'restarting') {
-            statusText.classList.remove('text-success', 'text-danger');
-            statusText.classList.add('text-warning');
-            statusLabel.innerText = 'Restarting';
-            changeAllButtons(true);
-        } else {
-            statusText.classList.remove('text-success', 'text-warning');
-            statusText.classList.add('text-danger');
-            statusLabel.innerText = 'Exited';
-            changeStartButton(false);
-            changeStopButton(true);
-            changeRestartButton(true);
+    function updateUIBasedOnStatus(status) {
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        // Remove all status classes
+        statusDot.className = 'status-dot';
+        
+        switch (status.toLowerCase()) {
+            case 'running':
+                statusDot.classList.add('running');
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                restartBtn.disabled = false;
+                break;
+            case 'starting':
+            case 'restarting':
+            case 'stopping':
+                statusDot.classList.add('restarting');
+                startBtn.disabled = true;
+                stopBtn.disabled = true;
+                restartBtn.disabled = true;
+                break;
+            default: // exited, stopped, etc.
+                statusDot.classList.add('stopped');
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                restartBtn.disabled = true;
+                break;
         }
     }
 
-    function checkStatus() {
-        let status = `{{ process_status }}`
-        if(status == "Running") {
-            changeStartButton(true);
-            changeStopButton(false);
-            changeRestartButton(false);
-        } else if(status == "Exited") {
-            changeStartButton(false);
-            changeStopButton(true);
-            changeRestartButton(true);
+    // Clean up resources when page is unloaded
+    window.addEventListener('beforeunload', function() {
+        if (eventSource) {
+            eventSource.close();
         }
-    }
-    checkStatus()
+        if (uptimeInterval) {
+            clearInterval(uptimeInterval);
+        }
+    });
 
-    function changeStartButton(state) {
-        startButton.disabled = state;
-    }
+    // Initialize everything when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeConsole();
+    });
 
-    function changeStopButton(state) {
-        stopButton.disabled = state;
-    }
-
-    function changeRestartButton(state) {
-        restartButton.disabled = state;
-    }
-
-    function changeAllButtons(state) {
-        changeStartButton(state);
-        changeStopButton(state);
-        changeRestartButton(state);
+    // Fallback initialization
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeConsole);
+    } else {
+        initializeConsole();
     }
 </script>
 {% endblock process_content %}

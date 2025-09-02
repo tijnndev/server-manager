@@ -351,7 +351,6 @@ def console_stream_logs(name):
         try:
             # Check if this is an always-running container
             is_always_running = is_always_running_container(name)
-            print(f"[DEBUG] Log streaming for {name}, is_always_running: {is_always_running}")
             
             if is_always_running:
                 # For always-running containers, stream both container logs and process logs
@@ -360,8 +359,7 @@ def console_stream_logs(name):
                     result = subprocess.run(['docker-compose', 'ps', '-q', name], 
                                           capture_output=True, text=True, check=True, cwd=process_dir)
                     container_id = result.stdout.strip()
-                    print(f"[DEBUG] Container ID for log streaming: {container_id}")
-                except:
+                except Exception:
                     print(f"[DEBUG] Failed to get container ID")
                 
                 # Stream existing container logs first (last 20 lines)
@@ -453,10 +451,8 @@ def console_stream_logs(name):
                         time.sleep(0.1)
                         
                     except GeneratorExit:
-                        print(f"[DEBUG] Client disconnected from log stream for {name}")
                         break
                     except Exception as e:
-                        print(f"[DEBUG] Error in log streaming loop: {e}")
                         yield f"data: [stream error] {str(e)}\n\n"
                         break
                 
@@ -524,8 +520,6 @@ def execute_command(name):
         if not command:
             return jsonify({"error": "Command cannot be empty"}), 400
 
-        print(f"[DEBUG] Executing command via API: {command}")
-        
         # Execute the command
         result = execute_command_in_container(name, command, working_dir, timeout)
         
@@ -572,8 +566,6 @@ def start_interactive_command(name):
         if not command:
             return jsonify({"error": "Command cannot be empty"}), 400
 
-        print(f"[DEBUG] Starting interactive command via API: {command}")
-        
         # Start the interactive command
         result = execute_interactive_command_in_container(name, command, working_dir)
         
@@ -596,7 +588,6 @@ def start_interactive_command(name):
 
     except Exception as e:
         error_message = str(e)
-        print(f"[DEBUG] Exception in start_interactive_command route: {error_message}")
         return jsonify({"success": False, "error": error_message}), 500
 
 
@@ -613,8 +604,6 @@ def open_shell(name):
         working_dir = data.get('working_dir', '/app')
         shell = data.get('shell', '/bin/bash')
 
-        print(f"[DEBUG] Opening shell session in container: {name}")
-        
         # Try bash first, fallback to sh if bash doesn't exist
         shell_command = f"cd {working_dir} && if command -v {shell} >/dev/null 2>&1; then exec {shell}; else exec /bin/sh; fi"
         
@@ -639,7 +628,6 @@ def open_shell(name):
 
     except Exception as e:
         error_message = str(e)
-        print(f"[DEBUG] Exception in open_shell route: {error_message}")
         return jsonify({"success": False, "error": error_message}), 500
 
 

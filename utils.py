@@ -109,67 +109,50 @@ def generate_random_string(length: int) -> str:
 
 def check_process_running_in_container(name):
     """Check if the main process is running inside the container"""
-    print(f"[DEBUG] Checking process status for container: {name}")
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        print(f"[DEBUG] Process directory: {process_dir}")
         os.chdir(process_dir)
 
         # Get container ID
-        print(f"[DEBUG] Getting container ID for: {name}")
         result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
-        print(f"[DEBUG] Container ID: {container_id}")
 
         if not container_id:
-            print(f"[DEBUG] No container found for: {name}")
             return {"status": "Container Not Running", "container_running": False}
 
         # Check if container is running
-        print(f"[DEBUG] Checking container status for ID: {container_id}")
         result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], 
                               capture_output=True, text=True)
         
         container_status = result.stdout.strip()
-        print(f"[DEBUG] Container status: {container_status}")
         
         if result.returncode != 0 or container_status != 'running':
-            print(f"[DEBUG] Container not running. Return code: {result.returncode}, Status: {container_status}")
             return {"status": "Container Not Running", "container_running": False}
 
         # Get the main command from environment variable
-        print(f"[DEBUG] Getting environment variables for container: {container_id}")
         result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
                               capture_output=True, text=True)
         
-        print(f"[DEBUG] Environment variables output: {result.stdout}")
         
         main_command = None
         for line in result.stdout.split('\n'):
             if line.startswith('MAIN_COMMAND='):
                 main_command = line.split('=', 1)[1].strip('"')
-                print(f"[DEBUG] Found MAIN_COMMAND: {main_command}")
                 break
 
         if not main_command:
-            print(f"[DEBUG] No MAIN_COMMAND found, assuming traditional container")
             return {"status": "Running", "container_running": True, "process_running": True}
 
         # Check if the main process is running inside the container
-        print(f"[DEBUG] Checking if process is running inside container: {main_command}")
         result = subprocess.run(['docker', 'exec', container_id, 'ps', 'aux'], 
                               capture_output=True, text=True)
         
         if result.returncode != 0:
-            print(f"[DEBUG] Failed to get process list. Return code: {result.returncode}")
-            print(f"[DEBUG] Error: {result.stderr}")
             return {"status": "Process Stopped", "container_running": True, "process_running": False}
 
         # Parse process list to find our main command
         processes = result.stdout
         command_parts = main_command.split()
-        print(f"[DEBUG] Command parts to search for: {command_parts}")
-        print(f"[DEBUG] Process list:\n{processes}")
         
         # Look for the main command in the process list (exclude zombie processes)
         process_running = False
@@ -178,17 +161,12 @@ def check_process_running_in_container(name):
             if line.strip():
                 # Check if this is a zombie process (contains <defunct> or Z state)
                 if '<defunct>' in line or ' Z ' in line:
-                    print(f"[DEBUG] Skipping zombie process: {line.strip()}")
                     continue
                     
                 # Check if any part of our command appears in the process line
                 if any(part in line for part in command_parts if len(part) > 2):
                     process_running = True
                     matching_processes.append(line.strip())
-                    print(f"[DEBUG] Found matching ACTIVE process: {line.strip()}")
-
-        print(f"[DEBUG] Process running: {process_running}")
-        print(f"[DEBUG] Active matching processes found: {len(matching_processes)}")
 
         if process_running:
             return {"status": "Running", "container_running": True, "process_running": True}
@@ -196,30 +174,22 @@ def check_process_running_in_container(name):
             return {"status": "Process Stopped", "container_running": True, "process_running": False}
 
     except subprocess.CalledProcessError as e:
-        print(f"[DEBUG] CalledProcessError: {e}")
-        print(f"[DEBUG] Error stderr: {e.stderr}")
         return {"status": "Error", "error": f"Failed to check process status: {e.stderr}"}
     except Exception as e:
-        print(f"[DEBUG] Exception: {e}")
         return {"status": "Error", "error": str(e)}
 
 
 def start_process_in_container(name):
     """Start the main process inside an already running container with proper log streaming"""
-    print(f"[DEBUG] Starting process in container: {name}")
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        print(f"[DEBUG] Process directory: {process_dir}")
         os.chdir(process_dir)
 
         # Get container ID
-        print(f"[DEBUG] Getting container ID for: {name}")
         result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
-        print(f"[DEBUG] Container ID: {container_id}")
 
         if not container_id:
-            print(f"[DEBUG] Container not running, starting container first")
             # Container not running, start it first
             subprocess.run(['docker-compose', 'up', '-d'], check=True)
             # Wait for container to be ready
@@ -229,34 +199,25 @@ def start_process_in_container(name):
             # Get new container ID
             result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
             container_id = result.stdout.strip()
-            print(f"[DEBUG] New container ID after starting: {container_id}")
 
         # Get the main command from environment
-        print(f"[DEBUG] Getting environment variables for container: {container_id}")
         result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
                               capture_output=True, text=True)
-        
-        print(f"[DEBUG] Environment variables output: {result.stdout}")
         
         main_command = None
         for line in result.stdout.split('\n'):
             if line.startswith('MAIN_COMMAND='):
                 main_command = line.split('=', 1)[1].strip('"')
-                print(f"[DEBUG] Found MAIN_COMMAND: {main_command}")
                 break
 
         if not main_command:
-            print(f"[DEBUG] No MAIN_COMMAND found in container environment")
             return {"success": False, "error": "No MAIN_COMMAND found in container environment"}
 
         # First, let's stop any existing processes to clean up zombies
-        print(f"[DEBUG] Cleaning up any existing processes before starting new one")
         stop_result = stop_process_in_container(name)
-        print(f"[DEBUG] Cleanup result: {stop_result}")
 
         # Clear the old log file and create a fresh one
         log_file = f"/tmp/{name}_process.log"
-        print(f"[DEBUG] Clearing old log file: {log_file}")
         subprocess.run(['docker', 'exec', container_id, 'sh', '-c', f'> {log_file}'], 
                       capture_output=True, text=True)
         
@@ -267,9 +228,6 @@ which npm | tee -a {log_file} 2>&1 || echo "npm not found" | tee -a {log_file}
 which node | tee -a {log_file} 2>&1 || echo "node not found" | tee -a {log_file}
 exec {main_command} 2>&1 | tee -a {log_file}
 '''.format(log_file=log_file, main_command=main_command)
-        
-        # Write the wrapper script to the container using a more reliable method
-        print(f"[DEBUG] Creating wrapper script")
         
         # First, create the script content in a temporary file and copy it to container
         script_content = wrapper_script.encode('utf-8')
@@ -283,31 +241,19 @@ chmod +x /tmp/start_process.sh'''
         script_result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', script_creation_command], 
                                      capture_output=True, text=True)
         
-        print(f"[DEBUG] Script creation result: {script_result.returncode}")
-        print(f"[DEBUG] Script creation stdout: {script_result.stdout}")
-        print(f"[DEBUG] Script creation stderr: {script_result.stderr}")
-        
         if script_result.returncode != 0:
-            print(f"[DEBUG] Failed to create wrapper script")
             return {"success": False, "error": f"Failed to create wrapper script: {script_result.stderr}"}
         
         # Verify the script was created successfully
         verify_result = subprocess.run(['docker', 'exec', container_id, 'test', '-f', '/tmp/start_process.sh'], 
                                      capture_output=True, text=True)
         if verify_result.returncode != 0:
-            print(f"[DEBUG] Wrapper script verification failed")
             return {"success": False, "error": "Wrapper script was not created successfully"}
         
-        print(f"[DEBUG] Wrapper script created and verified successfully")
 
         # Start the process using the wrapper script in background
-        print(f"[DEBUG] Starting process with wrapper script")
         result = subprocess.run(['docker', 'exec', '-d', container_id, '/tmp/start_process.sh'], 
                               capture_output=True, text=True)
-        
-        print(f"[DEBUG] Start command return code: {result.returncode}")
-        print(f"[DEBUG] Start command stdout: {result.stdout}")
-        print(f"[DEBUG] Start command stderr: {result.stderr}")
         
         if result.returncode == 0:
             # Wait a moment and check if the process is actually running
@@ -321,36 +267,28 @@ chmod +x /tmp/start_process.sh'''
             
             # Check if process started successfully
             status_check = check_process_running_in_container(name)
-            print(f"[DEBUG] Post-start status check: {status_check}")
             
             if status_check.get('process_running'):
-                print(f"[DEBUG] Process started and is running successfully")
                 live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Process started successfully')
                 return {"success": True, "message": "Process started successfully"}
             else:
                 # Process failed to start or crashed immediately
-                print(f"[DEBUG] Process failed to start or crashed immediately")
                 live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Process failed to start or crashed')
                 # Get recent logs to see what went wrong
                 log_result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', f'tail -10 {log_file} 2>/dev/null || echo "No logs found"'], 
                                           capture_output=True, text=True)
-                print(f"[DEBUG] Recent logs: {log_result.stdout}")
                 for line in log_result.stdout.split('\n'):
                     if line.strip():
                         live_log_streams[name].put(line.strip())
                 return {"success": False, "error": f"Process started but crashed immediately. Check logs for details."}
         else:
-            print(f"[DEBUG] Failed to start process: {result.stderr}")
             from datetime import datetime
             live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Failed to start process: {result.stderr}')
             return {"success": False, "error": f"Failed to start process: {result.stderr}"}
 
     except subprocess.CalledProcessError as e:
-        print(f"[DEBUG] CalledProcessError in start_process_in_container: {e}")
-        print(f"[DEBUG] Error stderr: {e.stderr}")
         return {"success": False, "error": f"Failed to start process: {e.stderr}"}
     except Exception as e:
-        print(f"[DEBUG] Exception in start_process_in_container: {e}")
         return {"success": False, "error": str(e)}
     
 import psutil
@@ -402,38 +340,28 @@ def kill_process_tree(pid, inside_container=False, container_id=None):
 
 def stop_process_in_container(name):
     """Stop the main process inside the container without stopping the container"""
-    print(f"[DEBUG] Stopping process in container: {name}")
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        print(f"[DEBUG] Process directory: {process_dir}")
         os.chdir(process_dir)
 
         # Get container ID
-        print(f"[DEBUG] Getting container ID for: {name}")
         result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
-        print(f"[DEBUG] Container ID: {container_id}")
 
         if not container_id:
-            print(f"[DEBUG] Container not running")
             return {"success": True, "message": "Container not running"}
 
         # Get the main command from environment
-        print(f"[DEBUG] Getting environment variables for container: {container_id}")
         result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
                               capture_output=True, text=True)
-        
-        print(f"[DEBUG] Environment variables output: {result.stdout}")
         
         main_command = None
         for line in result.stdout.split('\n'):
             if line.startswith('MAIN_COMMAND='):
                 main_command = line.split('=', 1)[1].strip('"')
-                print(f"[DEBUG] Found MAIN_COMMAND: {main_command}")
                 break
 
         if not main_command:
-            print(f"[DEBUG] No MAIN_COMMAND found in container environment")
             return {"success": False, "error": "No MAIN_COMMAND found in container environment"}
 
         # Get the process port for additional cleanup
@@ -441,23 +369,16 @@ def stop_process_in_container(name):
         process_port = None
         if process and hasattr(process, 'port_id') and process.port_id:
             process_port = 8000 + process.port_id
-            print(f"[DEBUG] Process port calculated: {process_port}")
 
         # Kill processes matching the main command
         command_parts = main_command.split()
-        print(f"[DEBUG] Command parts to search for: {command_parts}")
         
         # Get process list
-        print(f"[DEBUG] Getting process list from container")
         result = subprocess.run(['docker', 'exec', container_id, 'ps', 'aux'], 
                               capture_output=True, text=True)
         
         if result.returncode != 0:
-            print(f"[DEBUG] Failed to get process list. Return code: {result.returncode}")
-            print(f"[DEBUG] Error: {result.stderr}")
             return {"success": False, "error": "Failed to get process list"}
-
-        print(f"[DEBUG] Process list:\n{result.stdout}")
 
         # Find and kill matching processes (including zombie cleanup)
         processes_killed = 0
@@ -475,14 +396,11 @@ def stop_process_in_container(name):
                     if any(part in line for part in command_parts if len(part) > 2):
                         if '<defunct>' in line or ' Z ' in line:
                             zombie_processes.append((pid, line.strip()))
-                            print(f"[DEBUG] Found zombie process to clean - PID: {pid}, Line: {line.strip()}")
                         else:
                             processes_to_kill.append((pid, line.strip()))
-                            print(f"[DEBUG] Found active process to kill - PID: {pid}, Line: {line.strip()}")
 
         # Also check for processes listening on the process port
         if process_port:
-            print(f"[DEBUG] Checking for processes listening on port {process_port}")
             try:
                 # Check for processes listening on the port using netstat
                 netstat_result = subprocess.run(['docker', 'exec', container_id, 'netstat', '-tlnp'], 
@@ -498,7 +416,6 @@ def stop_process_in_container(name):
                                     port_pid = pid_program.split('/')[0]
                                     if port_pid.isdigit() and port_pid not in [p[0] for p in processes_to_kill]:
                                         port_processes.append((port_pid, f"Process listening on port {process_port}"))
-                                        print(f"[DEBUG] Found process listening on port {process_port} - PID: {port_pid}")
                 else:
                     # Fallback: try using lsof if netstat fails
                     lsof_result = subprocess.run(['docker', 'exec', container_id, 'lsof', '-ti', f':{process_port}'], 
@@ -508,13 +425,11 @@ def stop_process_in_container(name):
                             if pid.strip() and pid.strip().isdigit():
                                 if pid.strip() not in [p[0] for p in processes_to_kill]:
                                     port_processes.append((pid.strip(), f"Process listening on port {process_port}"))
-                                    print(f"[DEBUG] Found process listening on port {process_port} via lsof - PID: {pid.strip()}")
-            except Exception as e:
-                print(f"[DEBUG] Error checking for port processes: {e}")
+            except Exception:
+                pass
 
         # Also check for processes listening on the process port (host OS)
         if process_port:
-            print(f"[DEBUG] Checking for host processes listening on port {process_port}")
             try:
                 # Use netstat to find host processes listening on the port
                 netstat_result = subprocess.run(['netstat', '-ano'], capture_output=True, text=True)
@@ -525,32 +440,22 @@ def stop_process_in_container(name):
                             if len(parts) >= 5:
                                 host_pid = parts[-1]
                                 if host_pid.isdigit():
-                                    print(f"[DEBUG] Found host process listening on port {process_port} - PID: {host_pid}")
                                     # Try to kill the process
-                                    kill_result = subprocess.run(['taskkill', '/PID', host_pid, '/F'], capture_output=True, text=True)
-                                    print(f"[DEBUG] Host process kill result: {kill_result.stdout}")
-            except Exception as e:
-                print(f"[DEBUG] Error checking for host port processes: {e}")
-
-        print(f"[DEBUG] Found {len(processes_to_kill)} active processes to kill")
-        print(f"[DEBUG] Found {len(zombie_processes)} zombie processes to clean")
-        print(f"[DEBUG] Found {len(port_processes)} port-listening processes to kill")
+                                    subprocess.run(['taskkill', '/PID', host_pid, '/F'], capture_output=True, text=True)
+            except Exception:
+                pass
 
         # Kill active processes first
         all_processes_to_kill = processes_to_kill + port_processes
         for pid, process_description in all_processes_to_kill:
-            print(f"[DEBUG] Killing process tree for PID {pid} - {process_description}")
             kill_result = kill_process_tree(pid, inside_container=True, container_id=container_id)
-            print(f"[DEBUG] kill_process_tree result: {kill_result}")
             if kill_result.get("success"):
                 processes_killed += 1
 
         # Clean up zombie processes (they're already dead, just need parent to reap them)
         if zombie_processes:
-            print(f"[DEBUG] Attempting to clean up {len(zombie_processes)} zombie processes")
             # Try to find and signal their parent processes
             for zombie_pid, zombie_line in zombie_processes:
-                print(f"[DEBUG] Zombie process found: {zombie_pid}")
                 # Zombies are already dead, they just need to be reaped by parent
                 # Let's try to get their parent PID and signal it
                 ppid_result = subprocess.run(['docker', 'exec', container_id, 'ps', '-o', 'pid,ppid', '--no-headers'], 
@@ -561,12 +466,9 @@ def stop_process_in_container(name):
                             parts = line.split()
                             if len(parts) >= 2 and parts[0] == zombie_pid:
                                 parent_pid = parts[1]
-                                print(f"[DEBUG] Found parent PID {parent_pid} for zombie {zombie_pid}")
                                 # Send SIGCHLD to parent to force reaping
                                 subprocess.run(['docker', 'exec', container_id, 'kill', '-CHLD', parent_pid], 
                                              capture_output=True, text=True)
-
-        print(f"[DEBUG] Total processes killed: {processes_killed}")
 
         if processes_killed > 0 or zombie_processes:
             message = f"Stopped {processes_killed} process(es)"
@@ -579,11 +481,8 @@ def stop_process_in_container(name):
             return {"success": True, "message": "No matching processes found to stop"}
 
     except subprocess.CalledProcessError as e:
-        print(f"[DEBUG] CalledProcessError in stop_process_in_container: {e}")
-        print(f"[DEBUG] Error stderr: {e.stderr}")
         return {"success": False, "error": f"Failed to stop process: {e.stderr}"}
     except Exception as e:
-        print(f"[DEBUG] Exception in stop_process_in_container: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -702,20 +601,15 @@ def find_types():
 
 def execute_command_in_container(name, command, working_dir="/app", timeout=30):
     """Execute a command inside the container and return the result"""
-    print(f"[DEBUG] Executing command in container {name}: {command}")
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        print(f"[DEBUG] Process directory: {process_dir}")
         os.chdir(process_dir)
 
         # Get container ID
-        print(f"[DEBUG] Getting container ID for: {name}")
         result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
-        print(f"[DEBUG] Container ID: {container_id}")
 
         if not container_id:
-            print(f"[DEBUG] Container not running")
             return {"success": False, "error": "Container is not running"}
 
         # Check if container is actually running
@@ -723,15 +617,9 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                               capture_output=True, text=True)
         
         if result.returncode != 0 or result.stdout.strip() != 'running':
-            print(f"[DEBUG] Container not in running state")
             return {"success": False, "error": "Container is not in running state"}
 
         # Execute the command inside the container
-        print(f"[DEBUG] Executing command: {command}")
-        print(f"[DEBUG] Working directory: {working_dir}")
-        print(f"[DEBUG] Timeout: {timeout} seconds")
-        
-        # Build the full command with working directory and log to the persistent log file
         log_file = f"/tmp/{name}_process.log"
         # Add timestamp to every output line using awk
         full_command = (
@@ -742,10 +630,6 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
         
         result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', full_command], 
                               capture_output=True, text=True, timeout=timeout)
-        
-        print(f"[DEBUG] Command return code: {result.returncode}")
-        print(f"[DEBUG] Command stdout: {result.stdout}")
-        print(f"[DEBUG] Command stderr: {result.stderr}")
         
         if result.returncode == 0:
             return {
@@ -769,33 +653,24 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
             }
 
     except subprocess.TimeoutExpired:
-        print(f"[DEBUG] Command timed out after {timeout} seconds")
         return {"success": False, "error": f"Command timed out after {timeout} seconds"}
     except subprocess.CalledProcessError as e:
-        print(f"[DEBUG] CalledProcessError in execute_command_in_container: {e}")
-        print(f"[DEBUG] Error stderr: {e.stderr}")
         return {"success": False, "error": f"Failed to execute command: {e.stderr}"}
     except Exception as e:
-        print(f"[DEBUG] Exception in execute_command_in_container: {e}")
         return {"success": False, "error": str(e)}
 
 
 def execute_interactive_command_in_container(name, command, working_dir="/app"):
     """Execute an interactive command inside the container (returns process handle for real-time interaction)"""
-    print(f"[DEBUG] Starting interactive command in container {name}: {command}")
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        print(f"[DEBUG] Process directory: {process_dir}")
         os.chdir(process_dir)
 
         # Get container ID
-        print(f"[DEBUG] Getting container ID for: {name}")
         result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
         container_id = result.stdout.strip()
-        print(f"[DEBUG] Container ID: {container_id}")
 
         if not container_id:
-            print(f"[DEBUG] Container not running")
             return {"success": False, "error": "Container is not running", "process": None}
 
         # Check if container is actually running
@@ -803,14 +678,9 @@ def execute_interactive_command_in_container(name, command, working_dir="/app"):
                               capture_output=True, text=True)
         
         if result.returncode != 0 or result.stdout.strip() != 'running':
-            print(f"[DEBUG] Container not in running state")
             return {"success": False, "error": "Container is not in running state", "process": None}
 
         # Start the interactive command
-        print(f"[DEBUG] Starting interactive command: {command}")
-        print(f"[DEBUG] Working directory: {working_dir}")
-        
-        # Build the full command with working directory
         full_command = f"cd {working_dir} && {command}"
         
         # Start the process in interactive mode
@@ -823,8 +693,6 @@ def execute_interactive_command_in_container(name, command, working_dir="/app"):
             bufsize=1
         )
         
-        print(f"[DEBUG] Interactive process started with PID: {process.pid}")
-        
         return {
             "success": True,
             "process": process,
@@ -832,9 +700,6 @@ def execute_interactive_command_in_container(name, command, working_dir="/app"):
         }
 
     except subprocess.CalledProcessError as e:
-        print(f"[DEBUG] CalledProcessError in execute_interactive_command_in_container: {e}")
-        print(f"[DEBUG] Error stderr: {e.stderr}")
         return {"success": False, "error": f"Failed to start interactive command: {e.stderr}", "process": None}
     except Exception as e:
-        print(f"[DEBUG] Exception in execute_interactive_command_in_container: {e}")
         return {"success": False, "error": str(e), "process": None}
