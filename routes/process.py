@@ -4,6 +4,7 @@ import shutil
 import threading
 import time, yaml
 import subprocess
+from flask import stream_with_context
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
 import os, json, re, pytz
 from datetime import datetime, UTC, timedelta
@@ -499,7 +500,14 @@ def console_stream_logs(name):
         except Exception as e:
             yield f"data: [stream error] {str(e)}\n\n"
 
-    return Response(generate(), content_type='text/event-stream')
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"  # for Nginx
+        }
+    )
 
 
 @process_routes.route('/execute/<string:name>', methods=['POST'])
