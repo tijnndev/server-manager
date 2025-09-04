@@ -69,8 +69,6 @@
         editor.session.setMode(`ace/mode/${mode}`);
     }
 
-    const notify = new Notify();
-
     document.getElementById("save-button").addEventListener("click", function() {
         let content = editor.getValue();
         content = content.replace(/\r\n|\r/g, "\n");
@@ -86,6 +84,7 @@
             })
         }).then(response => response.json())
           .then(data => {
+              const notify = new Notify();
               if (data.success) {
                   notify.show("File successfully saved!", 'success', 3000);
               } else {
