@@ -239,9 +239,18 @@
     function addLogMessage(message, type = 'info') {
         const timestamp = new Date().toLocaleTimeString();
         const prefix = type === 'error' ? '[ERROR]' : type === 'system' ? '[SYSTEM]' : '';
-        const logLine = `[${timestamp}] ${prefix} ${message}\n`;
-        
-        consoleOutput.innerHTML += logLine;
+        const logLine = `[${timestamp}] ${prefix} ${message}`;
+
+        // Split the current logs into lines
+        let lines = consoleOutput.innerText.split('\n');
+        // Add the new line
+        lines.push(logLine);
+        // Keep only the last 150 lines
+        if (lines.length > 150) {
+            lines = lines.slice(lines.length - 150);
+        }
+        // Join back and update the console
+        consoleOutput.innerText = lines.join('\n');
         consoleOutput.scrollTop = consoleOutput.scrollHeight;
         lastLogTimestamp = Date.now();
     }
