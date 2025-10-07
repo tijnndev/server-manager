@@ -366,7 +366,7 @@ def console_stream_logs(name):
                 # Stream existing container logs first (last 20 lines)
                 if container_id:
                     try:
-                        container_logs = subprocess.run(['docker-compose', 'logs', '--tail', '20', '--timestamps', '--no-log-prefix'], 
+                        container_logs = subprocess.run(['docker-compose', 'logs', '--tail', '150', '--timestamps', '--no-log-prefix'], 
                                                       capture_output=True, text=True, cwd=process_dir)
                         if container_logs.stdout:
                             for line in container_logs.stdout.split('\n'):
@@ -379,7 +379,7 @@ def console_stream_logs(name):
                 if container_id:
                     log_file = f"/tmp/{name}_process.log"
                     try:
-                        log_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-20', log_file], 
+                        log_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-150', log_file], 
                                                   capture_output=True, text=True)
                         if log_result.returncode == 0 and log_result.stdout:
                             for line in log_result.stdout.split('\n'):
@@ -396,7 +396,7 @@ def console_stream_logs(name):
                     try:
                         log_file = f"/tmp/{name}_process.log"
                         log_streaming_process = subprocess.Popen(
-                            ['docker', 'exec', container_id, 'tail', '-f', log_file],
+                            ['docker', 'exec', container_id, 'tail', '-n', '150', '-f', log_file],
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             text=True,
@@ -431,8 +431,10 @@ def console_stream_logs(name):
                                     current_size = int(size_result.stdout.strip().split()[0])
                                     if current_size > last_log_position:
                                         # Get new content since last position
-                                        tail_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-c', f'+{last_log_position + 1}', log_file], 
-                                                                   capture_output=True, text=True, timeout=2)
+                                        tail_result = subprocess.run(
+                                            ['docker', 'exec', container_id, 'tail', '-n', '150', log_file], 
+                                            capture_output=True, text=True, timeout=2
+                                        )
                                         if tail_result.returncode == 0 and tail_result.stdout:
                                             for line in tail_result.stdout.split('\n'):
                                                 if line.strip():
@@ -446,7 +448,7 @@ def console_stream_logs(name):
                         # Send heartbeat every 10 iterations (about 1 second)
                         heartbeat_counter += 1
                         if heartbeat_counter >= 10:
-                            yield f"data: \n\n"  # Heartbeat to keep connection alive
+                            yield "data: \n\n"  # Heartbeat to keep connection alive
                             heartbeat_counter = 0
                         
                         # Small delay to prevent excessive polling
