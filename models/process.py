@@ -15,6 +15,7 @@ class Process(BaseModel):
     domain = db.Column(db.String(255), nullable=True)
     dependencies = db.Column(db.JSON, nullable=True)
     port_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    process_pid = db.Column(db.Integer, nullable=True)
 
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
@@ -30,6 +31,7 @@ class Process(BaseModel):
             "file_location": self.file_location,
             "description": self.description,
             "dependencies": self.dependencies,
+            "process_pid": self.process_pid,
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }

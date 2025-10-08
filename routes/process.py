@@ -7,6 +7,8 @@ import subprocess
 from flask import stream_with_context
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
 import os, json, re, pytz
+import shlex
+import sys
 from datetime import datetime, UTC, timedelta
 from db import db
 from models.process import Process
@@ -22,6 +24,82 @@ process_routes = Blueprint('process', __name__)
 PROCESS_DIRECTORY = 'active-servers'
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
+
+
+def get_container_id(process_name):
+    process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
+    try:
+        result = subprocess.run(
+            ['docker-compose', 'ps', '-q', process_name],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=process_dir
+        )
+        container_id = result.stdout.strip()
+        return container_id or None
+    except subprocess.CalledProcessError as e:
+        print(f"[container_id] Failed to get container ID for {process_name}: {e.stderr}")
+    except FileNotFoundError:
+        print(f"[container_id] Directory not found for {process_name}")
+    return None
+
+
+def get_main_command_for_container(container_id, fallback_command=""):
+    try:
+        result = subprocess.run(
+            ['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if line.startswith('MAIN_COMMAND='):
+                    return line.split('=', 1)[1].strip('"')
+    except Exception as e:
+        print(f"[main_command] Failed to inspect container {container_id}: {e}")
+    return fallback_command
+
+
+def get_process_pid_in_container(container_id, command):
+    if not container_id or not command:
+        return None
+
+    search_expr = shlex.quote(command)
+    shell_cmd = (
+        f"ps -eo pid,args | grep -F {search_expr} | grep -v grep | "
+        "awk '{print $1}' | head -n 1"
+    )
+
+    try:
+        result = subprocess.run(
+            ['docker', 'exec', container_id, 'sh', '-c', shell_cmd],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            pid = result.stdout.strip()
+            return int(pid) if pid.isdigit() else None
+    except Exception as e:
+        print(f"[process_pid] Failed to obtain PID for container {container_id}: {e}")
+    return None
+
+
+def update_process_runtime_metadata(process):
+    container_id = get_container_id(process.name)
+    if container_id:
+        process.id = container_id
+        main_command = get_main_command_for_container(container_id, process.command)
+        process.process_pid = get_process_pid_in_container(container_id, main_command)
+    else:
+        process.process_pid = None
+
+    try:
+        db.session.add(process)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[process_metadata] Failed to update metadata for {process.name}: {e}")
 
 
 def is_within_base_dir(path, base=ACTIVE_SERVERS_DIR):
@@ -186,12 +264,16 @@ def add_process():
             return jsonify({"error": compose_result.message if not compose_result.success else docker_result.message}), 400
 
         os.chdir(process_dir)
-        os.system("docker-compose up -d")
+        subprocess.run(['docker-compose', 'up', '-d'], check=True)
+
+        update_process_runtime_metadata(new_process)
 
         return jsonify({"redirect_url": url_for("process.console", name=new_process.name)})
 
     except OSError as e:
         return jsonify({"error": f"Failed to create process directory: {e}"}), 500
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Failed to start docker container: {e}"}), 500
 
 
 @process_routes.route('/delete/<name>', methods=['POST'])
@@ -241,6 +323,7 @@ def start_process_console(name):
             # Use process-level control
             result = start_process_in_container(name)
             if result["success"]:
+                update_process_runtime_metadata(process)
                 return jsonify({"message": result["message"], "status": get_process_status(process.name), "ok": True})
             else:
                 return jsonify({"error": result["error"], "ok": False}), 500
@@ -251,6 +334,8 @@ def start_process_console(name):
             subprocess.run(['docker-compose', 'up', '-d'], check=True)
 
             time.sleep(2)
+
+            update_process_runtime_metadata(process)
 
             return jsonify({"message": f"Process {name} started successfully.", "status": get_process_status(process.name), "ok": True})
 
@@ -275,6 +360,13 @@ def stop_process_console(name):
             # Use process-level control
             result = stop_process_in_container(name)
             if result["success"]:
+                process.process_pid = None
+                try:
+                    db.session.add(process)
+                    db.session.commit()
+                except Exception as db_err:
+                    db.session.rollback()
+                    print(f"[process_metadata] Failed to clear PID for {name}: {db_err}")
                 return jsonify({"message": result["message"]})
             else:
                 return jsonify({"error": result["error"]}), 500
@@ -282,6 +374,14 @@ def stop_process_console(name):
             # Use traditional container-level control
             os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
             os.system('docker-compose stop')
+
+            process.process_pid = None
+            try:
+                db.session.add(process)
+                db.session.commit()
+            except Exception as db_err:
+                db.session.rollback()
+                print(f"[process_metadata] Failed to clear PID for {name}: {db_err}")
 
             return jsonify({"message": f"Process {name} stopped successfully."})
 
@@ -361,7 +461,7 @@ def console_stream_logs(name):
                                           capture_output=True, text=True, check=True, cwd=process_dir)
                     container_id = result.stdout.strip()
                 except Exception:
-                    print(f"[DEBUG] Failed to get container ID")
+                    print("[DEBUG] Failed to get container ID")
                 
                 # Stream existing container logs first (last 20 lines)
                 if container_id:
@@ -466,10 +566,10 @@ def console_stream_logs(name):
                     try:
                         log_streaming_process.terminate()
                         log_streaming_process.wait(timeout=5)
-                    except:
+                    except Exception:
                         try:
                             log_streaming_process.kill()
-                        except:
+                        except Exception:
                             pass
             
             else:
@@ -492,7 +592,7 @@ def console_stream_logs(name):
                     try:
                         line = live_log_streams[name].get(timeout=1)
                         yield f"data: {line}\n\n"
-                    except:
+                    except Exception:
                         if docker_logs.poll() is not None:
                             break
 
@@ -537,7 +637,7 @@ def execute_command(name):
         
         # Add command and result to live log stream for real-time viewing
         
-        # ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    # ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
         # live_log_streams[name].put(f'[{ts}] $ {command}')
         
         if result['success']:
@@ -545,15 +645,15 @@ def execute_command(name):
             if result.get('stdout'):
                 for line in result['stdout'].split('\n'):
                     if line.strip():
-                        ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                        ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
                         live_log_streams[name].put(f"[{ts}] {line}")
             if result.get('stderr'):
                 for line in result['stderr'].split('\n'):
                     if line.strip():
-                        ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                        ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
                         live_log_streams[name].put(f'[{ts}] [ERROR] {line}')
         else:
-            ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
             live_log_streams[name].put(f'[{ts}] [ERROR] {result.get("error", "Command failed")}')
         
         return jsonify(result)
@@ -1099,30 +1199,34 @@ def schedule(name):
         if action not in {'start', 'stop'}:
             return jsonify({"error": "Invalid action. Use 'start' or 'stop'."}), 400
 
-        # Write cron job inside the container
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        # Get container ID
-        try:
-            result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True, cwd=process_dir)
-            container_id = result.stdout.strip()
-            if not container_id:
-                return jsonify({"error": "Container is not running"}), 400
+        process = find_process_by_name(name)
+        if not process:
+            return jsonify({"error": "Process not found"}), 404
 
-            # Compose the cron line
-            cron_line = f"{schedule} docker-compose -f /app/docker-compose.yml {action}"
-            # Add the cron job to the container's crontab
-            # 1. Get current crontab
-            get_cron = subprocess.run(['docker', 'exec', container_id, 'crontab', '-l'], capture_output=True, text=True)
-            current_cron = get_cron.stdout if get_cron.returncode == 0 else ''
-            # 2. Add new line
-            new_cron = current_cron + ("\n" if current_cron and not current_cron.endswith("\n") else "") + cron_line + "\n"
-            # 3. Write back
-            proc = subprocess.run(['docker', 'exec', '-i', container_id, 'crontab', '-'], input=new_cron, text=True)
-            if proc.returncode != 0:
-                return jsonify({"error": "Failed to update crontab in container"}), 500
+        # Compose the cron command based on action
+        if action == "stop":
+            # Kill the process inside the container using its PID
+            container_id = get_container_id(name)
+            process_pid = process.process_pid
+            if not container_id or not process_pid:
+                return jsonify({"error": "Cannot determine container or process PID"}), 400
+            cron_line = f"{schedule} root docker exec {container_id} kill {process_pid}"
+        elif action == "start":
+            # Fetch the command from the process entry and run it inside the container
+            container_id = get_container_id(name)
+            if not container_id:
+                return jsonify({"error": "Cannot determine container"}), 400
+            command = process.command
+            cron_line = f"{schedule} root docker exec {container_id} {command}"
+        else:
+            return jsonify({"error": "Invalid action"}), 400
+
+        cron_file = f"/etc/cron.d/{name.replace('.', '_')}_power_event"
+        cron_command = f"echo {shlex.quote(cron_line)} | sudo tee -a {cron_file} > /dev/null"
+
+        try:
+            subprocess.run(cron_command, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
-        except Exception as e:
             return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
 
     cron_jobs = get_current_cron_jobs(name)
@@ -1131,30 +1235,27 @@ def schedule(name):
 
 def get_current_cron_jobs(process_name):
     """
-    Get the current cron jobs for a specific process from inside the container.
+    Get the current cron jobs for a specific process.
+    This will list all cron jobs related to the process's name in /etc/cron.d.
     """
     cron_jobs = []
-    try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
-        result = subprocess.run(['docker-compose', 'ps', '-q', process_name], capture_output=True, text=True, check=True, cwd=process_dir)
-        container_id = result.stdout.strip()
-        if not container_id:
-            return cron_jobs
-        # Get crontab from inside the container
-        get_cron = subprocess.run(['docker', 'exec', container_id, 'crontab', '-l'], capture_output=True, text=True)
-        if get_cron.returncode != 0:
-            return cron_jobs
-        lines = get_cron.stdout.splitlines()
-        for line in lines:
-            if line.strip() and not line.strip().startswith('#'):
-                parts = line.split()
-                if len(parts) >= 6:
-                    cron_jobs.append({
-                        "name": process_name,
-                        "schedule": " ".join(parts[:5]),
-                        "command": " ".join(parts[5:]),
-                        "line": line
-                    })
+    try:  # noqa: PLR1702
+        print(process_name.replace(".", "_"))
+        cron_file_path = os.path.join('/etc/cron.d', f'{process_name.replace(".", "_")}_power_event')
+
+        if os.path.exists(cron_file_path):
+            with open(cron_file_path) as cron_file:
+                lines = cron_file.readlines()
+                for line in lines:
+                    if line.strip() and not line.startswith('#'):
+                        parts = line.split()
+                        if len(parts) >= 6:
+                            cron_jobs.append({
+                                "name": process_name,
+                                "schedule": " ".join(parts[:5]),
+                                "command": " ".join(parts[5:]),
+                                "line": line
+                            })
         return cron_jobs
     except Exception as e:
         return {"error": str(e)}
@@ -1175,24 +1276,21 @@ def delete_cron_job(name):
         return jsonify({"error": "Missing line parameter"}), 400
 
     schedule_to_remove = data['line'].strip()
-    process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+    cron_file_path = os.path.join('/etc/cron.d', f'{name.replace(".", "_")}_power_event')
+
     try:
-        # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True, cwd=process_dir)
-        container_id = result.stdout.strip()
-        if not container_id:
-            return jsonify({"error": "Container is not running"}), 400
-        # Get current crontab
-        get_cron = subprocess.run(['docker', 'exec', container_id, 'crontab', '-l'], capture_output=True, text=True)
-        if get_cron.returncode != 0:
-            return jsonify({"error": "Failed to read crontab in container"}), 500
-        lines = get_cron.stdout.splitlines()
-        # Remove the line
-        new_cron = "\n".join([line for line in lines if line.strip() != schedule_to_remove]) + "\n"
-        # Write back
-        proc = subprocess.run(['docker', 'exec', '-i', container_id, 'crontab', '-'], input=new_cron, text=True)
-        if proc.returncode != 0:
-            return jsonify({"error": "Failed to update crontab in container"}), 500
+        with open(cron_file_path) as cron_file:
+            lines = cron_file.readlines()
+
+        with open(cron_file_path, 'w') as cron_file:
+            for line in lines:
+                print(schedule_to_remove)
+                print(line.strip() != schedule_to_remove)
+                if line.strip() != schedule_to_remove:
+                    cron_file.write(line)
+
         return redirect(url_for('process.schedule', name=process.name))
-    except Exception as e:
+    except FileNotFoundError as e:
+        return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
+    except PermissionError as e:
         return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500

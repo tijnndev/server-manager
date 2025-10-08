@@ -1,5 +1,5 @@
-import requests, subprocess
-from flask import Blueprint, jsonify, render_template, current_app
+import subprocess
+from flask import Blueprint, jsonify, render_template
 from decorators import admin_required
 
 settings_routes = Blueprint('settings', __name__)
@@ -21,16 +21,18 @@ def git_status():
 
         status_output = subprocess.check_output(['git', 'status', '-u'], stderr=subprocess.STDOUT).decode('utf-8')
 
-        local_changes = subprocess.check_output(['git', 'status', '--porcelain']).decode('utf-8').strip()
+        local_changes = subprocess.check_output(['git', 'status', '--porcelain'], stderr=subprocess.STDOUT).decode().strip()
+        if not local_changes:
+            local_changes = ""
 
         if "Your branch is behind" in status_output:
-            if local_changes:
+            if local_changes != "":
                 msg = "You have local changes and updates are available."
             else:
                 msg = "New version available. You're behind the remote."
             return jsonify({"status": msg, "update_available": True})
 
-        if local_changes:
+        if local_changes != "":
             return jsonify({"status": "You have uncommitted local changes.", "update_available": False, "status_output": status_output})
 
         if "up to date" in status_output:
