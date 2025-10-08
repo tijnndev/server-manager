@@ -58,13 +58,20 @@ def create_docker_compose_file(process, compose_file_path):
             context: .
             dockerfile: Dockerfile
         volumes:
-            - .:/app
-        # Always keep container running - process will be controlled via docker exec
-        command: [\"tail\", \"-f\", \"/dev/null\"]
+            - .:/var/www/html
         ports:
             - "{8000 + process.port_id}:80"
         environment:
-            - MAIN_COMMAND={json.dumps(process.command)}
+            - NODE_ENV=production
+
+    build-vite:
+        image: node:18
+        working_dir: /app
+        command: ["tail", "-f", "/dev/null"]
+        volumes:
+            - .:/var/www/html
+        depends_on:
+            - {process.name}
         restart: unless-stopped
         stdin_open: true
         tty: true
