@@ -1099,11 +1099,30 @@ def schedule(name):
         if action not in {'start', 'stop'}:
             return jsonify({"error": "Invalid action. Use 'start' or 'stop'."}), 400
 
-        cron_command = f"echo '{schedule} root docker-compose -f {os.path.join(ACTIVE_SERVERS_DIR, name, 'docker-compose.yml')} {action}' | sudo tee -a /etc/cron.d/{name.replace('.', '_')}_power_event"
-
+        # Write cron job inside the container
+        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+        # Get container ID
         try:
-            subprocess.run(cron_command, shell=True, check=True)
+            result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True, cwd=process_dir)
+            container_id = result.stdout.strip()
+            if not container_id:
+                return jsonify({"error": "Container is not running"}), 400
+
+            # Compose the cron line
+            cron_line = f"{schedule} docker-compose -f /app/docker-compose.yml {action}"
+            # Add the cron job to the container's crontab
+            # 1. Get current crontab
+            get_cron = subprocess.run(['docker', 'exec', container_id, 'crontab', '-l'], capture_output=True, text=True)
+            current_cron = get_cron.stdout if get_cron.returncode == 0 else ''
+            # 2. Add new line
+            new_cron = current_cron + ("\n" if current_cron and not current_cron.endswith("\n") else "") + cron_line + "\n"
+            # 3. Write back
+            proc = subprocess.run(['docker', 'exec', '-i', container_id, 'crontab', '-'], input=new_cron, text=True)
+            if proc.returncode != 0:
+                return jsonify({"error": "Failed to update crontab in container"}), 500
         except subprocess.CalledProcessError as e:
+            return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
+        except Exception as e:
             return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
 
     cron_jobs = get_current_cron_jobs(name)
@@ -1112,27 +1131,30 @@ def schedule(name):
 
 def get_current_cron_jobs(process_name):
     """
-    Get the current cron jobs for a specific process.
-    This will list all cron jobs related to the process's name in /etc/cron.d.
+    Get the current cron jobs for a specific process from inside the container.
     """
     cron_jobs = []
-    try:  # noqa: PLR1702
-        print(process_name.replace(".", "_"))
-        cron_file_path = os.path.join('/etc/cron.d', f'{process_name.replace(".", "_")}_power_event')
-
-        if os.path.exists(cron_file_path):
-            with open(cron_file_path) as cron_file:
-                lines = cron_file.readlines()
-                for line in lines:
-                    if line.strip() and not line.startswith('#'):
-                        parts = line.split()
-                        if len(parts) >= 6:
-                            cron_jobs.append({
-                                "name": process_name,
-                                "schedule": " ".join(parts[:5]),
-                                "command": " ".join(parts[5:]),
-                                "line": line
-                            })
+    try:
+        process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
+        result = subprocess.run(['docker-compose', 'ps', '-q', process_name], capture_output=True, text=True, check=True, cwd=process_dir)
+        container_id = result.stdout.strip()
+        if not container_id:
+            return cron_jobs
+        # Get crontab from inside the container
+        get_cron = subprocess.run(['docker', 'exec', container_id, 'crontab', '-l'], capture_output=True, text=True)
+        if get_cron.returncode != 0:
+            return cron_jobs
+        lines = get_cron.stdout.splitlines()
+        for line in lines:
+            if line.strip() and not line.strip().startswith('#'):
+                parts = line.split()
+                if len(parts) >= 6:
+                    cron_jobs.append({
+                        "name": process_name,
+                        "schedule": " ".join(parts[:5]),
+                        "command": " ".join(parts[5:]),
+                        "line": line
+                    })
         return cron_jobs
     except Exception as e:
         return {"error": str(e)}
@@ -1153,21 +1175,24 @@ def delete_cron_job(name):
         return jsonify({"error": "Missing line parameter"}), 400
 
     schedule_to_remove = data['line'].strip()
-    cron_file_path = os.path.join('/etc/cron.d', f'{name.replace(".", "_")}_power_event')
-
+    process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
     try:
-        with open(cron_file_path) as cron_file:
-            lines = cron_file.readlines()
-
-        with open(cron_file_path, 'w') as cron_file:
-            for line in lines:
-                print(schedule_to_remove)
-                print(line.strip() != schedule_to_remove)
-                if line.strip() != schedule_to_remove:
-                    cron_file.write(line)
-
+        # Get container ID
+        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True, cwd=process_dir)
+        container_id = result.stdout.strip()
+        if not container_id:
+            return jsonify({"error": "Container is not running"}), 400
+        # Get current crontab
+        get_cron = subprocess.run(['docker', 'exec', container_id, 'crontab', '-l'], capture_output=True, text=True)
+        if get_cron.returncode != 0:
+            return jsonify({"error": "Failed to read crontab in container"}), 500
+        lines = get_cron.stdout.splitlines()
+        # Remove the line
+        new_cron = "\n".join([line for line in lines if line.strip() != schedule_to_remove]) + "\n"
+        # Write back
+        proc = subprocess.run(['docker', 'exec', '-i', container_id, 'crontab', '-'], input=new_cron, text=True)
+        if proc.returncode != 0:
+            return jsonify({"error": "Failed to update crontab in container"}), 500
         return redirect(url_for('process.schedule', name=process.name))
-    except FileNotFoundError as e:
-        return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
-    except PermissionError as e:
+    except Exception as e:
         return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
