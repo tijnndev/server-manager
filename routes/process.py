@@ -1212,8 +1212,7 @@ def schedule(name):
             command_pattern = f"[{command[0]}]{command[1:]}" if command else ""
             cron_line = (
                 f"{schedule} root docker exec {container_id} "
-                f"sh -c \"pid=$(ps -eo pid,args | grep -F '{command_pattern}' | grep -v grep | awk '{{print $1}}'); "
-                "if [ -n \\\"$pid\\\" ]; then kill $pid; fi\""
+                f"sh -c \"pkill -9 -P \\$(pgrep -f '{command_pattern}'); kill -9 \\$(pgrep -f '{command_pattern}')\""
             )
         elif action == "start":
 
