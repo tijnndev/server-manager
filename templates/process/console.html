@@ -252,7 +252,7 @@
   document.addEventListener("visibilitychange", () => {
     isPageActive = !document.hidden;
     if (isPageActive) {
-      refreshLogs();
+      refreshLogs(false);
     }
   });
 
@@ -343,8 +343,8 @@
     }
   }
 
-  function refreshLogs() {
-    addLogMessage("Refreshing logs...", "system");
+  function refreshLogs(showLog = true) {
+    if(showLog) addLogMessage("Refreshing logs...", "system");
     startConsole();
   }
 
