@@ -320,11 +320,13 @@
       };
 
       eventSource.onerror = function (event) {
-        console.error("EventSource error:", event);
-        addLogMessage(
-          "Connection to log stream lost. Attempting to reconnect...",
-          "error"
-        );
+        if (isPageActive) { // Skip logging if page is hidden
+          console.error("EventSource error:", event);
+          addLogMessage(
+            "Connection to log stream lost. Attempting to reconnect...",
+            "error"
+          );
+        };
 
         // Attempt to reconnect after a delay
         setTimeout(() => {
