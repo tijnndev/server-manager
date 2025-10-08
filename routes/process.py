@@ -1203,20 +1203,23 @@ def schedule(name):
         if not process:
             return jsonify({"error": "Process not found"}), 404
 
-        # Compose the cron command based on action
+        command = process.command
         if action == "stop":
-            # Kill the process inside the container using its PID
-            container_id = get_container_id(name)
-            process_pid = process.process_pid
-            if not container_id or not process_pid:
-                return jsonify({"error": "Cannot determine container or process PID"}), 400
-            cron_line = f"{schedule} root docker exec {container_id} kill {process_pid}"
-        elif action == "start":
-            # Fetch the command from the process entry and run it inside the container
             container_id = get_container_id(name)
             if not container_id:
                 return jsonify({"error": "Cannot determine container"}), 400
-            command = process.command
+
+            command_pattern = f"[{command[0]}]{command[1:]}" if command else ""
+            cron_line = (
+            f"{schedule} root docker exec {container_id} "
+            f"sh -c \"pid=$(pgrep -f '{command_pattern}'); "
+            "if [ -n \\\"$pid\\\" ]; then kill $pid; fi\""
+            )
+        elif action == "start":
+
+            container_id = get_container_id(name)
+            if not container_id:
+                return jsonify({"error": "Cannot determine container"}), 400
             cron_line = f"{schedule} root docker exec {container_id} {command}"
         else:
             return jsonify({"error": "Invalid action"}), 400
