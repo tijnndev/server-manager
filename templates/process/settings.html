@@ -1,62 +1,107 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
+<div class="row gap-0">
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-gear"></i> Process Configuration
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('process.settings', name=process.name) }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Container ID</label>
+                            <input type="text" class="form-control" name="containerid" value="{{ process.id }}" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Process ID</label>
+                            <input type="text" class="form-control" name="processid" value="{{ process.process_id }}" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Process Name</label>
+                            <input type="text" class="form-control" name="name" value="{{ process.name }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Port Number</label>
+                            <input type="text" class="form-control" name="port" value="{{ 8000 + process.port_id }}" readonly>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3">{{ process.description }}</textarea>
+                        </div>
+                        <div class="row gap-0 col-12">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">Command</label>
+                                <input type="text" class="form-control" name="command" value="{{ process.command }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Process Type</label>
+                                <select name="type" class="form-select">
+                                    {% for type in types %}
+                                    <option value="{{type}}" {% if process.type == type %} selected {% endif %}>{{type | capitalize}}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle"></i> Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
-<div class="container mt-4 settings-container">
-    <h2>Edit Settings for {{ process.name }}</h2>
-    
-    <!-- Form for updating process settings -->
-    <form method="POST" action="{{ url_for('process.settings', name=process.name) }}">
-        <div class="form-group">
-            <label for="process-containerid">Container ID</label>
-            <input type="text" class="form-control" id="process-containerid" name="containerid" value="{{ process.id }}" readonly>
-        </div>
-        <div class="form-group">
-            <label for="process-processid">Process ID</label>
-            <input type="text" class="form-control" id="process-processid" name="processid" value="{{ process.process_id }}" readonly>
-        </div>
-        <div class="form-group">
-            <label for="process-name">Process Name</label>
-            <input type="text" class="form-control" id="process-name" name="name" value="{{ process.name }}" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="process-description">Description</label>
-            <textarea class="form-control" id="process-description" name="description" rows="3">{{ process.description }}</textarea>
-        </div>
-        <div class="form-group">
-            <label for="process-port">Port Number</label>
-            <input type="text" class="form-control" id="process-port" name="port" value="{{ 8000 + process.port_id }}" readonly>
-        </div>
-        <div class="form-group">
-            <label for="process-command">Command</label>
-            <input type="text" class="form-control" id="process-command" name="command" value="{{ process.command }}" required>
-        </div>
-        <div class="form-group">
-            <label for="process-type" class="form-label">Process Type</label>
-            <select id="process-type" name="type" class="form-select">
-                {% for type in types %}
-                <option value="{{type}}" {% if process.type == type %} selected {% endif %}>{{type | capitalize}}</option>
-                {% endfor %}
-            </select>
-        </div>
-        </div>
-        
-        <button type="submit" class="btn btn-primary mt-3">Save Changes</button>
-    </form>
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <i class="bi bi-tools"></i> Process Actions
+            </div>
+            <div class="card-body">
+                <h6>Rebuild Process</h6>
+                <p class="text-muted small">Rebuild the process container with current settings.</p>
+                <form method="POST" action="{{ url_for('process.settings_rebuild', name=process.name) }}">
+                    <button type="submit" class="btn btn-warning w-100 mb-3">
+                        <i class="bi bi-arrow-clockwise"></i> Rebuild Process
+                    </button>
+                </form>
 
-    <!-- Rebuild Button -->
-    <form method="POST" action="{{ url_for('process.settings_rebuild', name=process.name) }}">
-        <button type="submit" class="btn btn-warning mt-3">Rebuild Process</button>
-    </form>
+                <h6>Delete Process</h6>
+                <p class="text-muted small">Permanently remove this process and all its data.</p>
+                <form method="POST" action="{{ url_for('process.settings_delete', name=process.name) }}">
+                    <button type="submit" class="btn btn-danger w-100" onclick="return confirm('Are you sure you want to delete this process?')">
+                        <i class="bi bi-trash"></i> Delete Process
+                    </button>
+                </form>
+            </div>
+        </div>
 
-    <!-- Delete Button -->
-    <form method="POST" action="{{ url_for('process.settings_delete', name=process.name) }}">
-        <button type="submit" class="btn btn-danger mt-3" onclick="return confirm('Are you sure you want to delete this process?')">Delete Process</button>
-    </form>
+        <div class="card mt-3">
+            <div class="card-header bg-info">
+                <i class="bi bi-info-circle"></i> Process Information
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <small class="text-muted">Created:</small>
+                        <div class="fw-bold">{{ process.created_at.strftime('%Y-%m-%d') if process.created_at else 'Unknown' }}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Status:</small>
+                        <div class="fw-bold">
+                            {% if process.status == 'running' %}
+                            <span class="badge bg-success">Running</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Stopped</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-
-<script>
-    
-</script>
 {% endblock process_content %}

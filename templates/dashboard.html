@@ -1,73 +1,89 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<style>
-    .server-card {
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-radius: 8px;
-        transition: transform 0.2s;
-    }
-    
-    .server-card:hover {
-        transform: translateY(-5px);
-    }
-
-    .server-status {
-        font-size: 0.9rem;
-        font-weight: bold;
-    }
-
-    #server-stats {
-        background: var(--card-bg);
-        border: none;
-    }
-
-    #search-bar {
-        margin-top: 5px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .container-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    @media screen and (max-width: 523px) {
-        .container-head {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-        
-    }
-</style>
-
-<div class="container mt-4 dashboard-container">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="container-head">
-                <h2>Manage Processes</h2>
-                <select id="sort-select" class="form-select w-auto" onchange="sortProcesses()">
-                    <option value="alpha">Alphabet (A-Z)</option>
-                    <option value="alpha-reverse">Alphabet (Z-A)</option>
-                    <option value="created">Created At (Oldest)</option>
-                    <option value="created-reverse">Created At (Newest)</option>
-                </select>
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary">
+                <i class="bi bi-server"></i> Managed Processes
             </div>
-            <input type="text" id="search-bar" class="form-control" placeholder="Search process..." oninput="filterProcesses()">
-            <div id="process-grid" class="row g-3"></div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <input type="text" id="search-bar" class="form-control mb-2" placeholder="Search process..." oninput="filterProcesses()">
+                    <select id="sort-select" class="form-select w-auto" onchange="sortProcesses()">
+                        <option value="alpha">Alphabet (A-Z)</option>
+                        <option value="alpha-reverse">Alphabet (Z-A)</option>
+                        <option value="created">Created At (Oldest)</option>
+                        <option value="created-reverse">Created At (Newest)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Process ID</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="process-grid"></tbody>
+                </table>
+            </div>
         </div>
-        <div class="col-md-4">
-            <h2>Server Stats</h2>
-            <div id="server-stats" class="p-3 rounded">
-                <p><strong>CPU Name:</strong> <span id="cpu-name"></span></p>
-                <p><strong>CPU Usage:</strong> <span id="cpu-usage"></span>%</p>
-                <p><strong>Memory Allocated:</strong> <span id="memory-allocated"></span> MB</p>
-                <p><strong>Memory Usage:</strong> <span id="memory-usage"></span>%</p>
-                <p><strong>Storage Allocated:</strong> <span id="storage-allocated"></span> GB</p>
-                <p><strong>Storage Usage:</strong> <span id="storage-usage"></span>%</p>
-                <p><strong>Network Usage:</strong> <span id="network-usage"></span> MB/s</p>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-success">
+                <i class="bi bi-cpu"></i> System Resources
+            </div>
+            <div class="card-body" id="server-stats">
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <span>CPU Usage</span>
+                        <span class="fw-bold"><span id="cpu-usage">Loading...</span>%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="cpu-progress" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted"><span id="cpu-name">Loading...</span></small>
+                </div>
+
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <span>Memory</span>
+                        <span class="fw-bold">
+                            <span id="memory-used">Loading...</span> / <span id="memory-allocated">Loading...</span> MB
+                        </span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-warning" id="memory-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <span>Storage</span>
+                        <span class="fw-bold">
+                            <span id="storage-used">Loading...</span> / <span id="storage-allocated">Loading...</span> GB
+                        </span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-info" id="storage-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="progress-item" style="margin-bottom: 0;">
+                    <div class="progress-header">
+                        <span>Network</span>
+                        <span class="fw-bold">
+                            <i class="bi bi-arrow-down" style="color: var(--accent-green);"></i> <span id="network-usage">Loading...</span> MB/s
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -78,25 +94,38 @@
     async function fetchServerStats() {
         const response = await fetch("{{ url_for('get_server_stats') }}");
         const stats = await response.json();
+        
+        // Update CPU
         document.getElementById('cpu-name').textContent = stats.cpu_name;
         document.getElementById('cpu-usage').textContent = stats.cpu_usage;
+        document.getElementById('cpu-progress').style.width = stats.cpu_usage + '%';
+        
+        // Update Memory 
+        const memoryUsedMB = Math.round((stats.memory_usage / 100) * stats.memory_allocated);
+        document.getElementById('memory-used').textContent = memoryUsedMB;
         document.getElementById('memory-allocated').textContent = stats.memory_allocated;
-        document.getElementById('memory-usage').textContent = stats.memory_usage;
+        document.getElementById('memory-progress').style.width = stats.memory_usage + '%';
+        
+        // Update Storage
+        const storageUsedGB = Math.round((stats.storage_usage / 100) * stats.storage_allocated * 10) / 10;
+        document.getElementById('storage-used').textContent = storageUsedGB;
         document.getElementById('storage-allocated').textContent = stats.storage_allocated;
-        document.getElementById('storage-usage').textContent = stats.storage_usage;
+        document.getElementById('storage-progress').style.width = stats.storage_usage + '%';
+        
+        // Update Network
         document.getElementById('network-usage').textContent = stats.network_usage;
     }
     fetchServerStats();
 
     function filterProcesses() {
         const query = document.getElementById('search-bar').value.toLowerCase();
-        const processCards = document.querySelectorAll('[data-process-name]');
-        processCards.forEach(card => {
-            const processName = card.getAttribute('data-process-name').toLowerCase();
+        const processRows = document.querySelectorAll('[data-process-name]');
+        processRows.forEach(row => {
+            const processName = row.getAttribute('data-process-name').toLowerCase();
             if (processName.includes(query)) {
-                card.style.display = 'block';
+                row.style.display = '';
             } else {
-                card.style.display = 'none';
+                row.style.display = 'none';
             }
         });
     }
@@ -113,20 +142,24 @@
         const grid = document.getElementById('process-grid');
         grid.innerHTML = '';
         processEntries.forEach(([name, process]) => {
-            const card = `
-            <div class="col-md-6 pb-4" data-process-name="${name}">
-                <a href="/process/console/${name}">
-                    <div class="server-card card p-3">
-                        <div class="card-body">
-                            <h5 class="card-title">${name}</h5>
-                            <p class="server-status text-${process.status.toLowerCase() === 'running' ? 'success' : 'danger'}">${process.status}</p>
-                            <p class="mb-2"><strong>Type:</strong> ${process.type}</p>
-                        </div>
-                    </div>
-                </a>
-            </div>
+            const row = `
+            <tr data-process-name="${name}">
+                <td><code>${name.substring(0, 12)}</code></td>
+                <td>${name}</td>
+                <td><span class="badge bg-info">${process.type}</span></td>
+                <td>
+                    <span class="badge ${process.status.toLowerCase() === 'running' ? 'bg-success' : 'bg-secondary'}">
+                        ${process.status.charAt(0).toUpperCase() + process.status.slice(1)}
+                    </span>
+                </td>
+                <td>
+                    <a href="/process/console/${name}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> View
+                    </a>
+                </td>
+            </tr>
             `;
-            grid.innerHTML += card;
+            grid.innerHTML += row;
         });
         filterProcesses();
     }

@@ -1,67 +1,127 @@
 {% extends 'layout.html' %}
 
+{% block title %}Create New Process - Server Manager{% endblock %}
+
 {% block content %}
-    <div class="container mt-5 create-container">
-        <h1 class="mb-4">Create a New Process</h1>
+<div class="process-header mb-4">
+    <h3 class="process-title">
+        <i class="bi bi-plus-circle"></i> Create New Process
+    </h3>
+    <p class="text-muted">Configure container basics, runtime settings, and deployment options.</p>
+</div>
 
-        <form id="add-process-form" class="card p-4 shadow-sm">
-            <div class="form-group mb-3">
-                <label for="process-name" class="form-label">Process Name</label>
-                <input type="text" id="process-name" class="form-control" placeholder="Process Name" required>
+<div class="row g-4">
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-collection"></i> Process Configuration
             </div>
-
-            <div class="form-group mb-3">
-                <label for="process-command" class="form-label">Command</label>
-                <input type="text" id="process-command" class="form-control" placeholder="Command" required>
+            <div class="card-body">
+                <form id="process-create-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Process Name</label>
+                            <input type="text" class="form-control" name="name" id="process-name" placeholder="my-service" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Process Type</label>
+                            <select class="form-select" name="type" id="process-type" required>
+                                {% for type in types %}
+                                <option value="{{type}}">{{type | capitalize}}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3" placeholder="Describe the service purpose..."></textarea>
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">Command</label>
+                            <input type="text" class="form-control" name="command" id="process-command" placeholder="npm start">
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">Dependencies (comma-separated)</label>
+                            <input type="text" class="form-control" name="dependencies" id="process-dependencies" placeholder="python3, nodejs, nginx">
+                        </div>
+                        <div class="col-12">
+                            <button type="button" class="btn btn-success" onclick="addProcess()">
+                                <i class="bi bi-check-circle"></i> Create Process
+                            </button>
+                            <a href="/" class="btn btn-secondary ms-2">
+                                <i class="bi bi-arrow-left"></i> Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </form>
             </div>
-            <div class="form-group mb-3">
-                <label for="process-dependencies" class="form-label">Dependencies</label>
-                <input type="text" id="process-dependencies" class="form-control" placeholder="Dependencies" required>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Help & Tips
             </div>
-            <div class="form-group mb-3">
-                <label for="process-type" class="form-label">Process Type</label>
-                <select id="process-type" class="form-select">
-                    {% for type in types %}
-                    <option value="{{type}}">{{type | capitalize}}</option>
-                    {% endfor %}
-                </select>
+            <div class="card-body">
+                <h6>Process Types:</h6>
+                <ul class="list-unstyled small text-muted mb-3">
+                    <li><strong>Web:</strong> HTTP servers and web applications</li>
+                    <li><strong>Worker:</strong> Background processing tasks</li>
+                    <li><strong>Database:</strong> Database servers</li>
+                    <li><strong>Cache:</strong> Caching services like Redis</li>
+                </ul>
+                
+                <h6>Command Examples:</h6>
+                <ul class="list-unstyled small text-muted mb-3">
+                    <li><code>python app.py</code></li>
+                    <li><code>npm start</code></li>
+                    <li><code>./start.sh</code></li>
+                </ul>
+                
+                <h6>Port Configuration:</h6>
+                <p class="small text-muted">Specify the port your application listens on. Common ports: 3000 (Node.js), 8000 (Python), 80/443 (Web servers).</p>
             </div>
-
-            <button type="button" class="btn btn-primary" onclick="addProcess()">Add Process</button>
-        </form>
-
+        </div>
+        
         {% if success %}
-            <div class="alert alert-success mt-4">{{ success }}</div>
+        <div class="alert alert-success mt-3">
+            <i class="bi bi-check-circle"></i> {{ success }}
+        </div>
         {% endif %}
         
         {% if error %}
-            <div class="alert alert-danger mt-4">{{ error }}</div>
+        <div class="alert alert-danger mt-3">
+            <i class="bi bi-exclamation-triangle"></i> {{ error }}
+        </div>
         {% endif %}
-        
-        <a href="/" class="btn btn-secondary mt-4">Back to Dashboard</a>
     </div>
+</div>
 
-    <script>
-        async function addProcess() {
-            const name = document.getElementById('process-name').value;
-            const command = document.getElementById('process-command').value;
-            const dependencies = document.getElementById('process-dependencies').value;
-            const type = document.getElementById('process-type').value;
-            const response = await fetch('{{ url_for('process.add_process') }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, command, type, dependencies })
-            });
-            if (response.ok) {
-                alert('Process added successfully');
-                const responseData = await response.json();
-                const redirectUrl = responseData.redirect_url;
-
-                window.location.href = redirectUrl;
-            } else {
-                const responseData = await response.json();
-                alert('Failed to add process :' + responseData);
-            }
+<script>
+    async function addProcess() {
+        const form = document.getElementById('process-create-form');
+        const formData = new FormData(form);
+        
+        // Get values for the original API (keeping backward compatibility)
+        const name = formData.get('name');
+        const command = formData.get('command');
+        const dependencies = formData.get('dependencies');
+        const type = formData.get('type');
+        
+        const response = await fetch('{{ url_for('process.add_process') }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, command, type, dependencies })
+        });
+        
+        if (response.ok) {
+            alert('Process added successfully');
+            const responseData = await response.json();
+            const redirectUrl = responseData.redirect_url;
+            window.location.href = redirectUrl;
+        } else {
+            const responseData = await response.json();
+            alert('Failed to add process: ' + responseData);
         }
-    </script>
-{% endblock content %}
+    }
+</script>
+{% endblock %}

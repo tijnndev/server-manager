@@ -1,18 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-    <link rel="icon" href="{{ url_for('static', filename='images/puregarden_fav.svg') }}" type="image/x-icon">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <title>Server Manager - Register</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
-</head>
-<body class="dark-theme">
+{% extends 'layout.html' %}
+
+{% block title %}Register - Server Manager{% endblock %}
+
+{% block content %}
 <div class="login-container">
     <div class="login-card">
         <div class="login-header">
@@ -93,5 +83,4 @@ document.getElementById('registerForm').addEventListener('submit', function(e) {
     button.disabled = true;
 });
 </script>
-</body>
-</html>
+{% endblock %}

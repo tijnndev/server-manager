@@ -1,90 +1,199 @@
-{% extends 'process/process_layout.html' %} {% block process_content %}
+{% extends 'process/process_layout.html' %} 
+
+{% block process_content %}
+<div class="row">
+    <div class="col-lg-8 mb-3">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-terminal"></i> Console Output</span>
+                <div class="btn-group">
+                    <button class="btn btn-success btn-sm" onclick="startProcess('{{ process.name }}')">
+                        <i class="bi bi-play-fill"></i> Start
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="stopProcess('{{ process.name }}')">
+                        <i class="bi bi-stop-fill"></i> Stop
+                    </button>
+                    <button class="btn btn-warning btn-sm" onclick="restartProcess('{{ process.name }}')">
+                        <i class="bi bi-arrow-clockwise"></i> Restart
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="refreshLogs()">
+                        <i class="bi bi-arrow-repeat"></i> Refresh
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="clearLogs('{{ process.name }}')">
+                        <i class="bi bi-trash"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="console-output" id="console-output"></div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-terminal-plus"></i> Execute Commands
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <span class="input-group-text bg-dark text-success">$</span>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="command-input"
+                        placeholder="Enter command to execute..."
+                        style="font-family: monospace"
+                    />
+                    <button class="btn btn-primary" type="button" onclick="executeCommand()" id="execute-btn">
+                        Execute
+                    </button>
+                </div>
+                <small class="text-muted mt-2 d-block">Commands execute in /app directory.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-primary">
+                <i class="bi bi-info-circle"></i> Process Information
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Status:</span>
+                            <span class="status-indicator">
+                                <span class="status-dot" id="status-dot"></span>
+                                <span id="status-label">{{ process_status | capitalize }}</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Uptime:</span>
+                            <span id="process-uptime">Fetching...</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">URL:</span>
+                            <span>
+                                {% if not process.domain %}
+                                <a href="http://{{ server_ip }}:{{ 8000 + process.port_id}}" target="_blank" class="text-decoration-none">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                                {% else %}
+                                <a href="https://{{process.domain}}" target="_blank" class="text-decoration-none">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header bg-success">
+                <i class="bi bi-graph-up"></i> Resource Usage
+            </div>
+            <div class="card-body">
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <span>CPU</span>
+                        <span class="fw-bold" id="process-cpu">0%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="cpu-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <span>Memory</span>
+                        <span class="fw-bold" id="process-memory">0 MB</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-warning" id="memory-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+    <div class="d-flex align-items-center">
+        <div class="spinner-border text-primary me-2" role="status"></div>
+        <span id="loading-text">Processing...</span>
+    </div>
+</div>
+
 <style>
-  .console-output {
+.console-output {
     background-color: #1a1a1a;
     color: #e0e0e0;
     font-family: "Consolas", "Monaco", "Courier New", monospace;
     padding: 20px;
-    height: 600px;
+    height: 400px;
     overflow-y: auto;
     font-size: 14px;
     white-space: pre-wrap;
     word-wrap: break-word;
-    border: 1px solid #444;
-    border-radius: 8px;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-  }
+    border: none;
+}
 
-  .console-output::-webkit-scrollbar {
+.console-output::-webkit-scrollbar {
     width: 8px;
-  }
+}
 
-  .console-output::-webkit-scrollbar-track {
+.console-output::-webkit-scrollbar-track {
     background: #2a2a2a;
-  }
+}
 
-  .console-output::-webkit-scrollbar-thumb {
+.console-output::-webkit-scrollbar-thumb {
     background: #555;
     border-radius: 4px;
-  }
+}
 
-  .console-output::-webkit-scrollbar-thumb:hover {
+.console-output::-webkit-scrollbar-thumb:hover {
     background: #666;
-  }
+}
 
-  .status-indicator {
+.status-indicator {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-  }
+}
 
-  .status-dot {
+.status-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     animation: pulse 2s infinite;
-  }
+}
 
-  .status-dot.running {
+.status-dot.running {
     background-color: #28a745;
-  }
+}
 
-  .status-dot.stopped {
+.status-dot.stopped {
     background-color: #dc3545;
-  }
+}
 
-  .status-dot.restarting {
+.status-dot.restarting {
     background-color: #ffc107;
-  }
+}
 
-  @keyframes pulse {
-    0% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-    100% {
-      opacity: 1;
-    }
-  }
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
 
-  .command-input-section {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 8px;
-    padding: 15px;
-    margin: 20px 0;
-  }
-
-  .btn-group-process {
-    gap: 10px;
-    margin-top: 20px;
-  }
-
-  .loading-overlay {
+.loading-overlay {
     display: none;
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     right: 0;
@@ -94,143 +203,8 @@
     justify-content: center;
     align-items: center;
     z-index: 1000;
-  }
-
-  .spinner {
-    border: 3px solid #444;
-    border-top: 3px solid #007bff;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    animation: spin 1s linear infinite;
-    margin-right: 10px;
-  }
-
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
+}
 </style>
-
-<div class="container mt-4">
-  <div class="loading-overlay" id="loading-overlay">
-    <div class="d-flex align-items-center">
-      <div class="spinner"></div>
-      <span id="loading-text">Processing...</span>
-    </div>
-  </div>
-
-  <h2 class="mb-4">Console for {{ process.name }}</h2>
-
-  <div class="row mb-3">
-    <div class="col-md-4">
-      <div class="text-light">
-        <strong>Status:</strong>
-        <span class="status-indicator">
-          <span class="status-dot" id="status-dot"></span>
-          <span class="server-status-label" id="status-label"
-            >{{ process_status | capitalize }}</span
-          >
-        </span>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="text-light">
-        <strong>Uptime:</strong>
-        <span id="process-uptime">Fetching...</span>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="text-light">
-        <strong>URL:</strong>
-        {% if not process.domain %}
-        <a
-          href="http://{{ server_ip }}:{{ 8000 + process.port_id}}"
-          target="_blank"
-          class="text-info"
-        >
-          http://{{ server_ip }}:{{ 8000 + process.port_id}}
-        </a>
-        {% else %}
-        <a href="https://{{process.domain}}" target="_blank" class="text-info">
-          {{process.domain}}
-        </a>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <div class="console-output" id="console-output"></div>
-
-  <div class="command-input-section">
-    <h6 class="text-light mb-3">Execute Commands</h6>
-    <div class="input-group">
-      <span class="input-group-text bg-dark text-success border-secondary"
-        >$</span
-      >
-      <input
-        type="text"
-        class="form-control bg-dark text-light border-secondary"
-        id="command-input"
-        placeholder="Enter command to execute in container..."
-        style="font-family: monospace"
-      />
-      <button
-        class="btn btn-primary"
-        type="button"
-        onclick="executeCommand()"
-        id="execute-btn"
-      >
-        Execute
-      </button>
-    </div>
-    <small class="text-muted mt-2 d-block">
-      Commands execute in /app directory.
-    </small>
-  </div>
-
-  <div class="btn-group-process d-flex flex-wrap">
-    <button
-      class="btn btn-success"
-      onclick="startProcess('{{ process.name }}')"
-      id="start-btn"
-    >
-      <i class="fas fa-play"></i> Start
-    </button>
-    <button
-      class="btn btn-danger"
-      onclick="stopProcess('{{ process.name }}')"
-      id="stop-btn"
-    >
-      <i class="fas fa-stop"></i> Stop
-    </button>
-    <button
-      class="btn btn-warning"
-      onclick="restartProcess('{{ process.name }}')"
-      id="restart-btn"
-    >
-      <i class="fas fa-redo"></i> Restart
-    </button>
-    <button
-      class="btn btn-info"
-      onclick="clearLogs('{{ process.name }}')"
-      id="clear-logs-btn"
-    >
-      <i class="fas fa-broom"></i> Clear Logs
-    </button>
-    <button
-      class="btn btn-secondary"
-      onclick="refreshLogs()"
-      id="refresh-logs-btn"
-    >
-      <i class="fas fa-sync"></i> Refresh Logs
-    </button>
-  </div>
-</div>
 
 <script>
   const consoleOutput = document.getElementById("console-output");

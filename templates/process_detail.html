@@ -1,0 +1,517 @@
+{% extends 'layout.html' %}
+
+{% block title %}{{ process.name }} - Server Manager{% endblock %}
+
+{% block content %}
+<div class="process-header mb-4">
+    <h3 class="process-title">
+        <i class="bi bi-box"></i> {{ process.name }}
+        {% if process.status == 'running' %}
+        <span class="badge bg-success">Running</span>
+        {% else %}
+        <span class="badge bg-secondary">Stopped</span>
+        {% endif %}
+    </h3>
+    <p class="text-muted">{{ process.description or 'No description available' }}</p>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <button class="nav-link active" onclick="switchTab('console', this)">
+            <i class="bi bi-terminal"></i> Console
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="switchTab('settings', this)">
+            <i class="bi bi-gear"></i> Settings
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="switchTab('files', this)">
+            <i class="bi bi-folder"></i> Files
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="switchTab('discord', this)">
+            <i class="bi bi-discord"></i> Discord
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="switchTab('nginx', this)">
+            <i class="bi bi-globe"></i> Nginx
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="switchTab('email', this)">
+            <i class="bi bi-envelope"></i> Email
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" onclick="switchTab('git', this)">
+            <i class="bi bi-git"></i> Git
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane active" id="console">
+        <div class="row">
+            <div class="col-lg-8 mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-terminal"></i> Console Output</span>
+                        <div class="btn-group">
+                            <button class="btn btn-success btn-sm" onclick="containerAction('{{ process.name }}', 'start')">
+                                <i class="bi bi-play-fill"></i> Start
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="containerAction('{{ process.name }}', 'stop')">
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                            <button class="btn btn-warning btn-sm" onclick="containerAction('{{ process.name }}', 'restart')">
+                                <i class="bi bi-arrow-clockwise"></i> Restart
+                            </button>
+                            <button class="btn btn-info btn-sm" onclick="refreshLogs('{{ process.name }}')">
+                                <i class="bi bi-arrow-repeat"></i> Refresh
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="clearLogs()">
+                                <i class="bi bi-trash"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="console-output" class="console-output">
+                            {% for log in logs %}
+                            <div class="log-line">{{ log }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <div class="input-group">
+                            <input type="text" id="command-input" class="form-control" placeholder="Enter command..." onkeypress="handleCommandKeypress(event, '{{ process.name }}')">
+                            <button class="btn btn-primary" onclick="executeCommand('{{ process.name }}')">
+                                <i class="bi bi-send"></i> Execute
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-graph-up"></i> Process Usage
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">CPU Usage</label>
+                            <div class="progress">
+                                <div class="progress-bar bg-primary" style="width: {{ process.cpu_usage or 0 }}%">
+                                    {{ "%.1f"|format(process.cpu_usage or 0) }}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Memory</label>
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" style="width: {{ (process.memory_usage or 0) / 10 }}%">
+                                    {{ process.memory_usage or 0 }} MB
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label fw-bold">Uptime</label>
+                            <div class="text-muted">
+                                <span id="process-uptime">{{ process.uptime or 'Not available' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" id="settings">
+        <div class="card">
+            <div class="card-body">
+                <form id="settings-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Process Name</label>
+                            <input type="text" class="form-control" value="{{ process.name }}" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Process Type</label>
+                            <input type="text" class="form-control" value="{{ process.type or 'Unknown' }}" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Port Number</label>
+                            <input type="text" class="form-control" value="{{ process.port or 'N/A' }}" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <input type="text" class="form-control" value="{{ process.status }}" disabled>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="3" name="description">{{ process.description or '' }}</textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Command</label>
+                            <input type="text" class="form-control" value="{{ process.command or '' }}" name="command">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Auto Start</label>
+                            <select class="form-select" name="auto_start">
+                                <option value="true" {% if process.auto_start %}selected{% endif %}>Yes</option>
+                                <option value="false" {% if not process.auto_start %}selected{% endif %}>No</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <button type="button" class="btn btn-primary" onclick="saveSettings('{{ process.name }}')">
+                                <i class="bi bi-save"></i> Save Changes
+                            </button>
+                            <button type="button" class="btn btn-warning" onclick="rebuildProcess('{{ process.name }}')">
+                                <i class="bi bi-arrow-repeat"></i> Rebuild Process
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="deleteProcess('{{ process.name }}')">
+                                <i class="bi bi-trash"></i> Delete Process
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" id="files">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-folder"></i> File Manager</span>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm" onclick="fileAction('move')" disabled id="btn-move">
+                        <i class="bi bi-arrows-move"></i> Move
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="fileAction('delete')" disabled id="btn-delete">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="fileAction('rename')" disabled id="btn-rename">
+                        <i class="bi bi-pencil"></i> Rename
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="fileAction('download')" disabled id="btn-download">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="file-tree" class="file-tree">
+                    <!-- Dynamic content loaded via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" id="discord">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Discord Webhook Configuration</h5>
+                <div class="mb-3">
+                    <label class="form-label">Discord Webhook URL</label>
+                    <input type="text" class="form-control" placeholder="https://discord.com/api/webhooks/..." 
+                           value="{{ process.discord_webhook or '' }}" name="discord_webhook">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notify on Events</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="notify-start" 
+                               {% if process.notify_start %}checked{% endif %}>
+                        <label class="form-check-label" for="notify-start">Process Start</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="notify-stop"
+                               {% if process.notify_stop %}checked{% endif %}>
+                        <label class="form-check-label" for="notify-stop">Process Stop</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="notify-restart"
+                               {% if process.notify_restart %}checked{% endif %}>
+                        <label class="form-check-label" for="notify-restart">Process Restart</label>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveDiscordWebhook('{{ process.name }}')">
+                    <i class="bi bi-save"></i> Save Webhook
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" id="nginx">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Nginx Configuration</h5>
+                <div class="mb-3">
+                    <label class="form-label">Domain Name</label>
+                    <input type="text" class="form-control" placeholder="example.com" 
+                           value="{{ process.domain or '' }}" name="domain">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">SSL Enabled</label>
+                    <select class="form-select" name="ssl_enabled">
+                        <option value="true" {% if process.ssl_enabled %}selected{% endif %}>Yes</option>
+                        <option value="false" {% if not process.ssl_enabled %}selected{% endif %}>No</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="saveNginxConfig('{{ process.name }}')">
+                        <i class="bi bi-save"></i> Save Config
+                    </button>
+                    <button class="btn btn-warning" onclick="restartNginx('{{ process.name }}')">
+                        <i class="bi bi-arrow-clockwise"></i> Restart Nginx
+                    </button>
+                </div>
+                <div class="btn-group ms-2">
+                    <button class="btn btn-info" onclick="renewCert('{{ process.name }}')">
+                        <i class="bi bi-shield-check"></i> Renew Certificate
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteCert('{{ process.name }}')">
+                        <i class="bi bi-shield-x"></i> Delete Certificate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" id="email">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Email Accounts</h5>
+                <div class="table-responsive mb-3">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Username/Email</th>
+                                <th>Added Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="email-list">
+                            <!-- Email accounts will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <h6>Add New Email</h6>
+                <div class="row">
+                    <div class="col-md-5 mb-2">
+                        <input type="text" id="email-username" class="form-control" placeholder="Email/Username">
+                    </div>
+                    <div class="col-md-5 mb-2">
+                        <input type="password" id="email-password" class="form-control" placeholder="Password">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-primary w-100" onclick="addEmail('{{ process.name }}')">
+                            <i class="bi bi-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" id="git">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Git Integrations</h5>
+                <div class="table-responsive mb-3">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Repository URL</th>
+                                <th>Directory</th>
+                                <th>Branch</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="git-list">
+                            <!-- Git repos will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <h6>Add New Git Repository</h6>
+                <div class="row">
+                    <div class="col-md-5 mb-2">
+                        <input type="text" id="git-url" class="form-control" placeholder="Git Repository URL">
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <input type="text" id="git-directory" class="form-control" placeholder="Directory">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <input type="text" id="git-branch" class="form-control" placeholder="Branch">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <button class="btn btn-primary w-100" onclick="addGit('{{ process.name }}')">
+                            <i class="bi bi-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const processName = '{{ process.name }}';
+
+function switchTab(tabName, element) {
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+    element.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+}
+
+function containerAction(name, action) {
+    fetch(`/process/${action}/${name}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success || data.ok) {
+            alert(`${action} successful`);
+            location.reload();
+        } else {
+            alert(data.error || 'Action failed');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error occurred');
+    });
+}
+
+function executeCommand(name) {
+    const command = document.getElementById('command-input').value;
+    if (!command.trim()) return;
+    
+    fetch(`/process/execute/${name}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const output = document.getElementById('console-output');
+        const timestamp = new Date().toLocaleTimeString();
+        output.innerHTML += `\n[${timestamp}] $ ${command}\n${data.output || data.error}\n`;
+        output.scrollTop = output.scrollHeight;
+        document.getElementById('command-input').value = '';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Command execution failed');
+    });
+}
+
+function handleCommandKeypress(event, name) {
+    if (event.key === 'Enter') {
+        executeCommand(name);
+    }
+}
+
+function refreshLogs(name) {
+    fetch(`/process/console/${name}/logs`)
+    .then(response => response.text())
+    .then(data => {
+        document.getElementById('console-output').innerHTML = data;
+    })
+    .catch(error => console.error('Error refreshing logs:', error));
+}
+
+function clearLogs() {
+    document.getElementById('console-output').innerHTML = '';
+}
+
+function saveSettings(name) {
+    const form = document.getElementById('settings-form');
+    const formData = new FormData(form);
+    
+    fetch(`/process/settings/${name}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.success ? 'Settings saved' : data.error);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to save settings');
+    });
+}
+
+function rebuildProcess(name) {
+    if (confirm('Are you sure you want to rebuild this process?')) {
+        alert('Rebuild process functionality not implemented yet');
+    }
+}
+
+function deleteProcess(name) {
+    if (confirm('Are you sure you want to delete this process? This cannot be undone.')) {
+        fetch(`/process/delete/${name}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Process deleted successfully');
+                window.location.href = '/';
+            } else {
+                alert(data.error || 'Failed to delete process');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to delete process');
+        });
+    }
+}
+
+function fileAction(action) {
+    alert(`${action} action not implemented yet.`);
+}
+
+function saveDiscordWebhook(name) {
+    alert('Discord webhook save not implemented yet');
+}
+
+function saveNginxConfig(name) {
+    alert('Nginx configuration save not implemented yet');
+}
+
+function restartNginx(name) {
+    alert('Nginx restart not implemented yet');
+}
+
+function renewCert(name) {
+    alert('Certificate renewal not implemented yet');
+}
+
+function deleteCert(name) {
+    alert('Certificate deletion not implemented yet');
+}
+
+function addEmail(name) {
+    alert('Add email not implemented yet');
+}
+
+function addGit(name) {
+    alert('Add Git repository not implemented yet');
+}
+
+// Initialize console output streaming if available
+document.addEventListener('DOMContentLoaded', function() {
+    const output = document.getElementById('console-output');
+    output.scrollTop = output.scrollHeight;
+});
+</script>
+{% endblock %}
