@@ -1,9 +1,7 @@
-{% extends 'process/process_layout.html' %} {% block process_content %}
+{% extends 'process/process_layout.html' %}
+{% block process_content %}
 <script src="https://tijnn.dev/assets/notify-library/index.js"></script>
-<link
-  rel="stylesheet"
-  href="https://tijnn.dev/assets/notify-library/index.css"
-/>
+<link rel="stylesheet" href="https://tijnn.dev/assets/notify-library/index.css" />
 <style>
   .file-editor-container {
     border: 1px solid #ccc;
@@ -15,7 +13,9 @@
     margin-bottom: 10px;
   }
 </style>
+
 <h1>Edit file: {{ file_name }}</h1>
+
 <div class="mb-3">
   <label for="file_name" class="form-label">File Name (with extension)</label>
   <input
@@ -40,39 +40,20 @@
 {% endif %}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-modelist.min.js"></script>
 <script>
   var editor = ace.edit("editor", {
       theme: "ace/theme/tomorrow_night_bright",
   });
 
   var fileName = document.getElementById("file_name").value;
-  var fileExtension = getFileExtension(fileName);
-  setEditorMode(fileExtension);
+  var modelist = ace.require("ace/ext/modelist");
+  var mode = modelist.getModeForPath(fileName).mode;
+  editor.session.setMode(mode);
 
   var fileContent = {{ file_content|tojson }};
   if (fileContent) {
       editor.setValue(fileContent);
-  }
-
-  function setEditorMode(fileExtension) {
-      var mode = '';
-      switch (fileExtension) {
-          case 'py':
-              mode = 'python';
-              break;
-          case 'js':
-              mode = 'javascript';
-              break;
-          case 'html':
-              mode = 'html';
-              break;
-          case 'css':
-              mode = 'css';
-              break;
-          default:
-              mode = 'text';
-      }
-      editor.session.setMode(`ace/mode/${mode}`);
   }
 
   document.getElementById("save-button").addEventListener("click", function() {
@@ -100,9 +81,5 @@
         })
         .catch(error => console.error("Fetch error:", error));
   });
-
-  function getFileExtension(fileName) {
-      return fileName.split('.').pop();
-  }
 </script>
 {% endblock process_content %}
