@@ -65,7 +65,7 @@
                                 </div>
                             </td>
                             <td>
-                                {% for perm in user.permissions.split(',') if user.permissions %}
+                                {% for perm in perms if perms %}
                                 <span class="badge bg-secondary me-1">{{ perm.strip() }}</span>
                                 {% endfor %}
                             </td>
