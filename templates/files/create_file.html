@@ -1,7 +1,6 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-    <div class="container mt-5">
         <h1>Create New File with Code</h1>
         <form action="{{ url_for('files.create_file', name=process.name, location=location) }}" method="POST">
             <div class="mb-3">
@@ -21,7 +20,6 @@
         {% if error %}
             <div class="alert alert-danger mt-3">{{ error }}</div>
         {% endif %}
-    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script>

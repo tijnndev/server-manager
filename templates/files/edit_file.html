@@ -1,102 +1,108 @@
-{% extends 'process/process_layout.html' %}
-
-{% block process_content %}
+{% extends 'process/process_layout.html' %} {% block process_content %}
 <script src="https://tijnn.dev/assets/notify-library/index.js"></script>
-<link rel="stylesheet" href="https://tijnn.dev/assets/notify-library/index.css">
+<link
+  rel="stylesheet"
+  href="https://tijnn.dev/assets/notify-library/index.css"
+/>
 <style>
-    .file-editor-container {
-      border: 1px solid #ccc;
-      padding: 20px;
-    }
-    .file-editor-header {
-      background-color: #f0f0f0;
-      padding: 10px;
-      margin-bottom: 10px;
-    }
+  .file-editor-container {
+    border: 1px solid #ccc;
+    padding: 20px;
+  }
+  .file-editor-header {
+    background-color: #f0f0f0;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
 </style>
-<div class="container mt-5">
-    <h1>Edit file: {{ file_name }}</h1>
-    <div class="mb-3">
-        <label for="file_name" class="form-label">File Name (with extension)</label>
-        <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required>
-    </div>
-
-    <div class="mb-3">
-        <label for="file_code" class="form-label">Code</label>
-        <div id="editor" style="height: 500px;"></div>
-    </div>
-
-    <button id="save-button" class="btn btn-primary">Save File</button>
-
-    {% if error %}
-        <div class="alert alert-danger mt-3">{{ error }}</div>
-    {% endif %}
+<h1>Edit file: {{ file_name }}</h1>
+<div class="mb-3">
+  <label for="file_name" class="form-label">File Name (with extension)</label>
+  <input
+    type="text"
+    class="form-control"
+    id="file_name"
+    name="file_name"
+    value="{{ file_name }}"
+    required
+  />
 </div>
+
+<div class="mb-3">
+  <label for="file_code" class="form-label">Code</label>
+  <div id="editor" style="height: 500px"></div>
+</div>
+
+<button id="save-button" class="btn btn-primary">Save File</button>
+
+{% if error %}
+<div class="alert alert-danger mt-3">{{ error }}</div>
+{% endif %}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
 <script>
-    var editor = ace.edit("editor", {
-        theme: "ace/theme/tomorrow_night_bright",
-    });
+  var editor = ace.edit("editor", {
+      theme: "ace/theme/tomorrow_night_bright",
+  });
 
-    var fileName = document.getElementById("file_name").value;
-    var fileExtension = getFileExtension(fileName);
-    setEditorMode(fileExtension);
+  var fileName = document.getElementById("file_name").value;
+  var fileExtension = getFileExtension(fileName);
+  setEditorMode(fileExtension);
 
-    var fileContent = {{ file_content|tojson }};
-    if (fileContent) {
-        editor.setValue(fileContent);
-    }
+  var fileContent = {{ file_content|tojson }};
+  if (fileContent) {
+      editor.setValue(fileContent);
+  }
 
-    function setEditorMode(fileExtension) {
-        var mode = '';
-        switch (fileExtension) {
-            case 'py':
-                mode = 'python';
-                break;
-            case 'js':
-                mode = 'javascript';
-                break;
-            case 'html':
-                mode = 'html';
-                break;
-            case 'css':
-                mode = 'css';
-                break;
-            default:
-                mode = 'text';
-        }
-        editor.session.setMode(`ace/mode/${mode}`);
-    }
+  function setEditorMode(fileExtension) {
+      var mode = '';
+      switch (fileExtension) {
+          case 'py':
+              mode = 'python';
+              break;
+          case 'js':
+              mode = 'javascript';
+              break;
+          case 'html':
+              mode = 'html';
+              break;
+          case 'css':
+              mode = 'css';
+              break;
+          default:
+              mode = 'text';
+      }
+      editor.session.setMode(`ace/mode/${mode}`);
+  }
 
-    document.getElementById("save-button").addEventListener("click", function() {
-        let content = editor.getValue();
-        content = content.replace(/\r\n|\r/g, "\n");
+  document.getElementById("save-button").addEventListener("click", function() {
+      let content = editor.getValue();
+      content = content.replace(/\r\n|\r/g, "\n");
 
-        fetch("{{ url_for('files.edit_file', name=process.name, file=file_path) }}", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                file_name: document.getElementById("file_name").value,
-                file_code: content,
-            })
-        }).then(response => response.json())
-          .then(data => {
-              const notify = new Notify();
-              if (data.success) {
-                  notify.show("File successfully saved!", 'success', 3000);
-              } else {
-                  console.error("Error saving file", data.error);
-                  notify.show("Error while saving file!", 'error', 3000);
-              }
+      fetch("{{ url_for('files.edit_file', name=process.name, file=file_path) }}", {
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+              file_name: document.getElementById("file_name").value,
+              file_code: content,
           })
-          .catch(error => console.error("Fetch error:", error));
-    });
+      }).then(response => response.json())
+        .then(data => {
+            const notify = new Notify();
+            if (data.success) {
+                notify.show("File successfully saved!", 'success', 3000);
+            } else {
+                console.error("Error saving file", data.error);
+                notify.show("Error while saving file!", 'error', 3000);
+            }
+        })
+        .catch(error => console.error("Fetch error:", error));
+  });
 
-    function getFileExtension(fileName) {
-        return fileName.split('.').pop();
-    }
+  function getFileExtension(fileName) {
+      return fileName.split('.').pop();
+  }
 </script>
 {% endblock process_content %}

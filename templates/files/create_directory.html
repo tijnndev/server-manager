@@ -1,15 +1,20 @@
-{% extends 'process/process_layout.html' %}
+{% extends 'process/process_layout.html' %} {% block process_content %}
+<h1 class="mb-4">Create New Directory</h1>
 
-{% block process_content %}
-    <div class="container mt-5">
-        <h1 class="mb-4">Create New Directory</h1>
-
-        <form action="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}" method="POST">
-            <div class="mb-3">
-                <label for="directory_name" class="form-label">Directory Name</label>
-                <input type="text" class="form-control" id="directory_name" name="directory_name" required>
-            </div>
-            <button type="submit" class="btn btn-primary">Create Directory</button>
-        </form>
-    </div>
+<form
+  action="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}"
+  method="POST"
+>
+  <div class="mb-3">
+    <label for="directory_name" class="form-label">Directory Name</label>
+    <input
+      type="text"
+      class="form-control"
+      id="directory_name"
+      name="directory_name"
+      required
+    />
+  </div>
+  <button type="submit" class="btn btn-primary">Create Directory</button>
+</form>
 {% endblock process_content %}
