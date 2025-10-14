@@ -143,7 +143,7 @@ class Process(BaseModel):
                 container_id = result.stdout.strip()
 
                 if not container_id:
-                    return {"process": name, "status": "Exited"}
+                    return "Exited"
 
                 result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], capture_output=True, text=True)
 
@@ -153,14 +153,16 @@ class Process(BaseModel):
                 container_status = result.stdout.strip()
 
                 if container_status == 'running':
-                    return {"process": name, "status": "Running"}
+                    return "Running"
                 
-                return {"process": name, "status": "Exited"}
+                return "Exited"
 
             except subprocess.CalledProcessError as e:
-                return {"error": f"Failed to get process status: {e.stderr}"}
+                print({"error": f"Failed to get process status: {e.stderr}"})
+                return "Error"
             except Exception as e:
-                return {"error": str(e)}
+                print({"error": f"Failed to get process status: {e}"})
+                return "Error"
 
     def as_dict(self):
         return {
