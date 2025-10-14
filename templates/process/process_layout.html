@@ -4,8 +4,7 @@
 <div class="process-header">
     <h3 class="process-title">
         <script>
-        const process = {{ process | tojson }};
-        console.log(process);
+        console.log("{{ process }}");
         </script>
         <i class="bi bi-box"></i> {{ process.name }}
         {% if process.status == 'running' %}
