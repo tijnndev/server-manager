@@ -3,8 +3,9 @@ import subprocess
 from db import db
 from models.base_model import BaseModel
 from models.discord_integration import DiscordIntegration
+from extra import get_project_root
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+BASE_DIR = get_project_root()
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 
 class Process(BaseModel):
