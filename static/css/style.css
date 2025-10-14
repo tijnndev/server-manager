@@ -914,3 +914,7 @@ a:hover {
 .table-bordered td, .table-bordered th {
     border: 1px solid var(--border-color) !important;
 }
+
+.table td, .table th {
+    border-top: 1px solid var(--border-color) !important;
+}
