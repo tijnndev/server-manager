@@ -7,13 +7,13 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-terminal"></i> Console Output</span>
                 <div class="btn-group">
-                    <button class="btn btn-success btn-sm" onclick="startProcess('{{ process.name }}')">
+                    <button class="btn btn-success btn-sm" id="start-btn" onclick="startProcess('{{ process.name }}')">
                         <i class="bi bi-play-fill"></i> Start
                     </button>
-                    <button class="btn btn-danger btn-sm" onclick="stopProcess('{{ process.name }}')">
+                    <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopProcess('{{ process.name }}')">
                         <i class="bi bi-stop-fill"></i> Stop
                     </button>
-                    <button class="btn btn-warning btn-sm" onclick="restartProcess('{{ process.name }}')">
+                    <button class="btn btn-warning btn-sm" id="restart-btn" onclick="restartProcess('{{ process.name }}')">
                         <i class="bi bi-arrow-clockwise"></i> Restart
                     </button>
                     <button class="btn btn-info btn-sm" onclick="refreshLogs()">
@@ -59,6 +59,14 @@
             </div>
             <div class="card-body">
                 <div class="row g-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Type:</span>
+                            <span class="status-indicator">
+                                <span id="status-label">{{ process.type | capitalize }}</span>
+                            </span>
+                        </div>
+                    </div>
                     <div class="col-12">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="text-muted">Status:</span>
@@ -394,6 +402,7 @@
     addLogMessage("Process start command received", "system");
 
     try {
+      console.log(name)
       const response = await fetch(
         `{{ url_for('process.start_process_console', name="") }}${name}`,
         {

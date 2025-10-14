@@ -199,6 +199,9 @@ body {
 }
 
 .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 99999;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     padding: 1rem 0;
@@ -384,12 +387,12 @@ body {
 
 .badge.bg-secondary {
     background: rgba(107, 114, 128, 0.2);
-    color: var(--text-secondary);
+    color: #fff;
 }
 
 .badge.bg-info {
     background: rgba(59, 130, 246, 0.2);
-    color: var(--accent-blue);
+    color: #fff;
 }
 
 code {
@@ -507,6 +510,7 @@ code {
     padding: 0 1.5rem;
     background: var(--bg-secondary);
     list-style: none;
+    overflow-x: auto;
 }
 
 .nav-tabs li {
@@ -523,6 +527,14 @@ code {
     border-radius: 0;
     cursor: pointer;
 }
+
+.nav-tabs .nav-link {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 
 .nav-tabs .nav-link:hover {
     color: var(--text-primary);
@@ -882,4 +894,23 @@ select.form-select {
 
 .user-select-none {
     user-select: none !important;
+}
+
+a:hover {
+    color: inherit !important
+}
+
+.spinner-border {
+    margin-right: 10px;
+}
+
+.search-container {
+    display: flex;
+    gap: 1rem;
+}
+
+@media (max-width: 1199px) {
+    .gap-0 {
+        gap: 2rem !important
+    }
 }
