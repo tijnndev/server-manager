@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,54 +14,58 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 </head>
+
 <body class="dark-theme">
-<div class="login-container">
-    <div class="login-box">
-        <div class="login-icon">
-            <i class="bi bi-hdd-rack-fill"></i>
-        </div>
-        
-        <h2>Server Manager</h2>
-        <p style="color: var(--text-secondary); text-align: center; margin-bottom: 2rem;">Sign in to manage your server</p>
-        
-        {% with messages = get_flashed_messages() %}
+
+            {% with messages = get_flashed_messages() %}
             {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-danger">
-                        {{ message }}
-                    </div>
-                {% endfor %}
+            {% for message in messages %}
+            <div class="alert alert-danger">
+                {{ message }}
+            </div>
+            {% endfor %}
             {% endif %}
-        {% endwith %}
-
-        <form method="post" id="loginForm">
-            <div class="form-group">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" class="form-control" id="username" name="username" required autofocus>
+            {% endwith %}
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-icon">
+                <i class="bi bi-hdd-rack-fill"></i>
             </div>
 
-            <div class="form-group">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required>
+            <h2>Server Manager</h2>
+            <p style="color: var(--text-secondary); text-align: center; margin-bottom: 2rem;">Sign in to manage your
+                server</p>
+
+            <form method="post" id="loginForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Sign In
+                </button>
+            </form>
+
+            <div class="text-center mt-3 row justify-content-center">
+                <div><a href="{{ url_for("auth.register") }}">Create Account</a></div>
+                <div><a href="{{ url_for("auth.reset_password") }}">Forgot Password?</a></div>
             </div>
-            
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-box-arrow-in-right"></i>
-                Sign In
-            </button>
-        </form>
-        
-        <div class="text-center mt-3">
-            <div><a href="{{ url_for("auth.register") }}">Create Account</a></div>
-            <div><a href="{{ url_for("auth.reset_password") }}">Forgot Password?</a></div>
         </div>
     </div>
-</div><script>
-document.getElementById('loginForm').addEventListener('submit', function(e) {
-    const button = this.querySelector('button[type="submit"]');
-    button.classList.add('loading');
-    button.disabled = true;
-});
-</script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            const button = this.querySelector('button[type="submit"]');
+            button.classList.add('loading');
+            button.disabled = true;
+        });
+    </script>
 </body>
+
 </html>
