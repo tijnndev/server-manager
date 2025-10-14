@@ -7,7 +7,7 @@
         console.log("{{ process.status }}");
         </script>
         <i class="bi bi-box"></i> {{ process.name }}
-        {% if process.status == 'running' %}
+        {% if process.status|lower == 'running' %}
         <span class="badge bg-success">Running</span>
         {% else %}
         <span class="badge bg-secondary">Stopped</span>

@@ -58,6 +58,7 @@ class Process(BaseModel):
 
             except Exception:
                 return False
+            
         def check_process_running_in_container(name):
             """Check if the main process is running inside the container"""
             try:
@@ -69,7 +70,7 @@ class Process(BaseModel):
                 container_id = result.stdout.strip()
 
                 if not container_id:
-                    return {"status": "Container Not Running", "container_running": False}
+                    return "Exited"
 
                 # Check if container is running
                 result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], 
@@ -78,7 +79,7 @@ class Process(BaseModel):
                 container_status = result.stdout.strip()
                 
                 if result.returncode != 0 or container_status != 'running':
-                    return {"status": "Container Not Running", "container_running": False}
+                    return "Exited"
 
                 # Get the main command from environment variable
                 result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
@@ -92,14 +93,14 @@ class Process(BaseModel):
                         break
 
                 if not main_command:
-                    return {"status": "Running", "container_running": True, "process_running": True}
+                    return "Error"
 
                 # Check if the main process is running inside the container
                 result = subprocess.run(['docker', 'exec', container_id, 'ps', 'aux'], 
                                     capture_output=True, text=True)
                 
                 if result.returncode != 0:
-                    return {"status": "Process Stopped", "container_running": True, "process_running": False}
+                    return "Exited"
 
                 # Parse process list to find our main command
                 processes = result.stdout
@@ -120,14 +121,16 @@ class Process(BaseModel):
                             matching_processes.append(line.strip())
 
                 if process_running:
-                    return {"status": "Running", "container_running": True, "process_running": True}
+                    return "Running"
                 else:
-                    return {"status": "Process Stopped", "container_running": True, "process_running": False}
+                    return "Exited"
 
             except subprocess.CalledProcessError as e:
-                return {"status": "Error", "error": f"Failed to check process status: {e.stderr}"}
+                print(e.stderr)
+                return "Error"
             except Exception as e:
-                return {"status": "Error", "error": str(e)}
+                print( str(e))
+                return "Error"
 
         # Check if this is an always-running container
         if is_always_running_container(name):
