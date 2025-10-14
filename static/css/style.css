@@ -382,7 +382,7 @@ body {
 
 .badge.bg-success {
     background: rgba(16, 185, 129, 0.2);
-    color: var(--accent-green);
+    color: #fff;
 }
 
 .badge.bg-secondary {
