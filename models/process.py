@@ -1,6 +1,7 @@
 from db import db
 from models.base_model import BaseModel
 from models.discord_integration import DiscordIntegration
+from utils import get_process_status
 
 
 class Process(BaseModel):
@@ -21,6 +22,11 @@ class Process(BaseModel):
 
     def __repr__(self):
         return f"<Process {self.name}>"
+    
+
+    @property
+    def status(self):
+        return get_process_status(self.name)
 
     def as_dict(self):
         return {
