@@ -884,10 +884,6 @@ select.form-select {
     border-bottom: none !important;
 }
 
-.table td, .table th {
-    border-top: none !important;
-}
-
 .align-items-normal {
     align-items: normal;
 }
@@ -913,4 +909,8 @@ a:hover {
     .gap-0 {
         gap: 2rem !important
     }
+}
+
+.table-bordered td, .table-bordered th {
+    border: 1px solid var(--border-color) !important;
 }

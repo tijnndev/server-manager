@@ -3,6 +3,7 @@
 {% block content %}
 <div class="process-header">
     <h3 class="process-title">
+        <script>console.log("{{ process.status }}")</script>
         <i class="bi bi-box"></i> {{ process.name }}
         {% if process.status == 'running' %}
         <span class="badge bg-success">Running</span>

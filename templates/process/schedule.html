@@ -66,7 +66,7 @@
                         {% for job in cron_jobs %}
                         <tr>
                             <td>{{ job.name }}</td>
-                            <td><code>{{ job.schedule }}</code></td>
+                            <td style="white-space: nowrap;"><code>{{ job.schedule }}</code></td>
                             <td><span class="badge bg-info">{{ job.command }}</span></td>
                             <td>
                                 <form action="{{ url_for('process.delete_cron_job', name=process.name) }}" method="POST" class="d-inline">
