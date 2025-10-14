@@ -404,7 +404,7 @@ def console(name):
     except KeyError:
         status = "Failed"
 
-    print(process)
+    print(process.__dict__)
     return render_template('process/console.html', page_title="Console", process=process, process_status=status)
 
 
