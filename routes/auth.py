@@ -102,7 +102,7 @@ def reset_token(token):
             return redirect(url_for('auth.reset_token', token=token))
 
         user.password_hash = generate_password_hash(password)
-        user.reset_token = None
+        user.reset_token = ""
         db.session.add(user)
         db.session.commit()
         flash('Your password has been updated!', 'success')
