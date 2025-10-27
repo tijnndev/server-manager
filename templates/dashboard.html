@@ -93,6 +93,47 @@
 
 <script>
 
+    let userSettings = null;
+
+    // Fetch user settings on page load
+    async function loadUserSettings() {
+        try {
+            const response = await fetch("{{ url_for('settings.get_preferences') }}");
+            const data = await response.json();
+            userSettings = data;
+            
+            // If remember filters is enabled, load saved filters
+            if (userSettings.remember_filters) {
+                loadSavedFilters();
+            }
+        } catch (error) {
+            console.error("Failed to load user settings:", error);
+        }
+    }
+
+    function loadSavedFilters() {
+        const savedSearch = localStorage.getItem('dashboardSearchQuery');
+        const savedSort = localStorage.getItem('dashboardSortOption');
+        
+        if (savedSearch !== null) {
+            document.getElementById('search-bar').value = savedSearch;
+        }
+        
+        if (savedSort !== null) {
+            document.getElementById('sort-select').value = savedSort;
+        }
+    }
+
+    function saveFilterSettings() {
+        if (userSettings && userSettings.remember_filters) {
+            const searchQuery = document.getElementById('search-bar').value;
+            const sortOption = document.getElementById('sort-select').value;
+            
+            localStorage.setItem('dashboardSearchQuery', searchQuery);
+            localStorage.setItem('dashboardSortOption', sortOption);
+        }
+    }
+
     async function fetchServerStats() {
         const response = await fetch("{{ url_for('get_server_stats') }}");
         const stats = await response.json();
@@ -130,6 +171,7 @@
                 row.style.display = 'none';
             }
         });
+        saveFilterSettings();
     }
 
     let allProcesses = {};
@@ -137,6 +179,16 @@
     async function fetchProcesses() {
         const response = await fetch("{{ url_for('process.get_process') }}");
         allProcesses = await response.json();
+        
+        // Apply saved sort if remember filters is enabled
+        if (userSettings && userSettings.remember_filters) {
+            const savedSort = localStorage.getItem('dashboardSortOption');
+            if (savedSort) {
+                sortProcesses();
+                return;
+            }
+        }
+        
         renderProcesses(Object.entries(allProcesses));
     }
 
@@ -187,6 +239,10 @@
         }
 
         renderProcesses(entries);
+        saveFilterSettings();
     }
+
+    // Load user settings when page loads
+    loadUserSettings();
 </script>
 {% endblock content %}

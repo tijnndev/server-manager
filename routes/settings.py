@@ -1,6 +1,7 @@
 import subprocess
-from flask import Blueprint, jsonify, render_template
-from decorators import admin_required
+from flask import Blueprint, jsonify, render_template, request, session
+from decorators import admin_required, auth_check
+from models.user_settings import UserSettings
 
 settings_routes = Blueprint('settings', __name__)
 
@@ -11,6 +12,42 @@ BASE_DIR = "../"
 @admin_required()
 def version_page():
     return render_template("settings/version.html", page_title="Version Control")
+
+
+@settings_routes.route("/preferences")
+@auth_check()
+def preferences_page():
+    user_id = session.get("user_id")
+    user_settings = UserSettings.get_or_create(user_id)
+    return render_template("settings/preferences.html", page_title="Preferences", user_settings=user_settings)
+
+
+@settings_routes.route("/preferences/update", methods=["POST"])
+@auth_check()
+def update_preferences():
+    try:
+        user_id = session.get("user_id")
+        data = request.get_json()
+        
+        user_settings = UserSettings.get_or_create(user_id)
+        user_settings.update_settings(
+            remember_filters=data.get("remember_filters")
+        )
+        
+        return jsonify({"success": True, "message": "Preferences updated successfully"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@settings_routes.route("/preferences/get", methods=["GET"])
+@auth_check()
+def get_preferences():
+    try:
+        user_id = session.get("user_id")
+        user_settings = UserSettings.get_or_create(user_id)
+        return jsonify(user_settings.as_dict())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @settings_routes.route('version/git-status', methods=['POST'])

@@ -1,0 +1,274 @@
+{% extends 'settings/settings_layout.html' %}
+
+{% block settings_content %}
+<div class="settings-content-header">
+    <h2>
+        <i class="bi bi-sliders"></i>
+        Preferences
+    </h2>
+</div>
+
+<div class="settings-content-body">
+    <div class="alert alert-success" id="success-alert" style="display: none;">
+        <i class="bi bi-check-circle"></i> Settings saved successfully!
+    </div>
+    
+    <div class="alert alert-danger" id="error-alert" style="display: none;">
+        <i class="bi bi-exclamation-triangle"></i> <span id="error-message">Failed to save settings.</span>
+    </div>
+
+    <div class="settings-section">
+        <h3 class="section-title">
+            <i class="bi bi-funnel"></i>
+            Filter Settings
+        </h3>
+        <p class="section-description">Control how filter preferences are saved across sessions.</p>
+        
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="remember-filters" class="setting-label">
+                    <i class="bi bi-bookmark"></i>
+                    Remember Filter Options
+                </label>
+                <p class="setting-help">
+                    When enabled, your dashboard filter preferences (search, sort order, etc.) will be saved and restored when you return.
+                </p>
+            </div>
+            <div class="setting-control">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="remember-filters" {{ 'checked' if user_settings.remember_filters else '' }}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-actions">
+        <button class="btn btn-primary" onclick="savePreferences()">
+            <i class="bi bi-save"></i> Save Changes
+        </button>
+        <button class="btn btn-secondary" onclick="resetForm()">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+        </button>
+    </div>
+</div>
+
+<style>
+    .settings-section {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .settings-section:last-of-type {
+        border-bottom: none;
+    }
+
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .section-description {
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        font-size: 14px;
+    }
+
+    .setting-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 1.25rem;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        gap: 1.5rem;
+    }
+
+    .setting-info {
+        flex: 1;
+    }
+
+    .setting-label {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .setting-help {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .setting-control {
+        flex-shrink: 0;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 52px;
+        height: 28px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--bg-hover);
+        transition: 0.3s;
+        border-radius: 28px;
+        border: 2px solid var(--border-color);
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+        background-color: var(--accent-blue);
+        border-color: var(--accent-blue);
+    }
+
+    input:checked + .toggle-slider:before {
+        transform: translateX(24px);
+    }
+
+    /* Settings Actions */
+    .settings-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    /* Alerts */
+    .alert {
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 14px;
+    }
+
+    .alert-success {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: var(--accent-green);
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: var(--accent-red);
+    }
+
+    @media (max-width: 768px) {
+        .setting-item {
+            flex-direction: column;
+        }
+
+        .settings-actions {
+            flex-direction: column;
+        }
+
+        .settings-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+
+<script>
+    const initialRememberFilters = {{ 'true' if user_settings.remember_filters else 'false' }};
+
+    async function savePreferences() {
+        const rememberFilters = document.getElementById('remember-filters').checked;
+        const successAlert = document.getElementById('success-alert');
+        const errorAlert = document.getElementById('error-alert');
+
+        // Hide alerts
+        successAlert.style.display = 'none';
+        errorAlert.style.display = 'none';
+
+        try {
+            const response = await fetch("{{ url_for('settings.update_preferences') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    remember_filters: rememberFilters
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                successAlert.style.display = 'flex';
+                
+                // If remember filters was disabled, clear localStorage
+                if (!rememberFilters) {
+                    localStorage.removeItem('dashboardSearchQuery');
+                    localStorage.removeItem('dashboardSortOption');
+                }
+
+                // Scroll to top to show alert
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                    successAlert.style.display = 'none';
+                }, 3000);
+            } else {
+                errorAlert.style.display = 'flex';
+                document.getElementById('error-message').textContent = data.error || 'Failed to save settings.';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        } catch (error) {
+            errorAlert.style.display = 'flex';
+            document.getElementById('error-message').textContent = 'Network error: ' + error.message;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('remember-filters').checked = initialRememberFilters;
+        document.getElementById('success-alert').style.display = 'none';
+        document.getElementById('error-alert').style.display = 'none';
+    }
+</script>
+{% endblock %}
