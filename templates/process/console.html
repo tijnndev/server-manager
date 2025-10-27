@@ -229,6 +229,32 @@
   let uptimeInterval = null;
   let isPageActive = true;
   let lastLogTimestamp = Date.now();
+  let userSettings = null;
+
+  // Load user preferences and apply console settings
+  async function loadConsolePreferences() {
+    try {
+      const response = await fetch("{{ url_for('settings.get_preferences') }}");
+      const data = await response.json();
+      userSettings = data;
+      
+      // Apply console font size
+      if (userSettings.console_font_size) {
+        consoleOutput.style.fontSize = userSettings.console_font_size + 'px';
+      }
+      
+      // Apply word wrap setting
+      if (userSettings.console_word_wrap === false) {
+        consoleOutput.style.whiteSpace = 'pre';
+        consoleOutput.style.overflowX = 'auto';
+      } else {
+        consoleOutput.style.whiteSpace = 'pre-wrap';
+        consoleOutput.style.overflowX = 'hidden';
+      }
+    } catch (error) {
+      console.error("Failed to load console preferences:", error);
+    }
+  }
 
   // Page visibility handling
   document.addEventListener("visibilitychange", () => {
@@ -240,6 +266,7 @@
 
   // Initialize console
   function initializeConsole() {
+    loadConsolePreferences();
     startConsole();
     startUptimeUpdates();
     updateUIBasedOnStatus("{{ process_status }}");
@@ -265,7 +292,11 @@
     const timestamp = new Date().toLocaleTimeString();
     const prefix =
       type === "error" ? "[ERROR]" : type === "system" ? "[SYSTEM]" : "";
-    const logLine = `[${timestamp}] ${prefix} ${message}`;
+    
+    // Check if timestamps should be shown
+    const showTimestamp = userSettings && userSettings.show_timestamps !== false;
+    const timestampStr = showTimestamp ? `[${timestamp}] ` : '';
+    const logLine = `${timestampStr}${prefix} ${message}`;
 
     // Create a new div for the line
     const lineDiv = document.createElement("div");

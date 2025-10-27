@@ -30,8 +30,18 @@ def update_preferences():
         data = request.get_json()
         
         user_settings = UserSettings.get_or_create(user_id)
+        
+        # Update all settings that were provided
         user_settings.update_settings(
-            remember_filters=data.get("remember_filters")
+            remember_filters=data.get("remember_filters"),
+            theme=data.get("theme"),
+            compact_mode=data.get("compact_mode"),
+            console_font_size=data.get("console_font_size"),
+            auto_refresh_enabled=data.get("auto_refresh_enabled"),
+            auto_refresh_interval=data.get("auto_refresh_interval"),
+            notification_sounds=data.get("notification_sounds"),
+            show_timestamps=data.get("show_timestamps"),
+            console_word_wrap=data.get("console_word_wrap")
         )
         
         return jsonify({"success": True, "message": "Preferences updated successfully"})

@@ -59,6 +59,29 @@
     <script>
         let dragOverTimeout;
 
+        // Apply user preferences from localStorage on page load
+        (function applyUserPreferences() {
+            const savedPrefs = localStorage.getItem('userPreferences');
+            if (savedPrefs) {
+                try {
+                    const prefs = JSON.parse(savedPrefs);
+                    
+                    // Apply theme
+                    if (prefs.theme) {
+                        document.body.classList.remove('dark-theme', 'light-theme');
+                        document.body.classList.add(prefs.theme + '-theme');
+                    }
+                    
+                    // Apply compact mode
+                    if (prefs.compact_mode) {
+                        document.body.classList.add('compact-mode');
+                    }
+                } catch (e) {
+                    console.error('Failed to apply user preferences:', e);
+                }
+            }
+        })();
+
         document.querySelector('.navbar-toggler').addEventListener('click', function() {
             document.querySelector('.navbar-collapse').classList.toggle('collapse');
         });

@@ -94,6 +94,7 @@
 <script>
 
     let userSettings = null;
+    let autoRefreshInterval = null;
 
     // Fetch user settings on page load
     async function loadUserSettings() {
@@ -106,9 +107,27 @@
             if (userSettings.remember_filters) {
                 loadSavedFilters();
             }
+
+            // Setup auto-refresh if enabled
+            if (userSettings.auto_refresh_enabled) {
+                setupAutoRefresh(userSettings.auto_refresh_interval);
+            }
         } catch (error) {
             console.error("Failed to load user settings:", error);
         }
+    }
+
+    function setupAutoRefresh(intervalSeconds) {
+        // Clear any existing interval
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+
+        // Set up new interval
+        autoRefreshInterval = setInterval(() => {
+            fetchProcesses();
+            fetchServerStats();
+        }, intervalSeconds * 1000);
     }
 
     function loadSavedFilters() {

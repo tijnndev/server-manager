@@ -17,6 +17,127 @@
         <i class="bi bi-exclamation-triangle"></i> <span id="error-message">Failed to save settings.</span>
     </div>
 
+    <!-- Appearance Section -->
+    <div class="settings-section">
+        <h3 class="section-title">
+            <i class="bi bi-palette"></i>
+            Appearance
+        </h3>
+        <p class="section-description">Customize the visual appearance of the interface.</p>
+        
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="theme-select" class="setting-label">
+                    <i class="bi bi-moon-stars"></i>
+                    Theme
+                </label>
+                <p class="setting-help">
+                    Choose between dark and light color schemes.
+                </p>
+            </div>
+            <div class="setting-control">
+                <select id="theme-select" class="form-select setting-select">
+                    <option value="dark" {{ 'selected' if user_settings.theme == 'dark' else '' }}>Dark</option>
+                    <option value="light" {{ 'selected' if user_settings.theme == 'light' else '' }}>Light</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="compact-mode" class="setting-label">
+                    <i class="bi bi-layout-text-sidebar"></i>
+                    Compact Mode
+                </label>
+                <p class="setting-help">
+                    Reduce spacing and padding throughout the interface for a more condensed view.
+                </p>
+            </div>
+            <div class="setting-control">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="compact-mode" {{ 'checked' if user_settings.compact_mode else '' }}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="console-font-size" class="setting-label">
+                    <i class="bi bi-fonts"></i>
+                    Console Font Size
+                </label>
+                <p class="setting-help">
+                    Adjust the font size in console output (10-20px). Current: <strong id="font-size-display">{{ user_settings.console_font_size }}</strong>px
+                </p>
+            </div>
+            <div class="setting-control">
+                <input type="range" id="console-font-size" class="form-range" min="10" max="20" value="{{ user_settings.console_font_size }}" oninput="updateFontSizeDisplay(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Behavior Section -->
+    <div class="settings-section">
+        <h3 class="section-title">
+            <i class="bi bi-lightning"></i>
+            Behavior
+        </h3>
+        <p class="section-description">Control how the application behaves and responds.</p>
+        
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="auto-refresh" class="setting-label">
+                    <i class="bi bi-arrow-repeat"></i>
+                    Auto-Refresh Dashboard
+                </label>
+                <p class="setting-help">
+                    Automatically refresh process list and server statistics.
+                </p>
+            </div>
+            <div class="setting-control">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="auto-refresh" {{ 'checked' if user_settings.auto_refresh_enabled else '' }} onchange="toggleRefreshInterval()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-item" id="refresh-interval-setting">
+            <div class="setting-info">
+                <label for="refresh-interval" class="setting-label">
+                    <i class="bi bi-clock"></i>
+                    Refresh Interval
+                </label>
+                <p class="setting-help">
+                    How often to refresh the dashboard (in seconds). Current: <strong id="refresh-interval-display">{{ user_settings.auto_refresh_interval }}</strong>s
+                </p>
+            </div>
+            <div class="setting-control">
+                <input type="range" id="refresh-interval" class="form-range" min="2" max="30" value="{{ user_settings.auto_refresh_interval }}" oninput="updateRefreshDisplay(this.value)">
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="notification-sounds" class="setting-label">
+                    <i class="bi bi-volume-up"></i>
+                    Notification Sounds
+                </label>
+                <p class="setting-help">
+                    Play sound effects for important notifications and alerts.
+                </p>
+            </div>
+            <div class="setting-control">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="notification-sounds" {{ 'checked' if user_settings.notification_sounds else '' }}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
     <div class="settings-section">
         <h3 class="section-title">
             <i class="bi bi-funnel"></i>
@@ -37,6 +158,51 @@
             <div class="setting-control">
                 <label class="toggle-switch">
                     <input type="checkbox" id="remember-filters" {{ 'checked' if user_settings.remember_filters else '' }}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Console Section -->
+    <div class="settings-section">
+        <h3 class="section-title">
+            <i class="bi bi-terminal"></i>
+            Console Settings
+        </h3>
+        <p class="section-description">Customize the console output display.</p>
+        
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="show-timestamps" class="setting-label">
+                    <i class="bi bi-clock-history"></i>
+                    Show Timestamps
+                </label>
+                <p class="setting-help">
+                    Display timestamps next to each log entry in the console.
+                </p>
+            </div>
+            <div class="setting-control">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="show-timestamps" {{ 'checked' if user_settings.show_timestamps else '' }}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="console-word-wrap" class="setting-label">
+                    <i class="bi bi-text-wrap"></i>
+                    Word Wrap
+                </label>
+                <p class="setting-help">
+                    Wrap long lines in the console output instead of requiring horizontal scrolling.
+                </p>
+            </div>
+            <div class="setting-control">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="console-word-wrap" {{ 'checked' if user_settings.console_word_wrap else '' }}>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
@@ -115,6 +281,57 @@
 
     .setting-control {
         flex-shrink: 0;
+        min-width: 120px;
+    }
+
+    .setting-select {
+        min-width: 150px;
+        padding: 0.5rem 0.875rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 14px;
+        cursor: pointer;
+    }
+
+    .form-range {
+        width: 150px;
+        height: 6px;
+        background: var(--bg-secondary);
+        border-radius: 3px;
+        outline: none;
+        -webkit-appearance: none;
+    }
+
+    .form-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        background: var(--accent-blue);
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+
+    .form-range::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        background: var(--accent-blue);
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+
+    #refresh-interval-setting {
+        opacity: 1;
+        transition: opacity 0.3s;
+    }
+
+    #refresh-interval-setting.disabled {
+        opacity: 0.5;
+        pointer-events: none;
     }
 
     /* Toggle Switch */
@@ -213,10 +430,42 @@
 </style>
 
 <script>
-    const initialRememberFilters = {{ 'true' if user_settings.remember_filters else 'false' }};
+    const initialSettings = {
+        remember_filters: {{ 'true' if user_settings.remember_filters else 'false' }},
+        theme: '{{ user_settings.theme }}',
+        compact_mode: {{ 'true' if user_settings.compact_mode else 'false' }},
+        console_font_size: {{ user_settings.console_font_size }},
+        auto_refresh_enabled: {{ 'true' if user_settings.auto_refresh_enabled else 'false' }},
+        auto_refresh_interval: {{ user_settings.auto_refresh_interval }},
+        notification_sounds: {{ 'true' if user_settings.notification_sounds else 'false' }},
+        show_timestamps: {{ 'true' if user_settings.show_timestamps else 'false' }},
+        console_word_wrap: {{ 'true' if user_settings.console_word_wrap else 'false' }}
+    };
+
+    function updateFontSizeDisplay(value) {
+        document.getElementById('font-size-display').textContent = value;
+    }
+
+    function updateRefreshDisplay(value) {
+        document.getElementById('refresh-interval-display').textContent = value;
+    }
+
+    function toggleRefreshInterval() {
+        const enabled = document.getElementById('auto-refresh').checked;
+        const intervalSetting = document.getElementById('refresh-interval-setting');
+        if (!enabled) {
+            intervalSetting.classList.add('disabled');
+        } else {
+            intervalSetting.classList.remove('disabled');
+        }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleRefreshInterval();
+    });
 
     async function savePreferences() {
-        const rememberFilters = document.getElementById('remember-filters').checked;
         const successAlert = document.getElementById('success-alert');
         const errorAlert = document.getElementById('error-alert');
 
@@ -224,15 +473,26 @@
         successAlert.style.display = 'none';
         errorAlert.style.display = 'none';
 
+        // Collect all settings
+        const settings = {
+            remember_filters: document.getElementById('remember-filters').checked,
+            theme: document.getElementById('theme-select').value,
+            compact_mode: document.getElementById('compact-mode').checked,
+            console_font_size: parseInt(document.getElementById('console-font-size').value),
+            auto_refresh_enabled: document.getElementById('auto-refresh').checked,
+            auto_refresh_interval: parseInt(document.getElementById('refresh-interval').value),
+            notification_sounds: document.getElementById('notification-sounds').checked,
+            show_timestamps: document.getElementById('show-timestamps').checked,
+            console_word_wrap: document.getElementById('console-word-wrap').checked
+        };
+
         try {
             const response = await fetch("{{ url_for('settings.update_preferences') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    remember_filters: rememberFilters
-                })
+                body: JSON.stringify(settings)
             });
 
             const data = await response.json();
@@ -240,11 +500,20 @@
             if (data.success) {
                 successAlert.style.display = 'flex';
                 
+                // Apply theme immediately
+                applyTheme(settings.theme);
+                
+                // Apply compact mode immediately
+                applyCompactMode(settings.compact_mode);
+                
                 // If remember filters was disabled, clear localStorage
-                if (!rememberFilters) {
+                if (!settings.remember_filters) {
                     localStorage.removeItem('dashboardSearchQuery');
                     localStorage.removeItem('dashboardSortOption');
                 }
+
+                // Store settings in localStorage for immediate application
+                localStorage.setItem('userPreferences', JSON.stringify(settings));
 
                 // Scroll to top to show alert
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -265,8 +534,36 @@
         }
     }
 
+    function applyTheme(theme) {
+        document.body.classList.remove('dark-theme', 'light-theme');
+        document.body.classList.add(theme + '-theme');
+        localStorage.setItem('theme', theme);
+    }
+
+    function applyCompactMode(enabled) {
+        if (enabled) {
+            document.body.classList.add('compact-mode');
+        } else {
+            document.body.classList.remove('compact-mode');
+        }
+        localStorage.setItem('compactMode', enabled);
+    }
+
     function resetForm() {
-        document.getElementById('remember-filters').checked = initialRememberFilters;
+        document.getElementById('remember-filters').checked = initialSettings.remember_filters;
+        document.getElementById('theme-select').value = initialSettings.theme;
+        document.getElementById('compact-mode').checked = initialSettings.compact_mode;
+        document.getElementById('console-font-size').value = initialSettings.console_font_size;
+        document.getElementById('auto-refresh').checked = initialSettings.auto_refresh_enabled;
+        document.getElementById('refresh-interval').value = initialSettings.auto_refresh_interval;
+        document.getElementById('notification-sounds').checked = initialSettings.notification_sounds;
+        document.getElementById('show-timestamps').checked = initialSettings.show_timestamps;
+        document.getElementById('console-word-wrap').checked = initialSettings.console_word_wrap;
+        
+        updateFontSizeDisplay(initialSettings.console_font_size);
+        updateRefreshDisplay(initialSettings.auto_refresh_interval);
+        toggleRefreshInterval();
+        
         document.getElementById('success-alert').style.display = 'none';
         document.getElementById('error-alert').style.display = 'none';
     }
