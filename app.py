@@ -1,6 +1,7 @@
 import redis, os, time, threading, requests, subprocess, signal, sys, cpuinfo, json, socket, psutil, hmac
 from flask import Flask, render_template, request, session, jsonify, g
 from models.user import User
+from models.user_settings import UserSettings
 from routes.file_manager import file_manager_routes
 from routes.auth import auth_route
 from routes.process import process_routes

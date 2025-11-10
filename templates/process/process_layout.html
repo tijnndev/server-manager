@@ -1,60 +1,89 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+<div class="process-header">
+    <h3 class="process-title">
+        <script>
+        console.log("{{ process.status }}");
+        </script>
+        <i class="bi bi-box"></i> {{ process.name }}
+        {% if process.status|lower == 'running' %}
+        <span class="badge bg-success">Running</span>
+        {% else %}
+        <span class="badge bg-secondary">Stopped</span>
+        {% endif %}
+    </h3>
+    <p class="text-muted">{{ process.description or "Process management and monitoring" }}</p>
+</div>
 
-<div class="container mt-4">
-    <nav class="navbar2 navbar-expand-lg navbar-light bg-light mb-4">
-            <div class="" id="navbarNav">
-                <ul class="navbar-nav2">
-                    {% if has_permission(process.name, "console") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "console" in g.page %} active {% endif %}" href="/process/console/{{ process.name }}">Console</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "settings") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "settings" in g.page %} active {% endif %}" href="{{ url_for('process.settings', name=process.name) }}">Settings</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "file") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "file" in g.page %} active {% endif %}" href="{{ url_for('files.file_manager', name=process.name) }}">File Manager</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "discord") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "discord" in g.page %} active {% endif %}" href="{{ url_for('process.discord', name=process.name) }}">Discord</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "nginx") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "nginx" in g.page %} active {% endif %}" href="{{ url_for('nginx.nginx', name=process.name) }}">Nginx</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "email") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "email" in g.page %} active {% endif %}" href="{{ url_for('email.email', name=process.name) }}">Email</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "git") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "git" in g.page %} active {% endif %}" href="{{ url_for('git.git', name=process.name) }}">Git</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "schedule") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "schedule" in g.page %} active {% endif %}" href="{{ url_for('process.schedule', name=process.name) }}">Schedule</a>
-                    </li>
-                    {% endif %}
-                    {% if has_permission(process.name, "sub_users") %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if "subusers" in g.page %} active {% endif %}" href="{{ url_for('process.subusers', name=process.name) }}">Sub Users</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </div>
-    </nav>
-    <div>
+<ul class="nav-tabs">
+    {% if has_permission(process.name, "console") %}
+    <li>
+        <a class="nav-link {% if 'console' in g.page %}active{% endif %}" href="/process/console/{{ process.name }}">
+            <i class="bi bi-terminal"></i> Console
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "settings") %}
+    <li>
+        <a class="nav-link {% if 'settings' in g.page %}active{% endif %}" href="{{ url_for('process.settings', name=process.name) }}">
+            <i class="bi bi-gear"></i> Settings
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "file") %}
+    <li>
+        <a class="nav-link {% if 'file' in g.page %}active{% endif %}" href="{{ url_for('files.file_manager', name=process.name) }}">
+            <i class="bi bi-folder"></i> File Manager
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "discord") %}
+    <li>
+        <a class="nav-link {% if 'discord' in g.page %}active{% endif %}" href="{{ url_for('process.discord', name=process.name) }}">
+            <i class="bi bi-discord"></i> Discord
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "nginx") %}
+    <li>
+        <a class="nav-link {% if 'nginx' in g.page %}active{% endif %}" href="{{ url_for('nginx.nginx', name=process.name) }}">
+            <i class="bi bi-globe"></i> Nginx
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "email") %}
+    <li>
+        <a class="nav-link {% if 'email' in g.page %}active{% endif %}" href="{{ url_for('email.email', name=process.name) }}">
+            <i class="bi bi-envelope"></i> Email
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "git") %}
+    <li>
+        <a class="nav-link {% if 'git' in g.page %}active{% endif %}" href="{{ url_for('git.git', name=process.name) }}">
+            <i class="bi bi-git"></i> Git
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "schedule") %}
+    <li>
+        <a class="nav-link {% if 'schedule' in g.page %}active{% endif %}" href="{{ url_for('process.schedule', name=process.name) }}">
+            <i class="bi bi-calendar"></i> Schedule
+        </a>
+    </li>
+    {% endif %}
+    {% if has_permission(process.name, "sub_users") %}
+    <li>
+        <a class="nav-link {% if 'subusers' in g.page %}active{% endif %}" href="{{ url_for('process.subusers', name=process.name) }}">
+            <i class="bi bi-people"></i> Sub Users
+        </a>
+    </li>
+    {% endif %}
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane active">
         {% block process_content %}
         {% endblock process_content %}
     </div>

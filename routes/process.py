@@ -403,6 +403,7 @@ def console(name):
         status = response["status"]
     except KeyError:
         status = "Failed"
+
     return render_template('process/console.html', page_title="Console", process=process, process_status=status)
 
 

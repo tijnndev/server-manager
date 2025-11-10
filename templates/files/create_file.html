@@ -1,41 +1,44 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-    <div class="container mt-5">
-        <h1>Create New File with Code</h1>
-        <form action="{{ url_for('files.create_file', name=process.name, location=location) }}" method="POST">
-            <div class="mb-3">
-                <label for="file_name" class="form-label">File Name (with extension)</label>
-                <input type="text" class="form-control" id="file_name" name="file_name" required oninput="validateFileName()">
-            </div>
-
-            <div class="mb-3">
-                <label for="file_code" class="form-label">Code</label>
-                <div id="editor" style="height: 300px;"></div>
-                <textarea name="file_code" id="file_code" style="display: none;"></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Create File</button>
-        </form>
-
-        {% if error %}
-            <div class="alert alert-danger mt-3">{{ error }}</div>
-        {% endif %}
+<h1>Create New File with Code</h1>
+<form action="{{ url_for('files.create_file', name=process.name, location=location) }}" method="POST">
+    <div class="mb-3">
+        <label for="file_name" class="form-label">File Name (with extension)</label>
+        <input type="text" class="form-control" id="file_name" name="file_name" required oninput="onFileNameChange()">
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
-    <script>
-        var editor = ace.edit("editor", {
-            theme: "ace/theme/tomorrow_night_bright",
-        });
+    <div class="mb-3">
+        <label for="file_code" class="form-label">Code</label>
+        <div id="editor" style="height: 300px;"></div>
+        <textarea name="file_code" id="file_code" style="display: none;"></textarea>
+    </div>
 
-        document.querySelector("form").addEventListener("submit", function() {
-            document.getElementById("file_code").value = editor.getValue();
-        });
+    <button type="submit" class="btn btn-primary">Create File</button>
+</form>
 
-        function validateFileName() {
-            var fileName = document.getElementById("file_name").value;
-            document.getElementById("file_name").value = fileName.replace(/[^a-zA-Z0-9_.-]/g, '');
-        }
-    </script>
+{% if error %}
+<div class="alert alert-danger mt-3">{{ error }}</div>
+{% endif %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-modelist.min.js"></script>
+<script>
+    var editor = ace.edit("editor", {
+        theme: "ace/theme/tomorrow_night_bright",
+    });
+
+    var modelist = ace.require("ace/ext/modelist");
+
+    function onFileNameChange() {
+        var input = document.getElementById("file_name");
+        input.value = input.value.replace(/[^a-zA-Z0-9_.-]/g, '');
+        var mode = modelist.getModeForPath(input.value).mode;
+        editor.session.setMode(mode);
+    }
+
+    document.querySelector("form").addEventListener("submit", function() {
+        document.getElementById("file_code").value = editor.getValue();
+    });
+</script>
 {% endblock process_content %}

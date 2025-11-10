@@ -1,0 +1,209 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+    .settings-wrapper {
+        display: flex;
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .settings-sidebar {
+        width: 260px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0;
+        height: fit-content;
+        position: sticky;
+        top: 80px;
+    }
+
+    .settings-sidebar .sidebar-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .settings-sidebar .sidebar-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .settings-sidebar .sidebar-links {
+        padding: 1rem;
+    }
+
+    .settings-sidebar .sidebar-links a {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.875rem 1rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-secondary);
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.2s;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .settings-sidebar .sidebar-links a:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+    }
+
+    .settings-sidebar .sidebar-links a.active {
+        background: rgba(59, 130, 246, 0.15);
+        color: var(--accent-blue);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .settings-sidebar .sidebar-links a i {
+        font-size: 18px;
+        width: 20px;
+        text-align: center;
+    }
+
+    .settings-content {
+        flex: 1;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .settings-content-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+    }
+
+    .settings-content-header h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .settings-content-body {
+        padding: 1.5rem;
+    }
+
+    /* Mobile sidebar toggle */
+    #sidebarToggle {
+        display: none;
+        position: fixed;
+        bottom: 1.5rem;
+        left: 1.5rem;
+        background: var(--accent-blue);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 56px;
+        height: 56px;
+        cursor: pointer;
+        z-index: 1001;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s;
+    }
+
+    #sidebarToggle:hover {
+        transform: scale(1.05);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .settings-wrapper {
+            flex-direction: column;
+        }
+
+        .settings-sidebar {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 280px;
+            height: calc(100vh - 60px);
+            transform: translateX(-100%);
+            z-index: 1000;
+            overflow-y: auto;
+            transition: transform 0.3s ease-in-out;
+            border-radius: 0;
+            border-left: none;
+        }
+
+        .settings-sidebar.show {
+            transform: translateX(0);
+        }
+
+        #sidebarToggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-content {
+            width: 100%;
+        }
+    }
+</style>
+
+<button id="sidebarToggle" aria-label="Toggle settings sidebar">
+    <i class="bi bi-list"></i>
+</button>
+
+<div class="container-fluid">
+    <div class="settings-wrapper">
+        <nav class="settings-sidebar" id="settingsSidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <i class="bi bi-gear"></i>
+                    Settings
+                </div>
+            </div>
+            <div class="sidebar-links">
+                {% if session["role"] == "admin" %}
+                <a href="{{ url_for('settings.version_page') }}" class="{{ 'active' if page_title == 'Version Control' else '' }}">
+                    <i class="bi bi-code-square"></i>
+                    Version Control
+                </a>
+                {% endif %}
+                <a href="{{ url_for('settings.preferences_page') }}" class="{{ 'active' if page_title == 'Preferences' else '' }}">
+                    <i class="bi bi-sliders"></i>
+                    Preferences
+                </a>
+            </div>
+        </nav>
+        
+        <main class="settings-content">
+            {% block settings_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+
+<script>
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const sidebar = document.getElementById('settingsSidebar');
+
+    if (toggleBtn && sidebar) {
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768) {
+                if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+                    sidebar.classList.remove('show');
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

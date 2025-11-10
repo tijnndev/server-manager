@@ -1,35 +1,116 @@
-{% extends 'settings/version_layout.html' %}
+{% extends 'settings/settings_layout.html' %}
 
-{% block version_content %}
+{% block settings_content %}
+<div class="settings-content-header">
+    <h2>
+        <i class="bi bi-code-square"></i>
+        Version Control
+    </h2>
+</div>
+
+<div class="settings-content-body">
+    <div class="version-section">
+        <h3 class="section-title">
+            <i class="bi bi-arrow-clockwise"></i>
+            System Updates
+        </h3>
+        <p class="section-description">Check for and install updates from the Git repository.</p>
+        
+        <div class="version-card">
+            <div class="version-status-wrapper">
+                <p class="version-status" id="version-status">Press 'Check for Updates' to begin.</p>
+            </div>
+            
+            <div class="version-actions">
+                <button class="btn btn-secondary" id="check-update-btn">
+                    <i class="bi bi-search"></i> Check for Updates
+                </button>
+                <button class="btn btn-primary btn-update" id="update-btn" style="display: none;">
+                    <i class="bi bi-download"></i> Update Now
+                </button>
+            </div>
+            
+            <div class="update-result" id="update-result"></div>
+        </div>
+    </div>
+</div>
+
 <style>
+    .version-section {
+        margin-bottom: 2rem;
+    }
+
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .section-description {
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        font-size: 14px;
+    }
+
     .version-card {
-        background: var(--card-bg);
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        padding: 20px;
-        margin-top: 20px;
+        padding: 1.5rem;
+    }
+
+    .version-status-wrapper {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
     }
 
     .version-status {
-        font-weight: bold;
-        font-size: 1.1rem;
+        font-weight: 600;
+        font-size: 15px;
+        margin: 0;
+        color: var(--text-primary);
     }
 
-    .btn-update {
-        /* margin-top: 15px; */
+    .version-status.text-success {
+        color: var(--accent-green) !important;
+    }
+
+    .version-status.text-danger {
+        color: var(--accent-red) !important;
+    }
+
+    .version-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .update-result {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        white-space: pre-wrap;
+        font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        font-size: 13px;
+        color: var(--text-secondary);
+        max-height: 300px;
+        overflow-y: auto;
         display: none;
     }
-</style>
 
-<div>
-    <h2>Version Check</h2>
-    <div class="version-card">
-        <p class="version-status" id="version-status">Press 'Check for Updates' to begin.</p>
-        <button class="btn btn-secondary" id="check-update-btn">Check for Updates</button>
-        <button class="btn btn-primary btn-update" id="update-btn">Update Now</button>
-        <div class="mt-3" id="update-result" style="white-space: pre-wrap;"></div>
-    </div>    
-</div>
+    .update-result:not(:empty) {
+        display: block;
+    }
+</style>
 
 <script>
     async function checkGitStatus() {
@@ -37,8 +118,10 @@
         const updateBtn = document.getElementById("update-btn");
         const resultBox = document.getElementById("update-result");
         resultBox.textContent = "";
+        resultBox.style.display = "none";
 
         statusEl.textContent = "Checking git status...";
+        statusEl.classList.remove("text-success", "text-danger");
         updateBtn.style.display = "none";
 
         try {
@@ -58,6 +141,7 @@
             }
         } catch (err) {
             statusEl.textContent = "Failed to check git status.";
+            statusEl.classList.add("text-danger");
         }
     }
 
@@ -65,7 +149,7 @@
         const btn = document.getElementById("update-btn");
         const resultBox = document.getElementById("update-result");
         btn.disabled = true;
-        btn.textContent = "Updating...";
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Updating...';
 
         try {
             const res = await fetch("{{ url_for('settings.git_pull') }}", {
@@ -73,12 +157,14 @@
             });
             const data = await res.json();
             resultBox.textContent = data.message || "Update completed.";
+            resultBox.style.display = "block";
         } catch (err) {
             resultBox.textContent = "Error during update.";
+            resultBox.style.display = "block";
         }
 
         btn.disabled = false;
-        btn.textContent = "Update Now";
+        btn.innerHTML = '<i class="bi bi-download"></i> Update Now';
         checkGitStatus();
     }
 
@@ -86,4 +172,4 @@
     document.getElementById("update-btn").addEventListener("click", runUpdate);
 </script>
 
-{% endblock version_content %}
+{% endblock %}

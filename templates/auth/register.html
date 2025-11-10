@@ -1,97 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Server Manager</title>
     <link rel="icon" href="{{ url_for('static', filename='images/puregarden_fav.svg') }}" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <title>Server Manager - Register</title>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 </head>
+
 <body class="dark-theme">
-<div class="login-container">
-    <div class="login-card">
-        <div class="login-header">
-            <i class="fas fa-user-circle"></i>
-            <h1>Register</h1>
-        </div>
-        
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-danger alert-dismissible fade show">
-                        {{ message }}
-                        <button type="button" class="close" data-dismiss="alert">&times;</button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
 
-        <form method="post" class="login-form" id="registerForm">
-            <div class="form-group">
-                <div class="input-group">
-                    <div class="input-icon">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <input type="text" id="username" name="username" required
-                           class="form-control" placeholder="Username"
-                           autocomplete="username">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="input-group">
-                    <div class="input-icon">
-                        <i class="fas fa-envelope"></i>
-                    </div>
-                    <input type="email" id="email" name="email" required
-                           class="form-control" placeholder="Email"
-                           autocomplete="email">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="input-group">
-                    <div class="input-icon">
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    <input type="password" id="password" name="password" required
-                           class="form-control" placeholder="Password"
-                           autocomplete="new-password">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="input-group">
-                    <div class="input-icon">
-                        <i class="fas fa-lock"></i>
-                    </div>
-                    <input type="password" id="confirm_password" name="confirm_password" required
-                           class="form-control" placeholder="Confirm Password"
-                           autocomplete="new-password">
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-login">
-                <span class="button-text">Register</span>
-                <i class="fas fa-arrow-right"></i>
-            </button>
-            <span><a href="{{ url_for("auth.login") }}">Already an account?</a></span>
-            <span><a href="{{ url_for("auth.reset_password") }}">Forgot Password?</a></span>
-        </form>
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-danger">
+        {{ message }}
     </div>
-</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-icon">
+                <i class="bi bi-hdd-rack-fill"></i>
+            </div>
 
-<script>
-document.getElementById('registerForm').addEventListener('submit', function(e) {
-    const button = this.querySelector('button[type="submit"]');
-    button.classList.add('loading');
-    button.disabled = true;
-});
-</script>
+            <h2>Server Manager</h2>
+            <p style="color: var(--text-secondary); text-align: center; margin-bottom: 2rem;">Sign in to manage your
+                server</p>
+
+            <form method="post" class="login-form" id="registerForm">
+                <div class="form-group">
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <input type="text" id="username" name="username" required class="form-control"
+                            placeholder="Username" autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <input type="email" id="email" name="email" required class="form-control" placeholder="Email"
+                            autocomplete="email">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <input type="password" id="password" name="password" required class="form-control"
+                            placeholder="Password" autocomplete="new-password">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="input-group">
+                        <div class="input-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <input type="password" id="confirm_password" name="confirm_password" required
+                            class="form-control" placeholder="Confirm Password" autocomplete="new-password">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <span class="button-text">Register</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <div class="text-center mt-3 row justify-content-center">
+                <span><a href="{{ url_for("auth.login") }}">Already an account?</a></span>
+                <span><a href="{{ url_for("auth.reset_password") }}">Forgot Password?</a></span>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            const button = this.querySelector('button[type="submit"]');
+            button.classList.add('loading');
+            button.disabled = true;
+        });
+    </script>
 </body>
+
 </html>

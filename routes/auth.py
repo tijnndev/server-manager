@@ -58,7 +58,7 @@ def register():
     return render_template('auth/register.html', page_title="Register")
 
 
-@auth_route.route('/reset_password', methods=['GET', 'POST'])
+@auth_route.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
     if request.method == 'POST':
         email = request.form.get('email')
@@ -69,7 +69,7 @@ def reset_password():
             user.reset_token = token
             db.session.add(user)
             db.session.commit()
-            reset_url = url_for('reset_token', token=token, _external=True)
+            reset_url = url_for('auth.reset_token', token=token, _external=True)
 
             email_body = generate_reset_email_body(reset_url)
             send_email(
@@ -102,6 +102,8 @@ def reset_token(token):
             return redirect(url_for('auth.reset_token', token=token))
 
         user.password_hash = generate_password_hash(password)
+        user.reset_token = ""
+        db.session.add(user)
         db.session.commit()
         flash('Your password has been updated!', 'success')
         return redirect(url_for('auth.login'))

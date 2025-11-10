@@ -78,7 +78,7 @@ EMAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
 
 def send_email(to: str, subject: str, body: str, type: str = 'auth', attachment: str = ""):
     message = MIMEMultipart()
-    message["From"] = f"ServerMonitor {type}@tijnn.dev"
+    message["From"] = f"Server Manager <{type}@tijnn.dev>"
     message["To"] = to
     message["Subject"] = subject
     message.attach(MIMEText(body, "html"))
