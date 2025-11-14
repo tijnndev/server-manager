@@ -93,18 +93,40 @@ class Process(BaseModel):
                         break
 
                 if not main_command:
-                    return "Error"
+                    return "Running"
 
                 # Check if the main process is running inside the container
                 result = subprocess.run(['docker', 'exec', container_id, 'ps', 'aux'], 
                                     capture_output=True, text=True)
                 
                 if result.returncode != 0:
-                    return "Exited"
+                    return "Process Stopped"
 
                 # Parse process list to find our main command
                 processes = result.stdout
                 command_parts = main_command.split()
+                
+                # Define process name mappings for common web servers
+                # These map the MAIN_COMMAND to the actual process names that run
+                process_name_mappings = {
+                    'apache2-foreground': ['apache2', 'httpd'],
+                    'php-fpm': ['php-fpm'],
+                    'nginx': ['nginx'],
+                    'vite': ['node', 'vite'],
+                    'npm': ['node', 'npm'],
+                }
+                
+                # Determine what processes to look for
+                search_terms = []
+                for cmd_part in command_parts:
+                    if cmd_part in process_name_mappings:
+                        search_terms.extend(process_name_mappings[cmd_part])
+                    elif len(cmd_part) > 2:  # Only use meaningful parts
+                        search_terms.append(cmd_part)
+                
+                # If no specific search terms, use original command parts
+                if not search_terms:
+                    search_terms = [part for part in command_parts if len(part) > 2]
                 
                 # Look for the main command in the process list (exclude zombie processes)
                 process_running = False
@@ -115,15 +137,15 @@ class Process(BaseModel):
                         if '<defunct>' in line or ' Z ' in line:
                             continue
                             
-                        # Check if any part of our command appears in the process line
-                        if any(part in line for part in command_parts if len(part) > 2):
+                        # Check if any search term appears in the process line
+                        if any(term in line for term in search_terms):
                             process_running = True
                             matching_processes.append(line.strip())
 
                 if process_running:
                     return "Running"
                 else:
-                    return "Exited"
+                    return "Process Stopped"
 
             except subprocess.CalledProcessError as e:
                 print(e.stderr)
