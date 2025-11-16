@@ -802,9 +802,7 @@ code {
 }
 
 .modal-dialog {
-    background: var(--bg-secondary);
     border-radius: 12px;
-    border: 1px solid var(--border-color);
     max-width: 500px;
     width: 90%;
 }
