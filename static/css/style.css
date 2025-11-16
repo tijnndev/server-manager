@@ -1035,3 +1035,9 @@ a:hover {
     background: #dc3545;
     color: white;
 }
+
+
+.modal-backdrop {
+    visibility: hidden;
+    display: none;
+}
