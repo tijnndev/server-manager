@@ -2,7 +2,7 @@
 
 {% block process_content %}
 <div class="row gap-0">
-    
+
     <div class="col-xl-8">
         {% if integrations %}
         <div class="card mt-3">
@@ -57,7 +57,7 @@
                         </tr>
                         {% if integration.changes %}
                         <tr>
-                            <td colspan="6" class="bg-light">
+                            <td colspan="6" class="bg-dark">
                                 <small><strong>Changes:</strong></small>
                                 <ul class="mb-0 mt-1">
                                     {% for change in integration.changes %}
