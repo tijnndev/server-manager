@@ -1,43 +1,140 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-<div class="container mt-4">
-    <h2 class="mb-4">Git Integrations</h2>
+<div class="row gap-0">
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-git"></i> Git Version
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Git Version:</strong> {{ git_version }}
+                    </div>
+                    <div class="col-md-6 text-end">
+                        {% if show_add_repo_button %}
+                        <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Add Repository
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    {% if show_add_repo_button %}
-    <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-primary mb-3">Add Repository</a>
-    {% endif %}
-    
-    <div class="overflow-table">
-        <table class="table table-striped table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>Repository URL</th>
-                    <th>Directory</th>
-                    <th>Branch</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for integration in integrations %}
-                    <tr>
-                        <td class="text-light">{{ integration.repository_url }}</td>
-                        <td class="text-light">{{ integration.directory }}</td>
-                        <td class="text-light">{{ integration.branch }}</td>
-                        <td class="text-light">{{ integration.status }}</td>
-                        <td>
-                            <form action="{{ url_for('git.pull_latest_git', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline-block">
-                                <button type="submit" class="btn btn-sm btn-info">Pull Latest</button>
-                            </form>
-                            <form action="{{ url_for('git.remove_git_integration', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline-block ml-2">
-                                <button type="submit" class="btn btn-sm btn-danger">Remove</button>
-                            </form>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% if integrations %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-folder-git"></i> Git Repositories
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Repository URL</th>
+                            <th>Directory</th>
+                            <th>Branch</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for integration in integrations %}
+                        <tr>
+                            <td>{{ integration.repository_url }}</td>
+                            <td><code>{{ integration.directory }}</code></td>
+                            <td><span class="badge bg-info">{{ integration.branch }}</span></td>
+                            <td>
+                                <span class="badge bg-secondary">{{ integration.status }}</span>
+                                {% if integration.changes %}
+                                <br><small class="text-muted">{{ integration.changes|length }} change(s)</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form action="{{ url_for('git.pull_latest_git', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-info me-1">
+                                        <i class="bi bi-arrow-down-circle"></i> Pull Latest
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('git.remove_git_integration', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this repository?')">
+                                        <i class="bi bi-trash"></i> Remove
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% if integration.changes %}
+                        <tr>
+                            <td colspan="5" class="bg-light">
+                                <small><strong>Changes:</strong></small>
+                                <ul class="mb-0 mt-1">
+                                    {% for change in integration.changes %}
+                                    <li class="small">
+                                        <code>{{ change.file }}</code> - 
+                                        <span class="badge 
+                                            {% if change.type == 'Modified' %}bg-warning
+                                            {% elif change.type == 'Added' %}bg-success
+                                            {% elif change.type == 'Deleted' %}bg-danger
+                                            {% elif change.type == 'Untracked' %}bg-secondary
+                                            {% else %}bg-info{% endif %}">
+                                            {{ change.type }}
+                                        </span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="text-center py-4">
+                    <i class="bi bi-git display-4 text-muted"></i>
+                    <p class="text-muted mt-3">No git repositories configured for this process.</p>
+                    <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Your First Repository
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header bg-info">
+                <i class="bi bi-info-circle"></i> Git Guide
+            </div>
+            <div class="card-body">
+                <h6>Repository Management:</h6>
+                <ul class="list-unstyled small">
+                    <li><i class="bi bi-git"></i> Repositories are cloned to process directory</li>
+                    <li><i class="bi bi-arrow-down-circle"></i> Pull latest fetches and merges changes</li>
+                    <li><i class="bi bi-eye"></i> Status shows local changes</li>
+                    <li><i class="bi bi-folder"></i> Directory is relative to process root</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header bg-warning">
+                <i class="bi bi-exclamation-triangle"></i> Important Notes
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li>Changes are stashed before pulling</li>
+                    <li>Conflicts may occur during merge</li>
+                    <li>Removed repos delete .git folder</li>
+                    <li>Backup important changes first</li>
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

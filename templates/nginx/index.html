@@ -1,37 +1,90 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-<div class="container mt-4">
-    <h2>NGINX Configuration for {{ process.name }}</h2>
+<div class="row gap-0">
+    <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-globe"></i> Nginx Configuration
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="domain_name" class="form-label">Domain Name</label>
+                        <input type="text" class="form-control" id="domain_name" name="domain_name" value="{{process.domain}}" placeholder="Enter your domain name">
+                    </div>
 
-    <form method="POST">
-        <button type="submit" name="action" value="restart_nginx" class="btn btn-danger">Restart Nginx</button>
-        <div class="mb-3">
-            <label for="domain_name" class="form-label">Domain Name</label>
-            <input type="text" class="form-control" id="domain_name" name="domain_name" value="{{process.domain}}" placeholder="Enter your domain name">
+                    {% if nginx_content %}
+                        <div class="mb-3">
+                            <label for="nginx_config" class="form-label">NGINX Configuration</label>
+                            <input type="hidden" id="nginx_config" name="nginx_config">
+                            <div id="editor" style="height: 300px;"></div>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" name="action" value="save_nginx" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Configuration
+                            </button>
+                            <button type="submit" name="action" value="restart_nginx" class="btn btn-warning">
+                                <i class="bi bi-arrow-clockwise"></i> Restart Nginx
+                            </button>
+                        </div>
+                        <div class="btn-group ms-2">
+                            {% if cert_exists %}
+                                <button type="submit" name="action" value="renew_cert" class="btn btn-info">
+                                    <i class="bi bi-shield-check"></i> Renew Certificate
+                                </button>
+                                <button type="submit" name="action" value="delete_cert" class="btn btn-danger">
+                                    <i class="bi bi-shield-x"></i> Delete Certificate
+                                </button>
+                            {% else %}
+                                <button type="submit" name="action" value="add_cert" class="btn btn-success">
+                                    <i class="bi bi-shield-plus"></i> Add Certificates
+                                </button>
+                            {% endif %}
+                            <button type="submit" name="action" value="remove_nginx" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Remove Nginx
+                            </button>
+                        </div>
+                    {% else %}
+                        <button type="submit" name="action" value="create_nginx" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Create NGINX
+                        </button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card">
+            <div class="card-header bg-info">
+                <i class="bi bi-info-circle"></i> Nginx Guide
+            </div>
+            <div class="card-body">
+                <h6>Configuration Tips:</h6>
+                <ul class="list-unstyled small">
+                    <li><i class="bi bi-globe"></i> Domain name is required for SSL</li>
+                    <li><i class="bi bi-shield"></i> Certificates are auto-renewed</li>
+                    <li><i class="bi bi-arrow-clockwise"></i> Restart required after changes</li>
+                    <li><i class="bi bi-code"></i> Use proper NGINX syntax</li>
+                </ul>
+            </div>
         </div>
 
-        {% if nginx_content %}
-            <div class="nginx-config" role="alert">
-                <label for="nginx_config" class="form-label">NGINX Configuration</label>
-                <input type="hidden" id="nginx_config" name="nginx_config">
-                <div id="editor" style="height: 300px;"></div>
-
+        <div class="card mt-3">
+            <div class="card-header bg-warning">
+                <i class="bi bi-exclamation-triangle"></i> Important Notes
             </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li>Invalid config may break the site</li>
+                    <li>SSL certificates require valid domain</li>
+                    <li>Changes take effect after restart</li>
+                    <li>Backup config before major changes</li>
+                </ul>
             </div>
-                <button type="submit" name="action" value="save_nginx" class="btn btn-primary">Save Configuration</button>
-                {% if cert_exists %}
-                    <button type="submit" name="action" value="renew_cert" class="btn btn-primary">Renew Certificate</button>
-                    <button type="submit" name="action" value="delete_cert" class="btn btn-danger">Delete Certificate</button>
-                {% else %}
-                    <button type="submit" name="action" value="add_cert" class="btn btn-success">Add Certificates</button>
-                {% endif %}
-                <button type="submit" name="action" value="remove_nginx" class="btn btn-warning">Remove Nginx</button>
-
-        {% else %}
-                <button type="submit" name="action" value="create_nginx" class="btn btn-warning">Create NGINX</button>
-        {% endif %}
-    </form>
+        </div>
+    </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
 <script>

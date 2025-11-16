@@ -99,3 +99,45 @@ class GitIntegration(db.Model):
             self.status = 'Removed'
             db.session.delete(self)
             db.session.commit()
+
+    @staticmethod
+    def get_git_version():
+        """Get the current git version."""
+        try:
+            result = subprocess.run(["git", "--version"], capture_output=True, text=True, check=True)
+            return result.stdout.strip().split()[-1]
+        except subprocess.CalledProcessError:
+            return "Unknown"
+
+    def get_git_status(self):
+        """Get the git status showing changes."""
+        try:
+            result = subprocess.run(
+                ["git", "-C", self.server_directory, "status", "--porcelain"],
+                capture_output=True, text=True, check=True
+            )
+            lines = result.stdout.strip().split('\n')
+            changes = []
+            for line in lines:
+                if line.strip():
+                    status = line[:2]
+                    file_path = line[3:]
+                    change_type = ""
+                    if status[0] == 'M' or status[1] == 'M':
+                        change_type = "Modified"
+                    elif status[0] == 'A' or status[1] == 'A':
+                        change_type = "Added"
+                    elif status[0] == 'D' or status[1] == 'D':
+                        change_type = "Deleted"
+                    elif status[0] == '?' or status[1] == '?':
+                        change_type = "Untracked"
+                    elif status[0] == 'R' or status[1] == 'R':
+                        change_type = "Renamed"
+                    changes.append({
+                        'file': file_path,
+                        'type': change_type,
+                        'status': status
+                    })
+            return changes
+        except subprocess.CalledProcessError:
+            return []
