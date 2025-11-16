@@ -114,21 +114,24 @@ class GitIntegration(db.Model):
                     status = line[:2]
                     file_path = line[3:]
                     change_type = ""
+                    # Skip untracked files
+                    if status[0] == '?' or status[1] == '?':
+                        continue
                     if status[0] == 'M' or status[1] == 'M':
                         change_type = "Modified"
                     elif status[0] == 'A' or status[1] == 'A':
                         change_type = "Added"
                     elif status[0] == 'D' or status[1] == 'D':
                         change_type = "Deleted"
-                    elif status[0] == '?' or status[1] == '?':
-                        change_type = "Untracked"
                     elif status[0] == 'R' or status[1] == 'R':
                         change_type = "Renamed"
-                    changes.append({
-                        'file': file_path,
-                        'type': change_type,
-                        'status': status
-                    })
+                    
+                    if change_type:  # Only add if we have a valid change type
+                        changes.append({
+                            'file': file_path,
+                            'type': change_type,
+                            'status': status
+                        })
             return changes
         except subprocess.CalledProcessError:
             return []
