@@ -112,7 +112,7 @@
 </div>
 
 <!-- Modal for Editing Password -->
-<div class="modal fade" tabindex="-1" id="editPasswordModal" data-bs-backdrop="static">
+<div class="modal fade" tabindex="-1" id="editPasswordModal">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
             <div class="modal-header" style="background-color: var(--bg-tertiary); border-bottom: 1px solid var(--border-color);">
@@ -148,7 +148,7 @@
                                required placeholder="Confirm new password">
                     </div>
                     <div class="d-flex gap-2 justify-content-end">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditPasswordModal()">
                             <i class="bi bi-x-circle"></i> Cancel
                         </button>
                         <button type="button" class="btn btn-primary" onclick="updatePassword()">
@@ -244,7 +244,17 @@ function createEmail() {
 
 function editPassword(email) {
     document.getElementById('email-modal').value = email;
-    new bootstrap.Modal(document.getElementById('editPasswordModal')).show();
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('editPasswordModal'));
+    modal.show();
+}
+
+function closeEditPasswordModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editPasswordModal'));
+    if (modal) {
+        modal.hide();
+    }
 }
 
 function updatePassword() {
@@ -273,6 +283,7 @@ function updatePassword() {
     .then(data => {
         if (data.message) {
             alert(data.message);
+            closeEditPasswordModal();
             location.reload();
         } else if (data.error) {
             alert(`Error: ${data.error}`);
