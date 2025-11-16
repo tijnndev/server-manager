@@ -16,9 +16,10 @@ def git(name):
     
     # Get status and version info for each integration
     for integration in integrations:
-        integration.changes = integration.get_git_status()
+        integration.local_changes = integration.get_git_status()
         integration.current_commit = integration.get_current_commit()
         integration.ahead_behind = integration.get_ahead_behind()
+        integration.remote_changes = integration.get_remote_changes()
     
     return render_template('git/index.html', page_title="Git", process=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
 

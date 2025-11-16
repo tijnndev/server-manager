@@ -159,3 +159,46 @@ class GitIntegration(db.Model):
             }
         except subprocess.CalledProcessError:
             return {'ahead': 0, 'behind': 0}
+
+    def get_remote_changes(self):
+        """Get the files that would change if we pulled from remote."""
+        try:
+            # First fetch the latest
+            subprocess.run(
+                ["git", "-C", self.server_directory, "fetch", "origin", self.branch],
+                capture_output=True, text=True, check=True
+            )
+            
+            # Get diff between local and remote
+            result = subprocess.run(
+                ["git", "-C", self.server_directory, "diff", "--name-status", f"HEAD..origin/{self.branch}"],
+                capture_output=True, text=True, check=True
+            )
+            
+            lines = result.stdout.strip().split('\n')
+            changes = []
+            for line in lines:
+                if line.strip():
+                    parts = line.split('\t')
+                    if len(parts) >= 2:
+                        status = parts[0]
+                        file_path = parts[1]
+                        change_type = ""
+                        if status == 'M':
+                            change_type = "Modified"
+                        elif status == 'A':
+                            change_type = "Added"
+                        elif status == 'D':
+                            change_type = "Deleted"
+                        elif status.startswith('R'):
+                            change_type = "Renamed"
+                        else:
+                            change_type = status
+                        changes.append({
+                            'file': file_path,
+                            'type': change_type,
+                            'status': status
+                        })
+            return changes
+        except subprocess.CalledProcessError:
+            return []
