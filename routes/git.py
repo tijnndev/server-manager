@@ -13,13 +13,14 @@ def git(name):
     process = find_process_by_name(name)
     integrations = GitIntegration.query.filter_by(process_name=name).all()
     show_add_repo_button = len(integrations) == 0
-    git_version = GitIntegration.get_git_version()
     
-    # Get status for each integration
+    # Get status and version info for each integration
     for integration in integrations:
         integration.changes = integration.get_git_status()
+        integration.current_commit = integration.get_current_commit()
+        integration.ahead_behind = integration.get_ahead_behind()
     
-    return render_template('git/index.html', page_title="Git", process=process, integrations=integrations, show_add_repo_button=show_add_repo_button, git_version=git_version)
+    return render_template('git/index.html', page_title="Git", process=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
 
 
 @git_routes.route('/<name>/add_form', methods=['GET'])

@@ -100,15 +100,6 @@ class GitIntegration(db.Model):
             db.session.delete(self)
             db.session.commit()
 
-    @staticmethod
-    def get_git_version():
-        """Get the current git version."""
-        try:
-            result = subprocess.run(["git", "--version"], capture_output=True, text=True, check=True)
-            return result.stdout.strip().split()[-1]
-        except subprocess.CalledProcessError:
-            return "Unknown"
-
     def get_git_status(self):
         """Get the git status showing changes."""
         try:
@@ -141,3 +132,30 @@ class GitIntegration(db.Model):
             return changes
         except subprocess.CalledProcessError:
             return []
+
+    def get_current_commit(self):
+        """Get the current commit hash of the branch."""
+        try:
+            result = subprocess.run(
+                ["git", "-C", self.server_directory, "rev-parse", "HEAD"],
+                capture_output=True, text=True, check=True
+            )
+            return result.stdout.strip()[:8]  # Short hash
+        except subprocess.CalledProcessError:
+            return "Unknown"
+
+    def get_ahead_behind(self):
+        """Get ahead/behind status compared to origin."""
+        try:
+            # Get ahead/behind count
+            result = subprocess.run(
+                ["git", "-C", self.server_directory, "rev-list", "--count", "--left-right", f"HEAD...origin/{self.branch}"],
+                capture_output=True, text=True, check=True
+            )
+            ahead, behind = result.stdout.strip().split('\t')
+            return {
+                'ahead': int(ahead),
+                'behind': int(behind)
+            }
+        except subprocess.CalledProcessError:
+            return {'ahead': 0, 'behind': 0}

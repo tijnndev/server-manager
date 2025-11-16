@@ -2,27 +2,8 @@
 
 {% block process_content %}
 <div class="row gap-0">
+    
     <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-git"></i> Git Version
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>Git Version:</strong> {{ git_version }}
-                    </div>
-                    <div class="col-md-6 text-end">
-                        {% if show_add_repo_button %}
-                        <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-success">
-                            <i class="bi bi-plus-circle"></i> Add Repository
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
         {% if integrations %}
         <div class="card mt-3">
             <div class="card-header">
@@ -35,6 +16,7 @@
                             <th>Repository URL</th>
                             <th>Directory</th>
                             <th>Branch</th>
+                            <th>Version</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -45,6 +27,15 @@
                             <td>{{ integration.repository_url }}</td>
                             <td><code>{{ integration.directory }}</code></td>
                             <td><span class="badge bg-info">{{ integration.branch }}</span></td>
+                            <td>
+                                <code>{{ integration.current_commit }}</code>
+                                {% if integration.ahead_behind.ahead > 0 %}
+                                <br><small class="text-success">{{ integration.ahead_behind.ahead }} ahead</small>
+                                {% endif %}
+                                {% if integration.ahead_behind.behind > 0 %}
+                                <br><small class="text-warning">{{ integration.ahead_behind.behind }} behind</small>
+                                {% endif %}
+                            </td>
                             <td>
                                 <span class="badge bg-secondary">{{ integration.status }}</span>
                                 {% if integration.changes %}
@@ -66,7 +57,7 @@
                         </tr>
                         {% if integration.changes %}
                         <tr>
-                            <td colspan="5" class="bg-light">
+                            <td colspan="6" class="bg-light">
                                 <small><strong>Changes:</strong></small>
                                 <ul class="mb-0 mt-1">
                                     {% for change in integration.changes %}
