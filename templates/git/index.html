@@ -23,7 +23,7 @@
                     <tbody>
                         {% for integration in integrations %}
                         <tr>
-                            <td>{{ integration.repository_url }}</td>
+                            <td style="max-width: 200px;">{{ integration.repository_url }}</td>
                             <td><code>{{ integration.directory }}</code></td>
                             <td><span class="badge bg-info">{{ integration.branch }}</span></td>
                             <td>
@@ -64,7 +64,7 @@
                                 <small><strong><i class="bi bi-cloud-download"></i> Changes to Pull:</strong></small>
                                 <ul class="mb-0 mt-1">
                                     {% for change in integration.remote_changes %}
-                                    <li class="small">
+                                    <li class="small" style="list-style: none;">
                                         <code>{{ change.file }}</code> - 
                                         <span class="badge 
                                             {% if change.type == 'Modified' %}bg-warning
@@ -87,7 +87,7 @@
                                 <small><strong><i class="bi bi-pencil"></i> Local Changes:</strong></small>
                                 <ul class="mb-0 mt-1">
                                     {% for change in integration.local_changes %}
-                                    <li class="small">
+                                    <li class="small" style="list-style: none;">
                                         <code>{{ change.file }}</code> - 
                                         <span class="badge 
                                             {% if change.type == 'Modified' %}bg-warning
