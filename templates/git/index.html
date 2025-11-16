@@ -2,10 +2,21 @@
 
 {% block process_content %}
 <div class="row gap-0">
-
     <div class="col-xl-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-plus-circle"></i> Add Git Repository
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Connect a Git repository to this process for version control and automatic deployments.</p>
+                <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-success">
+                    <i class="bi bi-plus-circle"></i> Add Repository
+                </a>
+            </div>
+        </div>
+
         {% if integrations %}
-        <div class="card mt-3">
+        <div class="card">
             <div class="card-header">
                 <i class="bi bi-folder-git"></i> Git Repositories
             </div>
@@ -38,9 +49,13 @@
                             </td>
                             <td>
                                 <span class="badge bg-secondary">{{ integration.status }}</span>
-                                {% if integration.changes %}
-                                <br><small class="text-muted">{{ integration.changes|length }} change(s)</small>
+                                {% if integration.local_changes %}
+                                <br><small class="text-muted">{{ integration.local_changes|length }} local change(s)</small>
                                 {% endif %}
+                                {% if integration.remote_changes %}
+                                <br><small class="text-info">{{ integration.remote_changes|length }} to pull</small>
+                                {% endif %}
+                                <!-- Debug: {{ integration.remote_changes }} -->
                             </td>
                             <td>
                                 <form action="{{ url_for('git.pull_latest_git', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline">
@@ -55,12 +70,35 @@
                                 </form>
                             </td>
                         </tr>
-                        {% if integration.changes %}
+                        {% if integration.remote_changes %}
                         <tr>
-                            <td colspan="6" class="bg-dark">
-                                <small><strong>Changes:</strong></small>
+                            <td colspan="6" style="background-color: var(--bg-tertiary); padding: 1rem;">
+                                <small><strong><i class="bi bi-cloud-download"></i> Changes to Pull:</strong></small>
                                 <ul class="mb-0 mt-1">
-                                    {% for change in integration.changes %}
+                                    {% for change in integration.remote_changes %}
+                                    <li class="small">
+                                        <code>{{ change.file }}</code> - 
+                                        <span class="badge 
+                                            {% if change.type == 'Modified' %}bg-warning
+                                            {% elif change.type == 'Added' %}bg-success
+                                            {% elif change.type == 'Deleted' %}bg-danger
+                                            {% elif change.type == 'Renamed' %}bg-info
+                                            {% elif change.type == 'Commit' %}bg-primary
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ change.type }}
+                                        </span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if integration.local_changes %}
+                        <tr>
+                            <td colspan="6" style="background-color: var(--bg-tertiary); padding: 1rem;">
+                                <small><strong><i class="bi bi-pencil"></i> Local Changes:</strong></small>
+                                <ul class="mb-0 mt-1">
+                                    {% for change in integration.local_changes %}
                                     <li class="small">
                                         <code>{{ change.file }}</code> - 
                                         <span class="badge 
@@ -82,18 +120,6 @@
                 </table>
             </div>
         </div>
-        {% else %}
-        <div class="card mt-3">
-            <div class="card-body">
-                <div class="text-center py-4">
-                    <i class="bi bi-git display-4 text-muted"></i>
-                    <p class="text-muted mt-3">No git repositories configured for this process.</p>
-                    <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> Add Your First Repository
-                    </a>
-                </div>
-            </div>
-        </div>
         {% endif %}
     </div>
 
@@ -107,7 +133,8 @@
                 <ul class="list-unstyled small">
                     <li><i class="bi bi-git"></i> Repositories are cloned to process directory</li>
                     <li><i class="bi bi-arrow-down-circle"></i> Pull latest fetches and merges changes</li>
-                    <li><i class="bi bi-eye"></i> Status shows local changes</li>
+                    <li><i class="bi bi-cloud-download"></i> Remote changes shown when available</li>
+                    <li><i class="bi bi-pencil"></i> Local changes tracked separately</li>
                     <li><i class="bi bi-folder"></i> Directory is relative to process root</li>
                 </ul>
             </div>
@@ -119,10 +146,11 @@
             </div>
             <div class="card-body">
                 <ul class="small mb-0">
-                    <li>Changes are stashed before pulling</li>
+                    <li>Local changes are stashed before pulling</li>
                     <li>Conflicts may occur during merge</li>
                     <li>Removed repos delete .git folder</li>
                     <li>Backup important changes first</li>
+                    <li>Page refreshes to check for updates</li>
                 </ul>
             </div>
         </div>

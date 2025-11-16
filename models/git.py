@@ -175,7 +175,7 @@ class GitIntegration(db.Model):
                 capture_output=True, text=True, check=True
             )
             
-            lines = result.stdout.strip().split('\n')
+            lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
             changes = []
             for line in lines:
                 if line.strip():
@@ -199,6 +199,27 @@ class GitIntegration(db.Model):
                             'type': change_type,
                             'status': status
                         })
+            
+            # If no file changes but we're behind, get the commit messages
+            if not changes:
+                ahead_behind = self.get_ahead_behind()
+                if ahead_behind.get('behind', 0) > 0:
+                    # Get commit log to show what commits are available
+                    result = subprocess.run(
+                        ["git", "-C", self.server_directory, "log", "--oneline", f"HEAD..origin/{self.branch}"],
+                        capture_output=True, text=True, check=True
+                    )
+                    if result.stdout.strip():
+                        # Return commits as changes
+                        commits = result.stdout.strip().split('\n')
+                        for commit in commits:
+                            changes.append({
+                                'file': commit,
+                                'type': 'Commit',
+                                'status': 'C'
+                            })
+            
             return changes
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            print(f"Error getting remote changes: {e}")
             return []
