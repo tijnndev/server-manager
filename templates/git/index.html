@@ -3,18 +3,6 @@
 {% block process_content %}
 <div class="row gap-0">
     <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-plus-circle"></i> Add Git Repository
-            </div>
-            <div class="card-body">
-                <p class="text-muted mb-3">Connect a Git repository to this process for version control and automatic deployments.</p>
-                <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-success">
-                    <i class="bi bi-plus-circle"></i> Add Repository
-                </a>
-            </div>
-        </div>
-
         {% if integrations %}
         <div class="card">
             <div class="card-header">
@@ -118,6 +106,18 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-plus-circle"></i> Add Git Repository
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Connect a Git repository to this process for version control and automatic deployments.</p>
+                <a href="{{ url_for('git.add_git_form', name=process.name) }}" class="btn btn-success">
+                    <i class="bi bi-plus-circle"></i> Add Repository
+                </a>
             </div>
         </div>
         {% endif %}
