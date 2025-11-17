@@ -58,18 +58,24 @@ fi
         dockerfile_content = """FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /server
-COPY . /server
 
-# Install wget and jq for downloading Minecraft server
+# Install wget and jq
 RUN apt-get update && apt-get install -y wget jq && apt-get clean
 
-# Make download script executable
-RUN chmod +x download-server.sh
+# Download latest Minecraft Vanilla server
+RUN LATEST_VERSION=$(wget -qO- https://launchermeta.mojang.com/mc/game/version_manifest.json | jq -r '.latest.release') && \
+    SERVER_URL=$(wget -qO- https://launchermeta.mojang.com/mc/game/version_manifest.json | jq -r ".versions[] | select(.id == \"$LATEST_VERSION\") | .url") && \
+    DOWNLOAD_URL=$(wget -qO- "$SERVER_URL" | jq -r '.downloads.server.url') && \
+    wget -O server.jar "$DOWNLOAD_URL"
 
 # Accept EULA
 RUN echo "eula=true" > eula.txt
 
-CMD ["sh", "-c", "java -Xmx2G -Xms1G -jar server.jar nogui"]
+# Expose default Minecraft port
+EXPOSE 25565
+
+# Start the server
+CMD ["java", "-Xmx2G", "-Xms1G", "-jar", "server.jar", "nogui"]
 """
         with open(dockerfile_path, "w") as f:
             f.write(dockerfile_content)
@@ -90,12 +96,8 @@ def create_docker_compose_file(process, compose_file_path):
             dockerfile: Dockerfile
         volumes:
             - .:/server
-        # Always keep container running - process will be controlled via docker exec
-        command: ["tail", "-f", "/dev/null"]
         ports:
             - "{25565 + process.port_id}:{25565 + process.port_id}"
-        environment:
-            - MAIN_COMMAND={json.dumps(process.command or "./download-server.sh && java -Xmx2G -Xms1G -jar server.jar nogui")}
         restart: unless-stopped
         stdin_open: true
         tty: true
