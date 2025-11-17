@@ -38,7 +38,7 @@ view-distance=10
             if dependencies and len(dependencies) > 0:
                 mc_version = dependencies[0].strip()
         
-        dockerfile_content = """FROM openjdk:21-jdk-slim
+        dockerfile_content = """FROM openjdk:21-slim
 WORKDIR /server
 COPY . /server
 
