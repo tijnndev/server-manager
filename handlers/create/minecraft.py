@@ -31,23 +31,40 @@ allow-flight=false
 view-distance=10
 """)
         
-        # Get Minecraft version from dependencies or use default
-        mc_version = "latest"
-        if process.dependencies:
-            dependencies = process.dependencies.split(",") if isinstance(process.dependencies, str) else process.dependencies
-            if dependencies and len(dependencies) > 0:
-                mc_version = dependencies[0].strip()
+        # Create download script
+        download_script_path = os.path.join(directory, 'download-server.sh')
+        with open(download_script_path, "w") as f:
+            f.write("""#!/bin/bash
+set -e
+
+if [ ! -f server.jar ]; then
+    echo "Downloading Minecraft server..."
+    LATEST_VERSION=$(wget -qO- https://launchermeta.mojang.com/mc/game/version_manifest.json | jq -r '.latest.release')
+    echo "Latest Minecraft version: $LATEST_VERSION"
+    
+    SERVER_URL=$(wget -qO- https://launchermeta.mojang.com/mc/game/version_manifest.json | jq -r ".versions[] | select(.id == \\"$LATEST_VERSION\\") | .url")
+    echo "Fetching version manifest from: $SERVER_URL"
+    
+    DOWNLOAD_URL=$(wget -qO- "$SERVER_URL" | jq -r '.downloads.server.url')
+    echo "Downloading server from: $DOWNLOAD_URL"
+    
+    wget -O server.jar "$DOWNLOAD_URL"
+    echo "Download complete!"
+else
+    echo "Server JAR already exists, skipping download."
+fi
+""")
         
-        dockerfile_content = """FROM eclipse-temurin:21-jdk
+        dockerfile_content = """FROM eclipse-temurin:21-jre-jammy
+
 WORKDIR /server
 COPY . /server
 
-# Download Minecraft server jar if not present
-RUN if [ ! -f server.jar ]; then \\
-    apt-get update && apt-get install -y wget && \\
-    wget -O server.jar https://launcher.mojang.com/v1/objects/$(wget -qO- https://launchermeta.mojang.com/mc/game/version_manifest.json | grep -oP '"latest":.*?"release":"\\K[^"]+' | head -1 | xargs -I {{}} wget -qO- https://launchermeta.mojang.com/mc/game/version_manifest.json | grep -oP '"id":"{{}}.*?"url":"\\K[^"]+' | xargs wget -qO- | grep -oP '"server":.*?"url":"https://launcher.mojang.com/v1/objects/\\K[^/]+' | head -1)/server.jar && \\
-    apt-get clean; \\
-fi
+# Install wget and jq for downloading Minecraft server
+RUN apt-get update && apt-get install -y wget jq && apt-get clean
+
+# Make download script executable
+RUN chmod +x download-server.sh
 
 # Accept EULA
 RUN echo "eula=true" > eula.txt
@@ -78,7 +95,7 @@ def create_docker_compose_file(process, compose_file_path):
         ports:
             - "{25565 + process.port_id}:{25565 + process.port_id}"
         environment:
-            - MAIN_COMMAND={json.dumps(process.command or "java -Xmx2G -Xms1G -jar server.jar nogui")}
+            - MAIN_COMMAND={json.dumps(process.command or "./download-server.sh && java -Xmx2G -Xms1G -jar server.jar nogui")}
         restart: unless-stopped
         stdin_open: true
         tty: true
