@@ -114,6 +114,7 @@ class Process(BaseModel):
                     'nginx': ['nginx'],
                     'vite': ['node', 'vite'],
                     'npm': ['node', 'npm'],
+                    'minecraft': ['java'],
                 }
                 
                 # Determine what processes to look for

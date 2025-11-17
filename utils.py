@@ -162,6 +162,7 @@ def check_process_running_in_container(name):
             'nginx': ['nginx'],
             'vite': ['node', 'vite'],
             'npm': ['node', 'npm'],
+            'minecraft': ['java'],
         }
         
         # Determine what processes to look for
