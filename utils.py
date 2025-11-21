@@ -2,6 +2,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+import base64
 import smtplib
 from flask import current_app
 import os
@@ -9,6 +10,7 @@ import subprocess
 import random
 import string
 import importlib
+import textwrap
 from datetime import datetime
 from collections import defaultdict
 from queue import Queue
@@ -622,6 +624,51 @@ def find_types():
     return types
 
 
+def _send_command_to_minecraft_console(container_id, process_name, command, timeout):
+    """Send a command to a Minecraft JVM by streaming into the server's STDIN."""
+    sanitized_command = command.rstrip('\n') + '\n'
+    encoded_command = base64.b64encode(sanitized_command.encode('utf-8')).decode('ascii')
+
+    shell_script = textwrap.dedent(
+        f"""
+        MC_PID=$(pgrep -af 'java' | head -n 1 | awk '{{print $1}}')
+        if [ -z "$MC_PID" ]; then
+            echo "Minecraft JVM process not found" >&2
+            exit 44
+        fi
+        echo '{encoded_command}' | base64 -d > /proc/$MC_PID/fd/0
+        """
+    )
+
+    result = subprocess.run(
+        ['docker', 'exec', container_id, '/bin/sh', '-c', shell_script],
+        capture_output=True,
+        text=True,
+        timeout=timeout
+    )
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if result.returncode == 0:
+        live_log_streams[process_name].put(f'[{timestamp}] Command delivered to Minecraft JVM')
+        return {
+            "success": True,
+            "stdout": "Command forwarded to Minecraft server console",
+            "stderr": "",
+            "return_code": 0
+        }
+
+    error_message = result.stderr.strip() or "Failed to forward command to Minecraft server"
+    live_log_streams[process_name].put(f'[{timestamp}] [ERROR] {error_message}')
+    return {
+        "success": False,
+        "error": error_message,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "return_code": result.returncode
+    }
+
+
 def execute_command_in_container(name, command, working_dir="/app", timeout=30):
     """Execute a command inside the container and return the result"""
     try:
@@ -646,55 +693,10 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
         process = find_process_by_name(name)
         is_minecraft = process and process.type == 'minecraft'
 
-        # For Minecraft servers, use docker attach to send commands
+        # For Minecraft servers, feed STDIN directly (mirrors how Pterodactyl streams commands)
         if is_minecraft:
-            try:
-                # Log the command to the live stream
-                live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
-                
-                # Use docker attach to send the command to the Minecraft console
-                # The command needs to be sent with a newline to stdin
-                attach_process = subprocess.Popen(
-                    ['docker', 'attach', container_id],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-                
-                # Send the command followed by newline
-                try:
-                    if attach_process.stdin:
-                        attach_process.stdin.write(f"{command}\n")
-                        attach_process.stdin.flush()
-                        attach_process.stdin.close()
-                    
-                    # Wait briefly for the command to be sent and executed
-                    import time
-                    time.sleep(0.3)
-                    
-                    # Terminate the attach process
-                    attach_process.terminate()
-                    try:
-                        attach_process.wait(timeout=2)
-                    except subprocess.TimeoutExpired:
-                        attach_process.kill()
-                    
-                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Command sent to Minecraft server')
-                    
-                    return {
-                        "success": True,
-                        "stdout": "Command sent to Minecraft server console",
-                        "stderr": "",
-                        "return_code": 0
-                    }
-                except Exception as e:
-                    attach_process.kill()
-                    raise e
-                    
-            except Exception as e:
-                live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] [ERROR] Failed to send command: {str(e)}')
-                return {"success": False, "error": f"Failed to send command to Minecraft server: {str(e)}"}
+            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
+            return _send_command_to_minecraft_console(container_id, name, command, timeout)
 
         # For non-Minecraft containers, use the original approach
         # Execute the command inside the container
