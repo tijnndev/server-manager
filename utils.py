@@ -631,12 +631,15 @@ def _send_command_to_minecraft_console(container_id, process_name, command, time
 
     shell_script = textwrap.dedent(
         f"""
-        MC_PID=$(pgrep -af 'java' | head -n 1 | awk '{{print $1}}')
+        MC_PID=$(ps -eo pid,command | grep -E 'fabric-server-launch.jar|minecraft_server.jar|server.jar' | grep -v grep | head -n 1 | awk '{{print $1}}')
+        if [ -z "$MC_PID" ]; then
+            MC_PID=$(pgrep -af 'java' | head -n 1 | awk '{{print $1}}')
+        fi
         if [ -z "$MC_PID" ]; then
             echo "Minecraft JVM process not found" >&2
             exit 44
         fi
-        echo '{encoded_command}' | base64 -d > /proc/$MC_PID/fd/0
+        echo '{encoded_command}' | base64 -d | tee /proc/$MC_PID/fd/0 > /dev/null
         """
     )
 
