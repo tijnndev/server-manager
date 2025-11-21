@@ -675,6 +675,8 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                     # Wait briefly for the command to be sent
                     import time
                     time.sleep(0.5)
+
+                    print(attach_process.stdout)
                     
                     # Terminate the attach process
                     attach_process.terminate()
