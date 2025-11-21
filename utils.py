@@ -647,6 +647,8 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
         minecraft_workdir = "/server"  # Default Minecraft working directory
         env_result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
                                    capture_output=True, text=True)
+        print(env_result.stdout)
+        print(is_minecraft)
         if env_result.returncode == 0:
             for line in env_result.stdout.split('\n'):
                 if line.startswith('MINECRAFT_SERVER='):
