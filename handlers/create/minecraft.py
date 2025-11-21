@@ -14,16 +14,18 @@ RUN apt-get update && \
 COPY eula.txt .
 COPY server.properties .
 
-# Create startup script that installs Fabric on first run
+# Create startup script that installs Fabric on first run and logs output
 RUN echo '#!/bin/bash' > /start.sh && \
+    echo 'LOG_FILE=/tmp/minecraft_process.log' >> /start.sh && \
+    echo 'touch $LOG_FILE' >> /start.sh && \
     echo 'if [ ! -f fabric-server-launch.jar ]; then' >> /start.sh && \
-    echo '  echo "Installing Fabric server..."' >> /start.sh && \
+    echo '  echo "Installing Fabric server..." | tee -a $LOG_FILE' >> /start.sh && \
     echo '  LATEST_VERSION=$(wget -qO- https://meta.fabricmc.net/v2/versions/game | jq -r ".[0].version")' >> /start.sh && \
     echo '  INSTALLER_URL=$(wget -qO- https://meta.fabricmc.net/v2/versions/installer | jq -r ".[0].url")' >> /start.sh && \
     echo '  wget -O fabric-installer.jar "$INSTALLER_URL"' >> /start.sh && \
-    echo '  java -jar fabric-installer.jar server -downloadMinecraft -mc-version "$LATEST_VERSION"' >> /start.sh && \
+    echo '  java -jar fabric-installer.jar server -downloadMinecraft -mc-version "$LATEST_VERSION" 2>&1 | tee -a $LOG_FILE' >> /start.sh && \
     echo 'fi' >> /start.sh && \
-    echo 'exec java -Xmx2G -Xms1G -jar fabric-server-launch.jar nogui' >> /start.sh && \
+    echo 'exec java -Xmx2G -Xms1G -jar fabric-server-launch.jar nogui 2>&1 | tee -a $LOG_FILE' >> /start.sh && \
     chmod +x /start.sh
 
 # Set environment variable to mark this as a Minecraft server

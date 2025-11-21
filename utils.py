@@ -662,10 +662,19 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                 # First, log the command to live stream
                 live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
                 
-                log_file = f"/tmp/{name}_process.log"
+                minecraft_log_file = "/tmp/minecraft_process.log"
+                
+                # Get the current log file size before sending command
+                size_before = 0
+                try:
+                    size_result = subprocess.run(['docker', 'exec', container_id, 'wc', '-c', minecraft_log_file],
+                                                capture_output=True, text=True, timeout=2)
+                    if size_result.returncode == 0:
+                        size_before = int(size_result.stdout.strip().split()[0])
+                except Exception:
+                    pass
                 
                 # Send the command to the Minecraft server console using stdin
-                # The output from Minecraft will appear in the container logs
                 pipe_command = f'''
                     cd {minecraft_workdir}
                     PID=$(pgrep -f "java.*fabric-server-launch.jar")
@@ -681,28 +690,34 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                                       capture_output=True, text=True, timeout=5)
                 
                 if result.returncode == 0:
-                    # Wait a moment for Minecraft to process the command and output response
+                    # Wait for Minecraft to process the command and write output
                     import time
-                    time.sleep(0.5)
+                    time.sleep(1)
                     
-                    # Get the latest container logs (last 10 lines) to capture the Minecraft response
+                    # Get new logs that were written after the command
                     try:
-                        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-                        log_result = subprocess.run(
-                            ['docker-compose', 'logs', '--tail', '10', '--no-log-prefix', name],
-                            capture_output=True, text=True, cwd=process_dir, timeout=3
-                        )
-                        
-                        if log_result.returncode == 0 and log_result.stdout:
-                            # Parse the logs to find recent responses
-                            log_lines = log_result.stdout.strip().split('\n')
-                            # Get last few lines that might contain the command response
-                            for line in log_lines[-5:]:  # Last 5 lines
-                                if line.strip():
-                                    # Add to live stream so it shows in console
-                                    live_log_streams[name].put(f'{line.strip()}')
+                        # Get current file size
+                        size_result = subprocess.run(['docker', 'exec', container_id, 'wc', '-c', minecraft_log_file],
+                                                    capture_output=True, text=True, timeout=2)
+                        if size_result.returncode == 0:
+                            size_after = int(size_result.stdout.strip().split()[0])
+                            
+                            # If new content was added, get the last lines
+                            if size_after > size_before:
+                                tail_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-20', minecraft_log_file],
+                                                            capture_output=True, text=True, timeout=2)
+                                if tail_result.returncode == 0 and tail_result.stdout:
+                                    log_lines = tail_result.stdout.strip().split('\n')
+                                    # Get the last few lines (likely containing the command response)
+                                    for line in log_lines[-10:]:
+                                        if line.strip():
+                                            live_log_streams[name].put(line.strip())
+                            else:
+                                # No new logs detected, still show success
+                                live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Command executed (check server logs for response)')
                     except Exception as log_err:
                         print(f"[DEBUG] Failed to capture Minecraft response: {log_err}")
+                        live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Command sent (response may appear in server logs)')
                     
                     return {
                         "success": True,
