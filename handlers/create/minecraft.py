@@ -3,7 +3,6 @@ from classes.result import Result
 
 def create_docker_file(process, dockerfile_path):
     try:
-        
         dockerfile_content = """FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /server
@@ -26,11 +25,6 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo 'fi' >> /start.sh && \
     echo 'exec java -Xmx2G -Xms1G -jar fabric-server-launch.jar nogui' >> /start.sh && \
     chmod +x /start.sh
-
-# Set marker for Minecraft server type
-ENV MINECRAFT_SERVER=true
-
-EXPOSE 25608
 
 CMD ["/start.sh"]
 """
@@ -74,10 +68,10 @@ motd=A Minecraft Server
         build:
             context: .
             dockerfile: Dockerfile
-        volumes:
-            - ./server-data:/server
         ports:
             - "{25565 + process.port_id}:{25565 + process.port_id}"
+        volumes:
+            - ./server-data:/server
         restart: unless-stopped
         stdin_open: true
         tty: true
