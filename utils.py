@@ -11,8 +11,7 @@ import random
 import string
 import importlib
 import textwrap
-import time
-from datetime import datetime, timezone
+from datetime import datetime
 from collections import defaultdict
 from queue import Queue
 from models.process import Process
@@ -673,23 +672,6 @@ def _send_command_to_minecraft_console(container_id, process_name, command, time
     }
 
 
-def _collect_recent_container_logs(container_id, since_time, tail=200):
-    """Collect container logs emitted after the provided timestamp."""
-    try:
-        since_value = str(int(max(0, since_time.timestamp() - 1)))
-        logs_result = subprocess.run(
-            ['docker', 'logs', container_id, '--since', since_value, '--tail', str(tail)],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if logs_result.returncode == 0:
-            return logs_result.stdout.strip()
-    except Exception as exc:
-        print(f"[minecraft_logs] Failed to capture logs: {exc}")
-    return ""
-
-
 def execute_command_in_container(name, command, working_dir="/app", timeout=30):
     """Execute a command inside the container and return the result"""
     try:
@@ -716,18 +698,8 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
 
         # For Minecraft servers, feed STDIN directly (mirrors how Pterodactyl streams commands)
         if is_minecraft:
-            command_timestamp = datetime.now(timezone.utc)
-            display_timestamp = command_timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S")
-            live_log_streams[name].put(f'[{display_timestamp}] $ {command}')
-            send_result = _send_command_to_minecraft_console(container_id, name, command, timeout)
-
-            if send_result.get("success"):
-                # Give the JVM a brief moment to flush logs, then capture recent output
-                time.sleep(0.3)
-                recent_logs = _collect_recent_container_logs(container_id, command_timestamp, tail=120)
-                if recent_logs:
-                    send_result["stdout"] = recent_logs
-            return send_result
+            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
+            return _send_command_to_minecraft_console(container_id, name, command, timeout)
 
         # For non-Minecraft containers, use the original approach
         # Execute the command inside the container
