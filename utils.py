@@ -11,8 +11,8 @@ import random
 import string
 import importlib
 import textwrap
-from datetime import datetime
 import time
+from datetime import datetime, timezone
 from collections import defaultdict
 from queue import Queue
 from models.process import Process
@@ -673,6 +673,23 @@ def _send_command_to_minecraft_console(container_id, process_name, command, time
     }
 
 
+def _collect_recent_container_logs(container_id, since_time, tail=200):
+    """Collect container logs emitted after the provided timestamp."""
+    try:
+        since_value = str(int(max(0, since_time.timestamp() - 1)))
+        logs_result = subprocess.run(
+            ['docker', 'logs', container_id, '--since', since_value, '--tail', str(tail)],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if logs_result.returncode == 0:
+            return logs_result.stdout.strip()
+    except Exception as exc:
+        print(f"[minecraft_logs] Failed to capture logs: {exc}")
+    return ""
+
+
 def execute_command_in_container(name, command, working_dir="/app", timeout=30):
     """Execute a command inside the container and return the result"""
     try:
@@ -699,50 +716,18 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
 
         # For Minecraft servers, feed STDIN directly (mirrors how Pterodactyl streams commands)
         if is_minecraft:
-            ts_now = datetime.utcnow().isoformat() + 'Z'
-            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
-
+            command_timestamp = datetime.now(timezone.utc)
+            display_timestamp = command_timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+            live_log_streams[name].put(f'[{display_timestamp}] $ {command}')
             send_result = _send_command_to_minecraft_console(container_id, name, command, timeout)
 
-            # If send failed, return immediately
-            if not send_result.get('success'):
-                return send_result
-
-            # Poll docker logs for new lines since we started sending the command
-            end_time = time.time() + timeout
-            collected = []
-            while time.time() < end_time:
-                try:
-                    logs = subprocess.run(
-                        ['docker', 'logs', '--since', ts_now, '--timestamps', container_id],
-                        capture_output=True,
-                        text=True,
-                        timeout=2
-                    )
-                except subprocess.TimeoutExpired:
-                    time.sleep(0.1)
-                    continue
-
-                if logs.returncode == 0 and logs.stdout:
-                    for line in logs.stdout.splitlines():
-                        line = line.strip()
-                        if line:
-                            collected.append(line)
-                            # add raw line to live stream for UI (formatting happens in the route)
-                            live_log_streams[name].put(line)
-                    # break early if we received something
-                    if collected:
-                        break
-
-                time.sleep(0.1)
-
-            stdout_text = "\n".join(collected)
-            return {
-                "success": True,
-                "stdout": stdout_text,
-                "stderr": "",
-                "return_code": 0
-            }
+            if send_result.get("success"):
+                # Give the JVM a brief moment to flush logs, then capture recent output
+                time.sleep(0.3)
+                recent_logs = _collect_recent_container_logs(container_id, command_timestamp, tail=120)
+                if recent_logs:
+                    send_result["stdout"] = recent_logs
+            return send_result
 
         # For non-Minecraft containers, use the original approach
         # Execute the command inside the container
