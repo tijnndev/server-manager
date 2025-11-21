@@ -642,69 +642,61 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
         if result.returncode != 0 or result.stdout.strip() != 'running':
             return {"success": False, "error": "Container is not in running state"}
 
-        # Check if this is a Minecraft server
-        is_minecraft = False
-        minecraft_workdir = "/server"  # Default Minecraft working directory
-        env_result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
-                                   capture_output=True, text=True)
-        print(env_result.stdout)
-        if env_result.returncode == 0:
-            for line in env_result.stdout.split('\n'):
-                if line.startswith('MINECRAFT_SERVER='):
-                    is_minecraft = True
-                    break
-        
-        print(is_minecraft)        
+        # Check if this is a Minecraft server by checking the process type in database
+        process = find_process_by_name(name)
+        is_minecraft = process and process.type == 'minecraft'
 
-        # For Minecraft servers, send command directly to the running Java process via stdin
+        # For Minecraft servers, use docker attach to send commands
         if is_minecraft:
-            # Use docker attach with stdin to send the command
-            # We need to send the command followed by a newline to the container's main process
             try:
-                # Use docker exec to attach to the running process and send the command
-                # First, log the command
-                log_file = f"/tmp/{name}_process.log"
-                subprocess.run(['docker', 'exec', container_id, 'sh', '-c', 
-                               f'cd {minecraft_workdir} && echo "[$(date -u +\'%Y-%m-%d %H:%M:%S\')] $ {command}" >> {log_file}'],
-                              capture_output=True, text=True, timeout=5)
+                # Log the command to the live stream
+                live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
                 
-                # Now send the command to the Minecraft server console using a named pipe approach
-                # This approach writes to the stdin of the main Java process
-                pipe_command = f'''
-                    cd {minecraft_workdir}
-                    PID=$(pgrep -f "java.*fabric-server-launch.jar")
-                    if [ -n "$PID" ]; then
-                        echo "{command}" | tee -a {log_file} > /proc/$PID/fd/0 2>&1
-                        echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Command sent to Minecraft server" >> {log_file}
-                    else
-                        echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ERROR: Minecraft server process not found" >> {log_file}
-                        exit 1
-                    fi
-                '''
-                result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', pipe_command],
-                                      capture_output=True, text=True, timeout=timeout)
+                # Use docker attach to send the command to the Minecraft console
+                # The command needs to be sent with a newline to stdin
+                attach_process = subprocess.Popen(
+                    ['docker', 'attach', container_id],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
                 
-                print(result.stdout)
-                if result.returncode == 0:
-                    # Add success message to log
-                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
-                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Command sent to Minecraft server successfully')
+                # Send the command followed by newline
+                try:
+                    if attach_process.stdin:
+                        attach_process.stdin.write(f"{command}\n")
+                        attach_process.stdin.flush()
+                        
+                        # Detach from the container using the escape sequence (Ctrl+P, Ctrl+Q)
+                        # Note: This might not work in all cases, so we'll use a timeout
+                        attach_process.stdin.close()
+                    
+                    # Wait briefly for the command to be sent
+                    import time
+                    time.sleep(0.5)
+                    
+                    # Terminate the attach process
+                    attach_process.terminate()
+                    try:
+                        attach_process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        attach_process.kill()
+                    
+                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Command sent to Minecraft server')
+                    
                     return {
                         "success": True,
-                        "stdout": "Command sent to Minecraft server",
+                        "stdout": "Command sent to Minecraft server console",
                         "stderr": "",
                         "return_code": 0
                     }
-                else:
-                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] [ERROR] Failed to send command to Minecraft server')
-                    return {
-                        "success": False,
-                        "error": "Failed to send command to Minecraft server process",
-                        "stdout": result.stdout,
-                        "stderr": result.stderr,
-                        "return_code": result.returncode
-                    }
+                except Exception as e:
+                    attach_process.kill()
+                    raise e
+                    
             except Exception as e:
+                live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] [ERROR] Failed to send command: {str(e)}')
                 return {"success": False, "error": f"Failed to send command to Minecraft server: {str(e)}"}
 
         # For non-Minecraft containers, use the original approach
