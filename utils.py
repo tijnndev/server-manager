@@ -642,6 +642,66 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
         if result.returncode != 0 or result.stdout.strip() != 'running':
             return {"success": False, "error": "Container is not in running state"}
 
+        # Check if this is a Minecraft server
+        is_minecraft = False
+        env_result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
+                                   capture_output=True, text=True)
+        if env_result.returncode == 0:
+            for line in env_result.stdout.split('\n'):
+                if line.startswith('MINECRAFT_SERVER='):
+                    is_minecraft = True
+                    break
+
+        # For Minecraft servers, send command directly to the running Java process via stdin
+        if is_minecraft:
+            # Use docker attach with stdin to send the command
+            # We need to send the command followed by a newline to the container's main process
+            try:
+                # Use docker exec to attach to the running process and send the command
+                # First, log the command
+                log_file = f"/tmp/{name}_process.log"
+                subprocess.run(['docker', 'exec', container_id, 'sh', '-c', 
+                               f'echo "[$(date -u +\'%Y-%m-%d %H:%M:%S\')] $ {command}" >> {log_file}'],
+                              capture_output=True, text=True, timeout=5)
+                
+                # Now send the command to the Minecraft server console using a named pipe approach
+                # This approach writes to the stdin of the main Java process
+                pipe_command = f'''
+                    PID=$(pgrep -f "java.*fabric-server-launch.jar")
+                    if [ -n "$PID" ]; then
+                        echo "{command}" | tee -a {log_file} > /proc/$PID/fd/0 2>&1
+                        echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Command sent to Minecraft server" >> {log_file}
+                    else
+                        echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ERROR: Minecraft server process not found" >> {log_file}
+                        exit 1
+                    fi
+                '''
+                result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', pipe_command],
+                                      capture_output=True, text=True, timeout=timeout)
+                
+                if result.returncode == 0:
+                    # Add success message to log
+                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
+                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Command sent to Minecraft server successfully')
+                    return {
+                        "success": True,
+                        "stdout": "Command sent to Minecraft server",
+                        "stderr": "",
+                        "return_code": 0
+                    }
+                else:
+                    live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] [ERROR] Failed to send command to Minecraft server')
+                    return {
+                        "success": False,
+                        "error": "Failed to send command to Minecraft server process",
+                        "stdout": result.stdout,
+                        "stderr": result.stderr,
+                        "return_code": result.returncode
+                    }
+            except Exception as e:
+                return {"success": False, "error": f"Failed to send command to Minecraft server: {str(e)}"}
+
+        # For non-Minecraft containers, use the original approach
         # Execute the command inside the container
         log_file = f"/tmp/{name}_process.log"
         full_command = (

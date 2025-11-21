@@ -510,13 +510,18 @@ def console_stream_logs(name):
                 # Stream live logs using a simpler approach that works on Windows
                 last_log_position = 0
                 heartbeat_counter = 0
+                no_data_counter = 0
                 
                 while True:
                     try:
+                        has_data = False
+                        
                         # Stream from live log queue (this handles manual messages)
                         try:
                             line = live_log_streams[name].get(timeout=0.1)
                             yield f"data: {colorize_log(line)}\n\n"
+                            has_data = True
+                            no_data_counter = 0
                             continue
                         except Exception:
                             pass  # Timeout, continue to other sources
@@ -540,17 +545,24 @@ def console_stream_logs(name):
                                             for line in tail_result.stdout.split('\n'):
                                                 if line.strip():
                                                     yield f"data: {colorize_log(line.strip())}\n\n"
+                                                    has_data = True
                                         last_log_position = current_size
+                                        no_data_counter = 0
                             except subprocess.TimeoutExpired:
                                 pass  # Timeout, continue
                             except Exception as e:
                                 print(f"[DEBUG] Error getting new logs: {e}")
                         
-                        # Send heartbeat every 10 iterations (about 1 second)
+                        # Send heartbeat/keep-alive comment every 15 seconds
+                        # Comments in SSE don't trigger the onmessage event
                         heartbeat_counter += 1
-                        if heartbeat_counter >= 10:
-                            yield "data: \n\n"  # Heartbeat to keep connection alive
+                        if heartbeat_counter >= 150:  # 150 * 0.1s = 15 seconds
+                            yield ": keepalive\n\n"  # SSE comment for keepalive
                             heartbeat_counter = 0
+                        
+                        # Track if no data is being received
+                        if not has_data:
+                            no_data_counter += 1
                         
                         # Small delay to prevent excessive polling
                         import time
@@ -559,7 +571,7 @@ def console_stream_logs(name):
                     except GeneratorExit:
                         break
                     except Exception as e:
-                        yield f"data: [stream error] {str(e)}\n\n"
+                        print(f"[DEBUG] Stream error: {str(e)}")
                         break
                 
                 # Cleanup
