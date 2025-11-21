@@ -667,16 +667,11 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                     if attach_process.stdin:
                         attach_process.stdin.write(f"{command}\n")
                         attach_process.stdin.flush()
-                        
-                        # Detach from the container using the escape sequence (Ctrl+P, Ctrl+Q)
-                        # Note: This might not work in all cases, so we'll use a timeout
                         attach_process.stdin.close()
                     
-                    # Wait briefly for the command to be sent
+                    # Wait briefly for the command to be sent and executed
                     import time
-                    time.sleep(0.5)
-
-                    print(attach_process.stdout)
+                    time.sleep(0.3)
                     
                     # Terminate the attach process
                     attach_process.terminate()

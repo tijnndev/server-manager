@@ -451,11 +451,13 @@ def console_stream_logs(name):
 
     def generate():
         try:
-            # Check if this is an always-running container
+            # Check if this is a Minecraft server or always-running container
+            process = find_process_by_name(name)
+            is_minecraft = process and process.type == 'minecraft'
             is_always_running = is_always_running_container(name)
             
-            if is_always_running:
-                # For always-running containers, stream both container logs and process logs
+            if is_minecraft or is_always_running:
+                # For Minecraft and always-running containers, stream container logs in real-time
                 container_id = None
                 try:
                     result = subprocess.run(['docker-compose', 'ps', '-q', name], 
@@ -464,11 +466,11 @@ def console_stream_logs(name):
                 except Exception:
                     print("[DEBUG] Failed to get container ID")
                 
-                # Stream existing container logs first (last 20 lines)
+                # Stream existing container logs first (last 50 lines)
                 if container_id:
                     try:
-                        container_logs = subprocess.run(['docker-compose', 'logs', '--tail', '150', '--timestamps', '--no-log-prefix'], 
-                                                      capture_output=True, text=True, cwd=process_dir)
+                        container_logs = subprocess.run(['docker', 'logs', '--tail', '50', '--timestamps', container_id], 
+                                                      capture_output=True, text=True)
                         if container_logs.stdout:
                             for line in container_logs.stdout.split('\n'):
                                 if line.strip():
@@ -476,97 +478,101 @@ def console_stream_logs(name):
                     except Exception as e:
                         print(f"[DEBUG] Error getting container logs: {e}")
                 
-                # Stream existing process logs from log file (if exists)
-                if container_id:
-                    log_file = f"/tmp/{name}_process.log"
-                    try:
-                        log_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-150', log_file], 
-                                                  capture_output=True, text=True)
-                        if log_result.returncode == 0 and log_result.stdout:
-                            for line in log_result.stdout.split('\n'):
-                                if line.strip():
-                                    log_line = f"{colorize_log(line.strip())}"
-                                    print(log_line)
-                                    yield f"data: {log_line}\n\n"
-                    except Exception as e:
-                        print(f"[DEBUG] Error getting process logs: {e}")
-                
-                # Start continuous streaming of process logs in background
+                # For Minecraft servers, use docker logs -f for real-time streaming
+                # For other always-running containers, use the log file approach
                 log_streaming_process = None
                 if container_id:
-                    try:
+                    if is_minecraft:
+                        # Use docker logs -f for real-time Minecraft output
+                        try:
+                            log_streaming_process = subprocess.Popen(
+                                ['docker', 'logs', '-f', '--timestamps', container_id],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                                bufsize=1
+                            )
+                            print(f"[DEBUG] Started docker logs streaming for Minecraft server {name}")
+                        except Exception as e:
+                            print(f"[DEBUG] Failed to start docker logs streaming: {e}")
+                    else:
+                        # For non-Minecraft always-running containers, use log file
                         log_file = f"/tmp/{name}_process.log"
-                        log_streaming_process = subprocess.Popen(
-                            ['docker', 'exec', container_id, 'tail', '-n', '150', '-f', log_file],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            text=True,
-                            bufsize=1
-                        )
-                        print(f"[DEBUG] Started log streaming process for {name}")
-                    except Exception as e:
-                        print(f"[DEBUG] Failed to start log streaming: {e}")
+                        try:
+                            log_result = subprocess.run(['docker', 'exec', container_id, 'tail', '-150', log_file], 
+                                                      capture_output=True, text=True)
+                            if log_result.returncode == 0 and log_result.stdout:
+                                for line in log_result.stdout.split('\n'):
+                                    if line.strip():
+                                        log_line = f"{colorize_log(line.strip())}"
+                                        yield f"data: {log_line}\n\n"
+                        except Exception as e:
+                            print(f"[DEBUG] Error getting process logs: {e}")
+                        
+                        try:
+                            log_streaming_process = subprocess.Popen(
+                                ['docker', 'exec', container_id, 'tail', '-n', '150', '-f', log_file],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                                bufsize=1
+                            )
+                            print(f"[DEBUG] Started log file streaming for {name}")
+                        except Exception as e:
+                            print(f"[DEBUG] Failed to start log streaming: {e}")
                 
-                # Stream live logs using a simpler approach that works on Windows
-                last_log_position = 0
+                # Stream live logs
                 heartbeat_counter = 0
-                no_data_counter = 0
                 
                 while True:
                     try:
                         has_data = False
                         
+                        # Stream from the log streaming process (docker logs -f or tail -f)
+                        if log_streaming_process and log_streaming_process.stdout:
+                            try:
+                                # Use select or a timeout read to avoid blocking
+                                import select
+                                import sys
+                                
+                                # Check if data is available to read (non-blocking)
+                                if sys.platform == 'win32':
+                                    # Windows doesn't support select on pipes, use readline with timeout
+                                    line = log_streaming_process.stdout.readline()
+                                    if line:
+                                        formatted_line = colorize_log(format_timestamp(line.strip()) if not is_minecraft else colorize_log(line.strip()))
+                                        yield f"data: {formatted_line}\n\n"
+                                        has_data = True
+                                else:
+                                    # Unix-like systems can use select
+                                    ready, _, _ = select.select([log_streaming_process.stdout], [], [], 0.1)
+                                    if ready:
+                                        line = log_streaming_process.stdout.readline()
+                                        if line:
+                                            formatted_line = colorize_log(format_timestamp(line.strip()) if not is_minecraft else colorize_log(line.strip()))
+                                            yield f"data: {formatted_line}\n\n"
+                                            has_data = True
+                            except Exception as e:
+                                print(f"[DEBUG] Error reading from log stream: {e}")
+                        
                         # Stream from live log queue (this handles manual messages)
                         try:
-                            line = live_log_streams[name].get(timeout=0.1)
+                            line = live_log_streams[name].get(timeout=0.01 if not has_data else 0.001)
                             yield f"data: {colorize_log(line)}\n\n"
                             has_data = True
-                            no_data_counter = 0
-                            continue
                         except Exception:
-                            pass  # Timeout, continue to other sources
-                        
-                        # Get new logs from process log file (Windows-compatible approach)
-                        if container_id:
-                            try:
-                                log_file = f"/tmp/{name}_process.log"
-                                # Get file size first
-                                size_result = subprocess.run(['docker', 'exec', container_id, 'wc', '-c', log_file], 
-                                                           capture_output=True, text=True, timeout=2)
-                                if size_result.returncode == 0:
-                                    current_size = int(size_result.stdout.strip().split()[0])
-                                    if current_size > last_log_position:
-                                        # Get new content since last position
-                                        tail_result = subprocess.run(
-                                            ['docker', 'exec', container_id, 'tail', '-n', '150', log_file], 
-                                            capture_output=True, text=True, timeout=2
-                                        )
-                                        if tail_result.returncode == 0 and tail_result.stdout:
-                                            for line in tail_result.stdout.split('\n'):
-                                                if line.strip():
-                                                    yield f"data: {colorize_log(line.strip())}\n\n"
-                                                    has_data = True
-                                        last_log_position = current_size
-                                        no_data_counter = 0
-                            except subprocess.TimeoutExpired:
-                                pass  # Timeout, continue
-                            except Exception as e:
-                                print(f"[DEBUG] Error getting new logs: {e}")
+                            pass  # Timeout, continue
                         
                         # Send heartbeat/keep-alive comment every 15 seconds
-                        # Comments in SSE don't trigger the onmessage event
                         heartbeat_counter += 1
                         if heartbeat_counter >= 150:  # 150 * 0.1s = 15 seconds
                             yield ": keepalive\n\n"  # SSE comment for keepalive
                             heartbeat_counter = 0
                         
-                        # Track if no data is being received
+                        # Small delay to prevent excessive CPU usage when no data
                         if not has_data:
-                            no_data_counter += 1
-                        
-                        # Small delay to prevent excessive polling
-                        import time
-                        time.sleep(0.1)
+                            import time
+                            time.sleep(0.1)
                         
                     except GeneratorExit:
                         break
