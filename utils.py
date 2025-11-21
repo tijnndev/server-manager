@@ -12,6 +12,7 @@ import string
 import importlib
 import textwrap
 from datetime import datetime
+import time
 from collections import defaultdict
 from queue import Queue
 from models.process import Process
@@ -698,8 +699,50 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
 
         # For Minecraft servers, feed STDIN directly (mirrors how Pterodactyl streams commands)
         if is_minecraft:
+            ts_now = datetime.utcnow().isoformat() + 'Z'
             live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
-            return _send_command_to_minecraft_console(container_id, name, command, timeout)
+
+            send_result = _send_command_to_minecraft_console(container_id, name, command, timeout)
+
+            # If send failed, return immediately
+            if not send_result.get('success'):
+                return send_result
+
+            # Poll docker logs for new lines since we started sending the command
+            end_time = time.time() + timeout
+            collected = []
+            while time.time() < end_time:
+                try:
+                    logs = subprocess.run(
+                        ['docker', 'logs', '--since', ts_now, '--timestamps', container_id],
+                        capture_output=True,
+                        text=True,
+                        timeout=2
+                    )
+                except subprocess.TimeoutExpired:
+                    time.sleep(0.1)
+                    continue
+
+                if logs.returncode == 0 and logs.stdout:
+                    for line in logs.stdout.splitlines():
+                        line = line.strip()
+                        if line:
+                            collected.append(line)
+                            # add raw line to live stream for UI (formatting happens in the route)
+                            live_log_streams[name].put(line)
+                    # break early if we received something
+                    if collected:
+                        break
+
+                time.sleep(0.1)
+
+            stdout_text = "\n".join(collected)
+            return {
+                "success": True,
+                "stdout": stdout_text,
+                "stderr": "",
+                "return_code": 0
+            }
 
         # For non-Minecraft containers, use the original approach
         # Execute the command inside the container
