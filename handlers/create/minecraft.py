@@ -3,7 +3,7 @@ from classes.result import Result
 
 def create_docker_file(process, dockerfile_path):
     try:
-        dockerfile_content = """FROM eclipse-temurin:21-jre-jammy
+        dockerfile_content = f"""FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /server
 
@@ -25,6 +25,11 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo 'fi' >> /start.sh && \
     echo 'exec java -Xmx2G -Xms1G -jar fabric-server-launch.jar nogui' >> /start.sh && \
     chmod +x /start.sh
+
+# Set environment variable to mark this as a Minecraft server
+ENV MINECRAFT_SERVER=true
+
+EXPOSE {25565 + process.port_id}
 
 CMD ["/start.sh"]
 """

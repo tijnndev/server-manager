@@ -644,6 +644,7 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
 
         # Check if this is a Minecraft server
         is_minecraft = False
+        minecraft_workdir = "/server"  # Default Minecraft working directory
         env_result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
                                    capture_output=True, text=True)
         if env_result.returncode == 0:
@@ -661,12 +662,13 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                 # First, log the command
                 log_file = f"/tmp/{name}_process.log"
                 subprocess.run(['docker', 'exec', container_id, 'sh', '-c', 
-                               f'echo "[$(date -u +\'%Y-%m-%d %H:%M:%S\')] $ {command}" >> {log_file}'],
+                               f'cd {minecraft_workdir} && echo "[$(date -u +\'%Y-%m-%d %H:%M:%S\')] $ {command}" >> {log_file}'],
                               capture_output=True, text=True, timeout=5)
                 
                 # Now send the command to the Minecraft server console using a named pipe approach
                 # This approach writes to the stdin of the main Java process
                 pipe_command = f'''
+                    cd {minecraft_workdir}
                     PID=$(pgrep -f "java.*fabric-server-launch.jar")
                     if [ -n "$PID" ]; then
                         echo "{command}" | tee -a {log_file} > /proc/$PID/fd/0 2>&1
