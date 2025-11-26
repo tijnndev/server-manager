@@ -207,10 +207,22 @@
     }
 
     let allProcesses = {};
+    let isInitialLoad = true;
 
     async function fetchProcesses() {
         const response = await fetch("{{ url_for('process.get_process') }}");
-        allProcesses = await response.json();
+        const newProcesses = await response.json();
+        
+        // Store the order of processes from first load
+        if (isInitialLoad && Object.keys(newProcesses).length > 0) {
+            allProcesses = newProcesses;
+            isInitialLoad = false;
+        } else {
+            // Update existing processes without changing order
+            for (const [name, data] of Object.entries(newProcesses)) {
+                allProcesses[name] = data;
+            }
+        }
         
         // Apply saved sort if remember filters is enabled
         if (userSettings && userSettings.remember_filters) {
@@ -238,19 +250,23 @@
 
     function renderProcesses(processEntries) {
         const grid = document.getElementById('process-grid');
-        grid.innerHTML = '';
         
+        // Only show "no processes" if we've finished initial load and truly have no processes
         if (processEntries.length === 0) {
-            grid.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center" style="padding: 40px;">
-                        <i class="bi bi-inbox" style="font-size: 48px; color: var(--text-muted);"></i>
-                        <p style="color: var(--text-muted); margin-top: 16px;">No processes found</p>
-                    </td>
-                </tr>
-            `;
+            if (!isInitialLoad) {
+                grid.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center" style="padding: 40px;">
+                            <i class="bi bi-inbox" style="font-size: 48px; color: var(--text-muted);"></i>
+                            <p style="color: var(--text-muted); margin-top: 16px;">No processes found</p>
+                        </td>
+                    </tr>
+                `;
+            }
             return;
         }
+        
+        grid.innerHTML = '';
 
         processEntries.forEach(([name, process]) => {
             const statusInfo = getStatusBadgeClass(process.status);
@@ -327,10 +343,10 @@
 
     // Fetch real-time metrics for all processes
     async function fetchProcessMetrics() {
-        if (!allProcesses) return;
+        if (!allProcesses || Object.keys(allProcesses).length === 0) return;
 
         for (const [name, process] of Object.entries(allProcesses)) {
-            if (process.status === 'running') {
+            if (process.status && process.status.toLowerCase() === 'running') {
                 try {
                     const response = await fetch(`/process/metrics/${name}`);
                     if (response.ok) {
@@ -343,17 +359,32 @@
             }
         }
 
-        // Re-render with updated metrics
-        const sortValue = document.getElementById('sort-select').value;
-        let entries = Object.entries(allProcesses);
-        
-        if (sortValue === 'alpha') {
-            entries.sort((a, b) => a[0].localeCompare(b[0]));
-        } else if (sortValue === 'alpha-reverse') {
-            entries.sort((a, b) => b[0].localeCompare(a[0]));
+        // Update metrics in-place without re-rendering the entire table
+        for (const [name, process] of Object.entries(allProcesses)) {
+            const row = document.querySelector(`tr[data-process-name="${name}"]`);
+            if (!row) continue;
+            
+            const cpuUsage = process.metrics?.cpu_percent || 0;
+            const memUsage = process.metrics?.memory_percent || 0;
+            
+            // Update CPU
+            const cpuBar = row.querySelector('td:nth-child(5) div div');
+            const cpuText = row.querySelector('td:nth-child(5) span');
+            if (cpuBar && cpuText) {
+                cpuBar.style.width = `${cpuUsage}%`;
+                cpuBar.style.background = cpuUsage > 80 ? 'var(--accent-red)' : cpuUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+                cpuText.textContent = `${cpuUsage}%`;
+            }
+            
+            // Update Memory
+            const memBar = row.querySelector('td:nth-child(6) div div');
+            const memText = row.querySelector('td:nth-child(6) span');
+            if (memBar && memText) {
+                memBar.style.width = `${memUsage}%`;
+                memBar.style.background = memUsage > 80 ? 'var(--accent-red)' : memUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+                memText.textContent = `${memUsage}%`;
+            }
         }
-        
-        renderProcesses(entries);
     }
 
     // Fetch metrics every 5 seconds

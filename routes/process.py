@@ -191,14 +191,23 @@ def load_process():
 
         if "error" in response:
             print(f"Error fetching status for {process.name}: {response['error']}")
+            status = "Unknown"
         else:
+            # Handle both dict response with "status" key and direct string status
+            if isinstance(response, dict) and "status" in response:
+                status = response["status"]
+            elif isinstance(response, str):
+                status = response
+            else:
+                status = str(response)
+                
             process_dict[process.name] = {
                 "id": process.id,
                 "type": process.type,
                 "command": process.command,
                 "file_location": process.file_location,
                 "name": process.name,
-                "status": response["status"],
+                "status": status,
                 "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
