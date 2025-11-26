@@ -164,7 +164,7 @@ class NotificationManager {
             return;
         }
 
-        list.innerHTML = this.notifications.map(notif => {
+        list.innerHTML = this.notifications.map((notif, index) => {
             // Truncate long messages in notification center (max 300 characters)
             const maxLength = 300;
             const displayMessage = notif.message.length > maxLength 
@@ -178,6 +178,9 @@ class NotificationManager {
                         <div class="notification-message" title="${this.escapeHtml(notif.message)}">${this.escapeHtml(displayMessage)}</div>
                         <div class="notification-time">${this.formatTime(notif.timestamp)}</div>
                     </div>
+                    <button class="notification-delete" onclick="notificationManager.deleteNotification(${index})" title="Delete notification">
+                        <i class="bi bi-x"></i>
+                    </button>
                 </div>
             `;
         }).join('');
@@ -202,6 +205,13 @@ class NotificationManager {
     toggleCenter() {
         const center = document.getElementById('notification-center');
         center.classList.toggle('show');
+    }
+
+    deleteNotification(index) {
+        this.notifications.splice(index, 1);
+        this.saveNotifications();
+        this.renderNotifications();
+        this.updateBadge();
     }
 
     clearAll() {

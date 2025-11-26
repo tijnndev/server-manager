@@ -1265,6 +1265,31 @@ a:hover {
     color: var(--text-muted);
 }
 
+.notification-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 20px;
+    line-height: 1;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+}
+
+.notification-delete:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.notification-delete:active {
+    transform: scale(0.95);
+}
+
 .notification-empty {
     text-align: center;
     padding: 40px 20px;
