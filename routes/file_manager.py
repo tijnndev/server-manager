@@ -3,8 +3,9 @@ import zipfile
 import shutil
 import time
 from decorators import owner_or_subuser_required
-from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for, flash
+from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for, flash, session
 from utils import find_process_by_name
+from models.activity_log import ActivityLog
 file_manager_routes = Blueprint('files', __name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
@@ -130,6 +131,22 @@ def delete_file(name):
             else:
                 shutil.move(file_path, trash_path)
         
+        # Get relative path for logging
+        relative_path = filename.replace(ACTIVE_SERVERS_DIR, '').lstrip(os.sep)
+        
+        # Log activity
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='deleted_file',
+                target=name,
+                details=f"{'Permanently deleted' if permanent else 'Moved to trash'}: {relative_path}",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+        
         return jsonify({
             "success": True,
             "message": f"{'Permanently deleted' if permanent else 'Moved to trash'}: {filename}",
@@ -194,6 +211,22 @@ def download_file(name, filename):
         return jsonify({"error": "Invalid path."}), 400
 
     if os.path.exists(file_path):
+        # Get relative path for logging
+        relative_path = os.path.join(name, filename)
+        
+        # Log activity
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='downloaded_file',
+                target=name,
+                details=f"Downloaded: {relative_path}",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+        
         return send_from_directory(process_path, filename, as_attachment=True)
     return jsonify({"error": "File not found"}), 404
 
@@ -260,11 +293,30 @@ def upload_file():
         return jsonify({'error': 'Invalid directory path'}), 400
 
     uploaded_files = request.files.getlist('file')
+    process_name = target_path.replace(ACTIVE_SERVERS_DIR, '').strip(os.sep).split(os.sep)[0] if target_path.startswith(ACTIVE_SERVERS_DIR) else 'unknown'
+    
     for uploaded_file in uploaded_files:
         file_path = os.path.join(target_path, uploaded_file.filename)
         try:
             file_path = sanitize_path(target_path, uploaded_file.filename)
             uploaded_file.save(file_path)
+            
+            # Get relative path for logging
+            relative_path = file_path.replace(ACTIVE_SERVERS_DIR, '').lstrip(os.sep)
+            
+            # Log activity
+            try:
+                ActivityLog.log_activity(
+                    user_id=session.get('user_id'),
+                    username=session.get('username'),
+                    action='uploaded_file',
+                    target=process_name,
+                    details=f"Uploaded: {relative_path}",
+                    request_obj=request
+                )
+            except Exception as log_error:
+                print(f"Failed to log activity: {log_error}")
+            
             if uploaded_file.filename.lower().endswith('.zip'):
                 extract_path = os.path.splitext(file_path)[0]
                 with zipfile.ZipFile(file_path, 'r') as zip_ref:
@@ -356,7 +408,23 @@ def edit_file(name):
             f.write(new_content)
         file_path = new_file_path
 
-        return {"success": True, "file_path": os.path.relpath(file_path, ACTIVE_SERVERS_DIR)}
+        # Get relative path for logging
+        relative_path = os.path.relpath(file_path, ACTIVE_SERVERS_DIR)
+        
+        # Log activity
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='edited_file',
+                target=name,
+                details=f"Edited: {relative_path}",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+
+        return {"success": True, "file_path": relative_path}
 
     with open(file_path) as f:
         file_content = f.read()

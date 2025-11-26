@@ -15,6 +15,7 @@ from models.process import Process
 from models.discord_integration import DiscordIntegration
 from models.git import GitIntegration
 from models.subuser import SubUser
+from models.activity_log import ActivityLog
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
 from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler, is_always_running_container, start_process_in_container, stop_process_in_container, execute_command_in_container, execute_interactive_command_in_container
@@ -276,6 +277,19 @@ def add_process():
 
         update_process_runtime_metadata(new_process)
 
+        # Log activity
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='created_process',
+                target=new_process.name,
+                details=f"Type: {process_type}",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+
         return jsonify({"redirect_url": url_for("process.console", name=new_process.name)})
 
     except OSError as e:
@@ -310,6 +324,19 @@ def settings_delete(name):
 
         db.session.delete(process)
         db.session.commit()
+
+        # Log activity
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='deleted_process',
+                target=name,
+                details=f"Process deleted and container removed",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
 
         return redirect('/')
 
@@ -368,6 +395,19 @@ def start_process_console(name):
             time.sleep(2)
 
             update_process_runtime_metadata(process)
+
+            # Log activity
+            try:
+                ActivityLog.log_activity(
+                    user_id=session.get('user_id'),
+                    username=session.get('username'),
+                    action='started_process',
+                    target=name,
+                    details=f"Process started successfully",
+                    request_obj=request
+                )
+            except Exception as log_error:
+                print(f"Failed to log activity: {log_error}")
 
             return jsonify({
                 "message": f"Process '{name}' started successfully.", 
@@ -433,6 +473,19 @@ def stop_process_console(name):
             except Exception as db_err:
                 db.session.rollback()
                 print(f"[process_metadata] Failed to clear PID for {name}: {db_err}")
+
+            # Log activity
+            try:
+                ActivityLog.log_activity(
+                    user_id=session.get('user_id'),
+                    username=session.get('username'),
+                    action='stopped_process',
+                    target=name,
+                    details="Process stopped successfully",
+                    request_obj=request
+                )
+            except Exception as log_error:
+                print(f"Failed to log activity: {log_error}")
 
             return jsonify({"message": f"Process {name} stopped successfully."})
 
@@ -1036,6 +1089,19 @@ def settings_rebuild(name):
 
     threading.Thread(target=rebuild_process, args=(project_dir, process.name)).start()
 
+    # Log activity
+    try:
+        ActivityLog.log_activity(
+            user_id=session.get('user_id'),
+            username=session.get('username'),
+            action='rebuilt_process',
+            target=name,
+            details="Process rebuild initiated",
+            request_obj=request
+        )
+    except Exception as log_error:
+        print(f"Failed to log activity: {log_error}")
+
     return redirect(url_for('process.console', name=process.name))
 
 
@@ -1256,6 +1322,19 @@ def invite_subuser(name):
             """
             send_email(email, subject, body, type='auth')
 
+        # Log activity
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='added_subuser',
+                target=name,
+                details=f"Added subuser: {email}",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+
         flash('Invitation has been sent!', 'success')
         return redirect(url_for('process.subusers', name=name))
 
@@ -1267,9 +1346,24 @@ def invite_subuser(name):
 def delete_subuser(name, user_id):
     sub_user = SubUser.query.filter_by(id=user_id).first()
     if sub_user:
+        subuser_email = sub_user.email  # Store email before deletion
         db.session.delete(sub_user)
         db.session.commit()
-        flash(f"Sub-user with email {sub_user.email} has been removed.", "success")
+        
+        # Log activity
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='deleted_subuser',
+                target=name,
+                details=f"Removed subuser: {subuser_email}",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+        
+        flash(f"Sub-user with email {subuser_email} has been removed.", "success")
     else:
         flash("Sub-user not found.", "danger")
     
