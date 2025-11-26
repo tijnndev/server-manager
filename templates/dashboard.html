@@ -213,15 +213,24 @@
         const response = await fetch("{{ url_for('process.get_process') }}");
         const newProcesses = await response.json();
         
-        // Store the order of processes from first load
-        if (isInitialLoad && Object.keys(newProcesses).length > 0) {
-            allProcesses = newProcesses;
-            isInitialLoad = false;
-        } else {
-            // Update existing processes without changing order
-            for (const [name, data] of Object.entries(newProcesses)) {
+        // Always preserve existing metrics when updating process data
+        for (const [name, data] of Object.entries(newProcesses)) {
+            if (allProcesses[name]) {
+                // Preserve existing metrics before overwriting
+                const existingMetrics = allProcesses[name].metrics;
+                allProcesses[name] = { ...data };
+                if (existingMetrics) {
+                    allProcesses[name].metrics = existingMetrics;
+                }
+            } else {
+                // New process, just add it
                 allProcesses[name] = data;
             }
+        }
+        
+        // Mark initial load as complete
+        if (isInitialLoad && Object.keys(allProcesses).length > 0) {
+            isInitialLoad = false;
         }
         
         // Apply saved sort if remember filters is enabled
@@ -352,6 +361,8 @@
                     if (response.ok) {
                         const metrics = await response.json();
                         allProcesses[name].metrics = metrics;
+                    } else {
+                        console.warn(`Failed to fetch metrics for ${name}: ${response.status} ${response.statusText}`);
                     }
                 } catch (error) {
                     console.error(`Failed to fetch metrics for ${name}:`, error);

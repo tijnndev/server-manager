@@ -646,6 +646,56 @@
     }
   });
 
+  // Fetch and update process metrics (CPU, Memory)
+  async function updateProcessMetrics() {
+    try {
+      const response = await fetch(`/process/metrics/{{ process.name }}`);
+      if (response.ok) {
+        const metrics = await response.json();
+        
+        if (metrics.status === 'running') {
+          // Update CPU
+          const cpuPercent = metrics.cpu_percent || 0;
+          document.getElementById('process-cpu').textContent = `${cpuPercent}%`;
+          const cpuProgress = document.getElementById('cpu-progress');
+          cpuProgress.style.width = `${Math.min(cpuPercent, 100)}%`;
+          
+          // Color based on usage
+          if (cpuPercent > 80) {
+            cpuProgress.style.backgroundColor = 'var(--accent-red)';
+          } else if (cpuPercent > 60) {
+            cpuProgress.style.backgroundColor = 'var(--accent-yellow)';
+          } else {
+            cpuProgress.style.backgroundColor = 'var(--accent-green)';
+          }
+          
+          // Update Memory
+          const memPercent = metrics.memory_percent || 0;
+          const memMb = metrics.memory_mb || 0;
+          document.getElementById('process-memory').textContent = `${memMb.toFixed(1)} MB (${memPercent}%)`;
+          const memProgress = document.getElementById('memory-progress');
+          memProgress.style.width = `${Math.min(memPercent, 100)}%`;
+          
+          // Color based on usage
+          if (memPercent > 80) {
+            memProgress.style.backgroundColor = 'var(--accent-red)';
+          } else if (memPercent > 60) {
+            memProgress.style.backgroundColor = 'var(--accent-yellow)';
+          } else {
+            memProgress.style.backgroundColor = 'var(--accent-green)';
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch process metrics:', error);
+    }
+  }
+
+  // Update metrics every 3 seconds
+  setInterval(updateProcessMetrics, 3000);
+  // Initial fetch after 1 second
+  setTimeout(updateProcessMetrics, 1000);
+
   // Initialize everything when page loads
   document.addEventListener("DOMContentLoaded", function () {
     initializeConsole();

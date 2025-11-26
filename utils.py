@@ -3,6 +3,7 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 import base64
+import psutil
 import smtplib
 from flask import current_app
 import os
@@ -183,11 +184,6 @@ def check_process_running_in_container(name):
         if not search_terms:
             search_terms = [part for part in command_parts if len(part) > 2]
         
-        # Debug: Print what we're looking for
-        print(f"[DEBUG] Checking process for {name}")
-        print(f"[DEBUG] Main command: {main_command}")
-        print(f"[DEBUG] Search terms: {search_terms}")
-        
         # Look for the main command in the process list (exclude zombie processes and ps/grep itself)
         process_running = False
         matching_processes = []
@@ -206,17 +202,11 @@ def check_process_running_in_container(name):
                     if term in line:
                         process_running = True
                         matching_processes.append(line.strip())
-                        print(f"[DEBUG] Found matching process: {line.strip()}")
                         break
         
-        print(f"[DEBUG] Process running: {process_running}")
-        print(f"[DEBUG] Matching processes count: {len(matching_processes)}")
-
         if process_running:
             return {"status": "Running", "container_running": True, "process_running": True}
         else:
-            # Print all processes for debugging
-            print(f"[DEBUG] All processes in container:\n{processes}")
             return {"status": "Process Stopped", "container_running": True, "process_running": False}
 
     except subprocess.CalledProcessError as e:
@@ -260,7 +250,7 @@ def start_process_in_container(name):
             return {"success": False, "error": "No MAIN_COMMAND found in container environment"}
 
         # First, let's stop any existing processes to clean up zombies
-        stop_result = stop_process_in_container(name)
+        stop_process_in_container(name)
 
         # Clear the old log file and create a fresh one
         log_file = f"/tmp/{name}_process.log"
@@ -276,7 +266,7 @@ exec {main_command} 2>&1 | tee -a {log_file}
 '''.format(log_file=log_file, main_command=main_command)
         
         # First, create the script content in a temporary file and copy it to container
-        script_content = wrapper_script.encode('utf-8')
+        wrapper_script.encode('utf-8')
         
         # Write script using docker exec with proper escaping
         script_creation_command = f'''cat > /tmp/start_process.sh << 'EOF'
@@ -337,7 +327,6 @@ chmod +x /tmp/start_process.sh'''
     except Exception as e:
         return {"success": False, "error": str(e)}
     
-import psutil
 def kill_process_tree(pid, inside_container=False, container_id=None):
     """
     Kill a process and all its children.

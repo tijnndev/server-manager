@@ -1428,32 +1428,53 @@ def get_process_metrics(name):
         )
 
         if result.returncode == 0 and result.stdout.strip():
-            stats = result.stdout.strip().split('|')
-            cpu_percent = float(stats[0].replace('%', ''))
-            memory_percent = float(stats[1].replace('%', ''))
-            
-            # Parse memory usage (e.g., "123.4MiB / 1.5GiB")
-            mem_usage = stats[2].split('/')[0].strip()
-            if 'GiB' in mem_usage:
-                memory_mb = float(mem_usage.replace('GiB', '')) * 1024
-            elif 'MiB' in mem_usage:
-                memory_mb = float(mem_usage.replace('MiB', ''))
-            else:
-                memory_mb = 0
+            try:
+                stats = result.stdout.strip().split('|')
+                
+                # Clean and parse CPU percent
+                cpu_str = stats[0].replace('%', '').strip()
+                cpu_percent = float(cpu_str) if cpu_str else 0.0
+                
+                # Clean and parse memory percent
+                mem_str = stats[1].replace('%', '').strip()
+                memory_percent = float(mem_str) if mem_str else 0.0
+                
+                # Parse memory usage (e.g., "123.4MiB / 1.5GiB")
+                mem_usage = stats[2].split('/')[0].strip()
+                memory_mb = 0.0
+                
+                if 'GiB' in mem_usage:
+                    memory_mb = float(mem_usage.replace('GiB', '').strip()) * 1024
+                elif 'MiB' in mem_usage:
+                    memory_mb = float(mem_usage.replace('MiB', '').strip())
+                elif 'KiB' in mem_usage:
+                    memory_mb = float(mem_usage.replace('KiB', '').strip()) / 1024
+                elif 'B' in mem_usage and 'iB' not in mem_usage:
+                    memory_mb = float(mem_usage.replace('B', '').strip()) / (1024 * 1024)
 
-            return jsonify({
-                "cpu_percent": round(cpu_percent, 2),
-                "memory_percent": round(memory_percent, 2),
-                "memory_mb": round(memory_mb, 2),
-                "status": "running"
-            })
+                return jsonify({
+                    "cpu_percent": round(cpu_percent, 2),
+                    "memory_percent": round(memory_percent, 2),
+                    "memory_mb": round(memory_mb, 2),
+                    "status": "running"
+                })
+            except (ValueError, IndexError) as parse_error:
+                print(f"[metrics] Failed to parse stats for {name}: {result.stdout} - Error: {parse_error}")
+                return jsonify({
+                    "cpu_percent": 0,
+                    "memory_percent": 0,
+                    "memory_mb": 0,
+                    "status": "error",
+                    "error": f"Failed to parse stats: {str(parse_error)}"
+                }), 500
         else:
+            print(f"[metrics] Docker stats failed for {name}: returncode={result.returncode}, stderr={result.stderr}")
             return jsonify({
                 "cpu_percent": 0,
                 "memory_percent": 0,
                 "memory_mb": 0,
                 "status": "error",
-                "error": "Failed to get container stats"
+                "error": f"Docker stats command failed: {result.stderr}"
             }), 500
 
     except subprocess.TimeoutExpired:
