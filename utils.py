@@ -164,7 +164,11 @@ def check_process_running_in_container(name):
             'nginx': ['nginx'],
             'vite': ['node', 'vite'],
             'npm': ['node', 'npm'],
+            'node': ['node'],
             'minecraft': ['java'],
+            'java': ['java'],
+            'python': ['python'],
+            'python3': ['python3'],
         }
         
         # Determine what processes to look for
@@ -179,23 +183,40 @@ def check_process_running_in_container(name):
         if not search_terms:
             search_terms = [part for part in command_parts if len(part) > 2]
         
-        # Look for the main command in the process list (exclude zombie processes)
+        # Debug: Print what we're looking for
+        print(f"[DEBUG] Checking process for {name}")
+        print(f"[DEBUG] Main command: {main_command}")
+        print(f"[DEBUG] Search terms: {search_terms}")
+        
+        # Look for the main command in the process list (exclude zombie processes and ps/grep itself)
         process_running = False
         matching_processes = []
         for line in processes.split('\n')[1:]:  # Skip header
             if line.strip():
+                # Skip ps aux and grep commands themselves
+                if 'ps aux' in line or 'grep' in line:
+                    continue
+                    
                 # Check if this is a zombie process (contains <defunct> or Z state)
                 if '<defunct>' in line or ' Z ' in line:
                     continue
                     
                 # Check if any search term appears in the process line
-                if any(term in line for term in search_terms):
-                    process_running = True
-                    matching_processes.append(line.strip())
+                for term in search_terms:
+                    if term in line:
+                        process_running = True
+                        matching_processes.append(line.strip())
+                        print(f"[DEBUG] Found matching process: {line.strip()}")
+                        break
+        
+        print(f"[DEBUG] Process running: {process_running}")
+        print(f"[DEBUG] Matching processes count: {len(matching_processes)}")
 
         if process_running:
             return {"status": "Running", "container_running": True, "process_running": True}
         else:
+            # Print all processes for debugging
+            print(f"[DEBUG] All processes in container:\n{processes}")
             return {"status": "Process Stopped", "container_running": True, "process_running": False}
 
     except subprocess.CalledProcessError as e:
