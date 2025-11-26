@@ -80,23 +80,69 @@ def delete_file(name):
     current_location = request.form.get('location', '')
     permanent = request.args.get('permanent', 'false').lower() == 'true'
 
+    if not filename:
+        return jsonify({
+            "success": False,
+            "error": "No filename provided. Please specify a file to delete."
+        }), 400
+
     try:
         file_path = sanitize_path(ACTIVE_SERVERS_DIR, filename)
-    except ValueError:
-        return jsonify({"error": "Invalid path."}), 400
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid file path: {filename}. Path must be within the server directory."
+        }), 400
+
+    if not os.path.exists(file_path):
+        return jsonify({
+            "success": False,
+            "error": f"File not found: {filename}. It may have already been deleted."
+        }), 404
 
     trash_path = os.path.join(TRASH_DIR, f"{filename.replace('/', '_')}-{int(time.time())}")
-    if os.path.exists(file_path):
-        try:
-            if os.path.isfile(file_path):
-                os.remove(file_path) if permanent else shutil.move(file_path, trash_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path) if permanent else shutil.move(file_path, trash_path)
-            return redirect(url_for('files.file_manager', name=process.name, location=current_location))
-        except (OSError, shutil.Error):
-            pass
-
-    return redirect(url_for('files.file_manager', name=process.name, location=current_location))
+    
+    try:
+        # Ensure trash directory exists
+        os.makedirs(TRASH_DIR, exist_ok=True)
+        
+        if os.path.isfile(file_path):
+            if permanent:
+                os.remove(file_path)
+            else:
+                shutil.move(file_path, trash_path)
+        elif os.path.isdir(file_path):
+            if permanent:
+                shutil.rmtree(file_path)
+            else:
+                shutil.move(file_path, trash_path)
+        
+        return jsonify({
+            "success": True,
+            "message": f"{'Permanently deleted' if permanent else 'Moved to trash'}: {filename}",
+            "trash_filename": os.path.basename(trash_path) if not permanent else None
+        })
+        
+    except PermissionError:
+        return jsonify({
+            "success": False,
+            "error": f"Permission denied: Cannot delete {filename}. Check if the file is in use or you have sufficient permissions."
+        }), 403
+    except OSError as e:
+        return jsonify({
+            "success": False,
+            "error": f"System error while deleting {filename}: {str(e)}. Try closing any programs using this file."
+        }), 500
+    except shutil.Error as e:
+        return jsonify({
+            "success": False,
+            "error": f"Failed to move {filename} to trash: {str(e)}. The file may be locked or corrupted."
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Unexpected error deleting {filename}: {str(e)}. Please contact support if this persists."
+        }), 500
 
 
 @file_manager_routes.route('/<name>/files/delete', methods=['POST'])
@@ -218,7 +264,56 @@ def upload_file():
     return jsonify({'success': True})
 
 
-@file_manager_routes.route('<name>/edit', methods=['GET', 'POST'])
+@file_manager_routes.route('/<name>/file-manager/preview', methods=['GET'])
+@owner_or_subuser_required()
+def preview_file_content(name):
+    """API endpoint to get file content for preview"""
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+    
+    file_path_param = request.args.get('file', '')
+    try:
+        file_path = sanitize_path(ACTIVE_SERVERS_DIR, file_path_param)
+    except ValueError:
+        return jsonify({"success": False, "error": "Invalid path"}), 400
+
+    if not os.path.exists(file_path):
+        return jsonify({"success": False, "error": "File not found"}), 404
+    
+    if not os.path.isfile(file_path):
+        return jsonify({"success": False, "error": "Not a file"}), 400
+    
+    try:
+        # Check file size (limit to 1MB for preview)
+        file_size = os.path.getsize(file_path)
+        if file_size > 1024 * 1024:  # 1MB
+            return jsonify({
+                "success": False, 
+                "error": "File too large for preview (max 1MB)"
+            }), 413
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return jsonify({
+            "success": True,
+            "content": content,
+            "filename": os.path.basename(file_path)
+        })
+    except UnicodeDecodeError:
+        return jsonify({
+            "success": False, 
+            "error": "File is not text (binary file)"
+        }), 400
+    except Exception as e:
+        return jsonify({
+            "success": False, 
+            "error": f"Error reading file: {str(e)}"
+        }), 500
+
+
+@file_manager_routes.route('/<name>/edit', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def edit_file(name):
     process = find_process_by_name(name)
@@ -326,3 +421,136 @@ def move_files(name):
 
     except Exception as e:
         return jsonify({'error': f'Error: {str(e)}'}), 500
+
+
+@file_manager_routes.route('/<name>/file-manager/rename', methods=['POST'])
+@owner_or_subuser_required()
+def rename_file(name):
+    """
+    Rename a file or directory.
+    Expects JSON: {"old_path": "path/to/old", "new_name": "new_filename"}
+    """
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    try:
+        data = request.get_json()
+        if not data or 'old_path' not in data or 'new_name' not in data:
+            return jsonify({
+                "success": False, 
+                "error": "Missing required fields: old_path and new_name"
+            }), 400
+
+        old_path = data['old_path'].replace("\\", "/")
+        new_name = data['new_name']
+
+        # Validate new name doesn't contain path separators
+        if '/' in new_name or '\\' in new_name:
+            return jsonify({
+                "success": False, 
+                "error": "New name cannot contain path separators"
+            }), 400
+
+        # Sanitize paths
+        old_file_path = sanitize_path(ACTIVE_SERVERS_DIR, old_path)
+        
+        if not os.path.exists(old_file_path):
+            return jsonify({
+                "success": False, 
+                "error": f"File or directory not found: {old_path}"
+            }), 404
+
+        # Create new path in same directory
+        old_dir = os.path.dirname(old_file_path)
+        new_file_path = os.path.join(old_dir, new_name)
+
+        # Check if target already exists
+        if os.path.exists(new_file_path):
+            return jsonify({
+                "success": False, 
+                "error": f"A file or directory named '{new_name}' already exists"
+            }), 409
+
+        # Perform rename
+        os.rename(old_file_path, new_file_path)
+
+        return jsonify({
+            "success": True,
+            "message": f"Successfully renamed to '{new_name}'",
+            "new_path": os.path.relpath(new_file_path, ACTIVE_SERVERS_DIR)
+        })
+
+    except ValueError as e:
+        return jsonify({"success": False, "error": f"Invalid path: {str(e)}"}), 400
+    except PermissionError:
+        return jsonify({
+            "success": False, 
+            "error": "Permission denied. Check file permissions."
+        }), 403
+    except Exception as e:
+        return jsonify({
+            "success": False, 
+            "error": f"Failed to rename: {str(e)}"
+        }), 500
+
+
+@file_manager_routes.route('/<name>/file-manager/restore', methods=['POST'])
+@owner_or_subuser_required()
+def restore_file(name):
+    """
+    Restore a deleted file from trash.
+    Expects JSON: {"trash_filename": "filename-timestamp"}
+    """
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    try:
+        data = request.get_json()
+        if not data or 'trash_filename' not in data:
+            return jsonify({
+                "success": False, 
+                "error": "Missing trash_filename"
+            }), 400
+
+        trash_filename = data['trash_filename']
+        trash_file_path = os.path.join(TRASH_DIR, trash_filename)
+
+        if not os.path.exists(trash_file_path):
+            return jsonify({
+                "success": False, 
+                "error": "File not found in trash"
+            }), 404
+
+        # Extract original path from trash filename
+        # Format: original_path-timestamp
+        original_name = '-'.join(trash_filename.split('-')[:-1]).replace('_', '/')
+        
+        restore_path = os.path.join(ACTIVE_SERVERS_DIR, original_name)
+        
+        # Check if original location still exists
+        restore_dir = os.path.dirname(restore_path)
+        if not os.path.exists(restore_dir):
+            os.makedirs(restore_dir, exist_ok=True)
+
+        # Check if file already exists at restore location
+        if os.path.exists(restore_path):
+            # Add timestamp to avoid collision
+            base, ext = os.path.splitext(restore_path)
+            restore_path = f"{base}_restored_{int(time.time())}{ext}"
+
+        # Move from trash to original location
+        shutil.move(trash_file_path, restore_path)
+
+        return jsonify({
+            "success": True,
+            "message": "File restored successfully",
+            "restored_path": os.path.relpath(restore_path, ACTIVE_SERVERS_DIR)
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False, 
+            "error": f"Failed to restore file: {str(e)}"
+        }), 500

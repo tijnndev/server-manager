@@ -14,14 +14,42 @@ def git(name):
     integrations = GitIntegration.query.filter_by(process_name=name).all()
     show_add_repo_button = len(integrations) == 0
     
-    # Get status and version info for each integration
-    for integration in integrations:
-        integration.local_changes = integration.get_git_status()
-        integration.current_commit = integration.get_current_commit()
-        integration.ahead_behind = integration.get_ahead_behind()
-        integration.remote_changes = integration.get_remote_changes()
-    
+    # Just pass basic integration data without heavy git operations
     return render_template('git/index.html', page_title="Git", process=process, integrations=integrations, show_add_repo_button=show_add_repo_button)
+
+
+@git_routes.route('/<name>/api/git-data', methods=['GET'])
+@owner_or_subuser_required()
+def git_data_api(name):
+    """API endpoint to fetch git repository data asynchronously"""
+    try:
+        integrations = GitIntegration.query.filter_by(process_name=name).all()
+        
+        result = []
+        for integration in integrations:
+            local_changes = integration.get_git_status()
+            current_commit = integration.get_current_commit()
+            ahead_behind = integration.get_ahead_behind()
+            remote_changes = integration.get_remote_changes()
+            
+            result.append({
+                'id': integration.id,
+                'repository_url': integration.repository_url,
+                'directory': integration.directory,
+                'branch': integration.branch,
+                'current_commit': current_commit,
+                'status': integration.status,
+                'ahead_behind': {
+                    'ahead': ahead_behind.get('ahead', 0),
+                    'behind': ahead_behind.get('behind', 0)
+                },
+                'local_changes': local_changes,
+                'remote_changes': remote_changes
+            })
+        
+        return jsonify({'success': True, 'integrations': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @git_routes.route('/<name>/add_form', methods=['GET'])

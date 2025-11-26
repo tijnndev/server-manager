@@ -325,14 +325,19 @@
 
         const message = event.data.trim();
         if (message && !seenMessages.has(message)) {
-          seenMessages.add(message);
-          consoleOutput.innerHTML += message + "\n";
-          consoleOutput.scrollTop = consoleOutput.scrollHeight;
-          lastLogTimestamp = Date.now();
+            seenMessages.add(message);
+            consoleOutput.innerHTML += message + "\n";
+            
+            // Increment new logs counter if not auto-scrolling
+            if (enhancedConsole && !enhancedConsole.autoScroll) {
+                enhancedConsole.incrementNewLogs();
+            } else {
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+            
+            lastLogTimestamp = Date.now();
         }
-      };
-
-      eventSource.onerror = function (event) {
+      };      eventSource.onerror = function (event) {
         // Silently handle reconnection without showing error messages
         // EventSource automatically reconnects, so we don't need to do anything
         console.log("EventSource reconnecting...");
@@ -379,7 +384,7 @@
     commandInput = document.getElementById("command-input");
     const command = commandInput.value.trim();
     if (!command) {
-      alert("Please enter a command");
+      showWarning("Please enter a command");
       return;
     }
 
@@ -387,6 +392,12 @@
     executeBtn.disabled = true;
     executeBtn.innerHTML =
       '<i class="fas fa-spinner fa-spin"></i> Executing...';
+
+    // Track command execution
+    if (enhancedConsole) {
+      enhancedConsole.trackCommandExecution(command);
+    }
+    const startTime = Date.now();
 
     try {
       const response = await fetch(`/process/execute/{{ process.name }}`, {
@@ -402,12 +413,17 @@
       });
 
       const result = await response.json();
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
       if (!result.success) {
+        showError(`Command failed: ${result.error || 'Unknown error'}`);
         commandInput.value = "";
+      } else {
+        showSuccess(`Command executed successfully (${duration}s)`);
       }
     } catch (error) {
       addLogMessage(`Failed to execute command: ${error.message}`, "error");
+      showError(`Failed to execute command: ${error.message}`);
       commandInput.value = "";
     } finally {
       executeBtn.disabled = false;
@@ -438,6 +454,7 @@
       if (response.ok && result.ok) {
         addLogMessage("Process started successfully", "system");
         updateProcessStatus("running");
+        showSuccess(`Process "${name}" started successfully`);
 
         // Refresh logs after starting
         setTimeout(() => {
@@ -447,10 +464,12 @@
         const errorMsg = result.error || "Unknown error occurred";
         addLogMessage(`Failed to start process: ${errorMsg}`, "error");
         updateProcessStatus("exited");
+        showError(`Failed to start process: ${errorMsg}`);
       }
     } catch (error) {
       addLogMessage(`Error starting process: ${error.message}`, "error");
       updateProcessStatus("exited");
+      showError(`Error starting process: ${error.message}`);
     } finally {
       hideLoading();
     }
@@ -472,6 +491,7 @@
       if (response.ok) {
         addLogMessage("Process stopped successfully", "system");
         updateProcessStatus("exited");
+        showSuccess(`Process "${name}" stopped successfully`);
 
         // Refresh logs after stopping
         setTimeout(() => {
@@ -480,9 +500,11 @@
       } else {
         const errorMessage = await response.text();
         addLogMessage(`Failed to stop process: ${errorMessage}`, "error");
+        showError(`Failed to stop process: ${errorMessage}`);
       }
     } catch (error) {
       addLogMessage(`Error stopping process: ${error.message}`, "error");
+      showError(`Error stopping process: ${error.message}`);
     } finally {
       hideLoading();
     }

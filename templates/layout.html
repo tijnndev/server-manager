@@ -17,6 +17,11 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/console-enhanced.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/file-manager-enhanced.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/swipe-gestures.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bulk-operations.js') }}"></script>
 </head>
 <body class="dark-theme">
     {% if page_title and page_title == "File Manager" %}
@@ -28,11 +33,16 @@
     <div class="dashboard-wrapper">
         <nav class="navbar">
             <div class="container-fluid">
-                <a class="navbar-brand" href="/">
-                    <i class="bi bi-hdd-rack-fill"></i>
-                    Server Manager
-                </a>
-                <ul class="navbar-nav">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <a class="navbar-brand" href="/">
+                        <i class="bi bi-hdd-rack-fill"></i>
+                        Server Manager
+                    </a>
+                </div>
+                <ul class="navbar-nav" id="navbar-nav">
                     {% if session["role"] == "admin" %}
                     <li>
                         <a class="nav-link" href="/process/create"><i class="bi bi-plus-circle"></i> Create Process</a>
@@ -82,9 +92,20 @@
             }
         })();
 
-        // document.querySelector('.navbar-toggler').addEventListener('click', function() {
-        //     document.querySelector('.navbar-collapse').classList.toggle('collapse');
-        // });
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const nav = document.getElementById('navbar-nav');
+            nav.classList.toggle('show');
+        }
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const nav = document.getElementById('navbar-nav');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            if (!nav.contains(event.target) && !toggle.contains(event.target)) {
+                nav.classList.remove('show');
+            }
+        });
 
         function handleDragOver(event) {
             event.preventDefault();

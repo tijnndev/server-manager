@@ -315,7 +315,10 @@ def settings_delete(name):
 def start_process_console(name):
     process = find_process_by_name(name)
     if not process:
-        return jsonify({"error": "Process not found"}), 404
+        return jsonify({
+            "error": f"Process '{name}' not found. It may have been deleted or never existed.",
+            "ok": False
+        }), 404
 
     try:
         # Check if this is an always-running container
@@ -324,27 +327,67 @@ def start_process_console(name):
             result = start_process_in_container(name)
             if result["success"]:
                 update_process_runtime_metadata(process)
-                return jsonify({"message": result["message"], "status": get_process_status(process.name), "ok": True})
+                return jsonify({
+                    "message": result["message"], 
+                    "status": get_process_status(process.name), 
+                    "ok": True
+                })
             else:
-                return jsonify({"error": result["error"], "ok": False}), 500
+                return jsonify({
+                    "error": f"Failed to start process: {result['error']}. Check if the container is properly configured.",
+                    "ok": False
+                }), 500
         else:
             # Use traditional container-level control
-            os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
+            process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
             
-            subprocess.run(['docker-compose', 'up', '-d'], check=True)
+            if not os.path.exists(process_dir):
+                return jsonify({
+                    "error": f"Process directory not found: {process_dir}. The process files may have been deleted.",
+                    "ok": False
+                }), 404
+            
+            if not os.path.exists(os.path.join(process_dir, 'docker-compose.yml')):
+                return jsonify({
+                    "error": f"docker-compose.yml not found for process '{name}'. Recreate the process or check its configuration.",
+                    "ok": False
+                }), 404
+            
+            os.chdir(process_dir)
+            
+            subprocess.run(['docker-compose', 'up', '-d'], check=True, capture_output=True, text=True)
 
             time.sleep(2)
 
             update_process_runtime_metadata(process)
 
-            return jsonify({"message": f"Process {name} started successfully.", "status": get_process_status(process.name), "ok": True})
+            return jsonify({
+                "message": f"Process '{name}' started successfully.", 
+                "status": get_process_status(process.name), 
+                "ok": True
+            })
 
     except subprocess.CalledProcessError as e:
-        error_message = e.stderr.decode() if isinstance(e.stderr, bytes) else str(e.stderr)
-        return jsonify({"error": error_message, "ok": False}), 500
+        error_details = e.stderr if e.stderr else str(e)
+        return jsonify({
+            "error": f"Docker error starting '{name}': {error_details}. Ensure Docker is running and docker-compose.yml is valid.",
+            "ok": False
+        }), 500
+    except FileNotFoundError:
+        return jsonify({
+            "error": f"Docker or docker-compose not found. Install Docker and ensure it's in your PATH.",
+            "ok": False
+        }), 500
+    except PermissionError:
+        return jsonify({
+            "error": f"Permission denied starting '{name}'. Run the server with appropriate Docker permissions.",
+            "ok": False
+        }), 403
     except Exception as e:
-        error_message = str(e)
-        return jsonify({"error": error_message, "ok": False}), 500
+        return jsonify({
+            "error": f"Unexpected error starting '{name}': {str(e)}. Check the console logs for details.",
+            "ok": False
+        }), 500
 
 
 @process_routes.route('/stop/<string:name>', methods=['POST'])
@@ -631,19 +674,35 @@ def execute_command(name):
     """Execute a command inside the container"""
     process = find_process_by_name(name)
     if not process:
-        return jsonify({"error": "Process not found"}), 404
+        return jsonify({
+            "success": False,
+            "error": f"Process '{name}' not found. Ensure the process exists and is running."
+        }), 404
 
     try:
         data = request.get_json()
         if not data or 'command' not in data:
-            return jsonify({"error": "Command is required"}), 400
+            return jsonify({
+                "success": False,
+                "error": "No command provided. Please enter a command to execute."
+            }), 400
 
         command = data.get('command', '').strip()
         working_dir = data.get('working_dir', '/app')
         timeout = data.get('timeout', 30)
 
         if not command:
-            return jsonify({"error": "Command cannot be empty"}), 400
+            return jsonify({
+                "success": False,
+                "error": "Command cannot be empty. Please enter a valid command."
+            }), 400
+
+        # Validate timeout
+        if not isinstance(timeout, (int, float)) or timeout <= 0:
+            return jsonify({
+                "success": False,
+                "error": "Invalid timeout value. Must be a positive number."
+            }), 400
 
         # Execute the command
         result = execute_command_in_container(name, command, working_dir, timeout)
@@ -667,12 +726,29 @@ def execute_command(name):
                         live_log_streams[name].put(f'[{ts}] [ERROR] {line}')
         else:
             ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-            live_log_streams[name].put(f'[{ts}] [ERROR] {result.get("error", "Command failed")}')
+            error_msg = result.get("error", "Command failed")
+            live_log_streams[name].put(f'[{ts}] [ERROR] {error_msg}')
+            
+            # Enhance error message
+            if "container not running" in error_msg.lower():
+                result["error"] = f"Cannot execute command: Container is not running. Start the process first."
+            elif "timeout" in error_msg.lower():
+                result["error"] = f"Command timed out after {timeout}s. Try increasing the timeout or check if the command is stuck."
+            elif "permission denied" in error_msg.lower():
+                result["error"] = f"Permission denied: {error_msg}. The container user may lack necessary permissions."
         
         return jsonify(result)
 
+    except ValueError as e:
+        error_message = f"Invalid input: {str(e)}"
+        print(f"[DEBUG] ValueError in execute_command route: {error_message}")
+        return jsonify({"success": False, "error": error_message}), 400
+    except TimeoutError:
+        error_message = f"Command execution timed out after {timeout}s. The command may be hanging or taking too long."
+        print(f"[DEBUG] TimeoutError in execute_command route: {error_message}")
+        return jsonify({"success": False, "error": error_message}), 504
     except Exception as e:
-        error_message = str(e)
+        error_message = f"Unexpected error executing command: {str(e)}. Check container logs for details."
         print(f"[DEBUG] Exception in execute_command route: {error_message}")
         return jsonify({"success": False, "error": error_message}), 500
 
@@ -1309,3 +1385,136 @@ def delete_cron_job(name):
         return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
     except PermissionError as e:
         return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
+
+
+@process_routes.route('/metrics/<string:name>', methods=['GET'])
+@owner_or_subuser_required()
+def get_process_metrics(name):
+    """
+    Get real-time CPU and memory metrics for a process.
+    Returns JSON with cpu_percent, memory_percent, memory_mb.
+    """
+    import psutil
+    
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
+
+    try:
+        container_id = get_container_id(name)
+        if not container_id:
+            return jsonify({
+                "cpu_percent": 0,
+                "memory_percent": 0,
+                "memory_mb": 0,
+                "status": "stopped"
+            })
+
+        # Get container stats using docker stats
+        result = subprocess.run(
+            ['docker', 'stats', '--no-stream', '--format', 
+             '{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}', container_id],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode == 0 and result.stdout.strip():
+            stats = result.stdout.strip().split('|')
+            cpu_percent = float(stats[0].replace('%', ''))
+            memory_percent = float(stats[1].replace('%', ''))
+            
+            # Parse memory usage (e.g., "123.4MiB / 1.5GiB")
+            mem_usage = stats[2].split('/')[0].strip()
+            if 'GiB' in mem_usage:
+                memory_mb = float(mem_usage.replace('GiB', '')) * 1024
+            elif 'MiB' in mem_usage:
+                memory_mb = float(mem_usage.replace('MiB', ''))
+            else:
+                memory_mb = 0
+
+            return jsonify({
+                "cpu_percent": round(cpu_percent, 2),
+                "memory_percent": round(memory_percent, 2),
+                "memory_mb": round(memory_mb, 2),
+                "status": "running"
+            })
+        else:
+            return jsonify({
+                "cpu_percent": 0,
+                "memory_percent": 0,
+                "memory_mb": 0,
+                "status": "error",
+                "error": "Failed to get container stats"
+            }), 500
+
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "error": "Timeout getting container metrics"
+        }), 504
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to get metrics: {str(e)}"
+        }), 500
+
+
+@process_routes.route('/env-vars/<string:name>', methods=['POST'])
+@owner_or_subuser_required()
+def save_env_vars(name):
+    """
+    Save environment variables for a process.
+    Expects JSON: {"env_vars": [{"key": "VAR_NAME", "value": "var_value"}, ...]}
+    """
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    try:
+        data = request.get_json()
+        if not data or 'env_vars' not in data:
+            return jsonify({"success": False, "error": "Missing env_vars in request"}), 400
+
+        env_vars = data['env_vars']
+        
+        # Get the docker-compose.yml path
+        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+        compose_file = os.path.join(process_dir, 'docker-compose.yml')
+        
+        if not os.path.exists(compose_file):
+            return jsonify({"success": False, "error": "docker-compose.yml not found"}), 404
+
+        # Read current docker-compose.yml
+        with open(compose_file, 'r') as f:
+            compose_data = yaml.safe_load(f)
+
+        # Update environment variables for the service
+        if 'services' not in compose_data:
+            return jsonify({"success": False, "error": "Invalid docker-compose.yml format"}), 400
+
+        # Assume the service name matches the process name
+        service_name = name
+        if service_name not in compose_data['services']:
+            # Try to get the first service
+            service_name = list(compose_data['services'].keys())[0]
+
+        if 'environment' not in compose_data['services'][service_name]:
+            compose_data['services'][service_name]['environment'] = {}
+
+        # Update environment variables
+        env_dict = {var['key']: var['value'] for var in env_vars if var['key']}
+        compose_data['services'][service_name]['environment'].update(env_dict)
+
+        # Write back to docker-compose.yml
+        with open(compose_file, 'w') as f:
+            yaml.dump(compose_data, f, default_flow_style=False)
+
+        return jsonify({
+            "success": True, 
+            "message": f"Environment variables saved. Restart the process for changes to take effect.",
+            "vars_saved": len(env_dict)
+        })
+
+    except yaml.YAMLError as e:
+        return jsonify({"success": False, "error": f"YAML parsing error: {str(e)}"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Failed to save environment variables: {str(e)}"}), 500

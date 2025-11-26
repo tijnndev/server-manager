@@ -20,89 +20,17 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="git-repos-tbody">
+                        <!-- Skeleton loader -->
                         {% for integration in integrations %}
-                        <tr>
-                            <td style="max-width: 200px;">{{ integration.repository_url }}</td>
-                            <td><code>{{ integration.directory }}</code></td>
-                            <td><span class="badge bg-info">{{ integration.branch }}</span></td>
-                            <td>
-                                <code>{{ integration.current_commit }}</code>
-                                {% if integration.ahead_behind.ahead > 0 %}
-                                <br><small class="text-success">{{ integration.ahead_behind.ahead }} ahead</small>
-                                {% endif %}
-                                {% if integration.ahead_behind.behind > 0 %}
-                                <br><small class="text-warning">{{ integration.ahead_behind.behind }} behind</small>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-secondary">{{ integration.status }}</span>
-                                {% if integration.local_changes %}
-                                <br><small class="text-muted">{{ integration.local_changes|length }} local change(s)</small>
-                                {% endif %}
-                                {% if integration.remote_changes %}
-                                <br><small class="text-info">{{ integration.remote_changes|length }} to pull</small>
-                                {% endif %}
-                                <!-- Debug: {{ integration.remote_changes }} -->
-                            </td>
-                            <td>
-                                <form action="{{ url_for('git.pull_latest_git', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-info me-1">
-                                        <i class="bi bi-arrow-down-circle"></i> Pull Latest
-                                    </button>
-                                </form>
-                                <form action="{{ url_for('git.remove_git_integration', name=process.name, integration_id=integration.id) }}" method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this repository?')">
-                                        <i class="bi bi-trash"></i> Remove
-                                    </button>
-                                </form>
-                            </td>
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 180px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 200px;"></div></td>
                         </tr>
-                        {% if integration.remote_changes %}
-                        <tr>
-                            <td colspan="6" style="background-color: var(--bg-tertiary); padding: 1rem;">
-                                <small><strong><i class="bi bi-cloud-download"></i> Changes to Pull:</strong></small>
-                                <ul class="mb-0 mt-1">
-                                    {% for change in integration.remote_changes %}
-                                    <li class="small" style="list-style: none;">
-                                        <code>{{ change.file }}</code> - 
-                                        <span class="badge 
-                                            {% if change.type == 'Modified' %}bg-warning
-                                            {% elif change.type == 'Added' %}bg-success
-                                            {% elif change.type == 'Deleted' %}bg-danger
-                                            {% elif change.type == 'Renamed' %}bg-info
-                                            {% elif change.type == 'Commit' %}bg-primary
-                                            {% else %}bg-secondary{% endif %}">
-                                            {{ change.type }}
-                                        </span>
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% if integration.local_changes %}
-                        <tr>
-                            <td colspan="6" style="background-color: var(--bg-tertiary); padding: 1rem;">
-                                <small><strong><i class="bi bi-pencil"></i> Local Changes:</strong></small>
-                                <ul class="mb-0 mt-1">
-                                    {% for change in integration.local_changes %}
-                                    <li class="small" style="list-style: none;">
-                                        <code>{{ change.file }}</code> - 
-                                        <span class="badge 
-                                            {% if change.type == 'Modified' %}bg-warning
-                                            {% elif change.type == 'Added' %}bg-success
-                                            {% elif change.type == 'Deleted' %}bg-danger
-                                            {% elif change.type == 'Untracked' %}bg-secondary
-                                            {% else %}bg-info{% endif %}">
-                                            {{ change.type }}
-                                        </span>
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            </td>
-                        </tr>
-                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -156,5 +84,224 @@
         </div>
     </div>
 </div>
+
+{% if integrations %}
+<script>
+    const processName = "{{ process.name }}";
+
+    async function loadGitData() {
+        try {
+            const response = await fetch(`/git/${processName}/api/git-data`);
+            const data = await response.json();
+
+            if (!data.success) {
+                console.error('Failed to load git data:', data.error);
+                return;
+            }
+
+            const tbody = document.getElementById('git-repos-tbody');
+            tbody.innerHTML = '';
+
+            data.integrations.forEach(integration => {
+                // Main repository row
+                const tr = document.createElement('tr');
+                
+                // Repository URL
+                const urlTd = document.createElement('td');
+                urlTd.style.maxWidth = '200px';
+                urlTd.textContent = integration.repository_url;
+                tr.appendChild(urlTd);
+
+                // Directory
+                const dirTd = document.createElement('td');
+                const dirCode = document.createElement('code');
+                dirCode.textContent = integration.directory;
+                dirTd.appendChild(dirCode);
+                tr.appendChild(dirTd);
+
+                // Branch
+                const branchTd = document.createElement('td');
+                const branchBadge = document.createElement('span');
+                branchBadge.className = 'badge bg-info';
+                branchBadge.textContent = integration.branch;
+                branchTd.appendChild(branchBadge);
+                tr.appendChild(branchTd);
+
+                // Version
+                const versionTd = document.createElement('td');
+                const commitCode = document.createElement('code');
+                commitCode.textContent = integration.current_commit;
+                versionTd.appendChild(commitCode);
+                
+                if (integration.ahead_behind.ahead > 0) {
+                    versionTd.appendChild(document.createElement('br'));
+                    const aheadSmall = document.createElement('small');
+                    aheadSmall.className = 'text-success';
+                    aheadSmall.textContent = `${integration.ahead_behind.ahead} ahead`;
+                    versionTd.appendChild(aheadSmall);
+                }
+                
+                if (integration.ahead_behind.behind > 0) {
+                    versionTd.appendChild(document.createElement('br'));
+                    const behindSmall = document.createElement('small');
+                    behindSmall.className = 'text-warning';
+                    behindSmall.textContent = `${integration.ahead_behind.behind} behind`;
+                    versionTd.appendChild(behindSmall);
+                }
+                tr.appendChild(versionTd);
+
+                // Status
+                const statusTd = document.createElement('td');
+                const statusBadge = document.createElement('span');
+                statusBadge.className = 'badge bg-secondary';
+                statusBadge.textContent = integration.status;
+                statusTd.appendChild(statusBadge);
+                
+                if (integration.local_changes && integration.local_changes.length > 0) {
+                    statusTd.appendChild(document.createElement('br'));
+                    const localSmall = document.createElement('small');
+                    localSmall.className = 'text-muted';
+                    localSmall.textContent = `${integration.local_changes.length} local change(s)`;
+                    statusTd.appendChild(localSmall);
+                }
+                
+                if (integration.remote_changes && integration.remote_changes.length > 0) {
+                    statusTd.appendChild(document.createElement('br'));
+                    const remoteSmall = document.createElement('small');
+                    remoteSmall.className = 'text-info';
+                    remoteSmall.textContent = `${integration.remote_changes.length} to pull`;
+                    statusTd.appendChild(remoteSmall);
+                }
+                tr.appendChild(statusTd);
+
+                // Actions
+                const actionsTd = document.createElement('td');
+                
+                const pullForm = document.createElement('form');
+                pullForm.action = `/git/${processName}/pull_latest/${integration.id}`;
+                pullForm.method = 'POST';
+                pullForm.className = 'd-inline';
+                const pullBtn = document.createElement('button');
+                pullBtn.type = 'submit';
+                pullBtn.className = 'btn btn-sm btn-info me-1';
+                pullBtn.innerHTML = '<i class="bi bi-arrow-down-circle"></i> Pull Latest';
+                pullForm.appendChild(pullBtn);
+                actionsTd.appendChild(pullForm);
+
+                const removeForm = document.createElement('form');
+                removeForm.action = `/git/${processName}/remove_git_integration/${integration.id}`;
+                removeForm.method = 'POST';
+                removeForm.className = 'd-inline';
+                removeForm.onsubmit = () => confirm('Remove this repository?');
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'submit';
+                removeBtn.className = 'btn btn-sm btn-danger';
+                removeBtn.innerHTML = '<i class="bi bi-trash"></i> Remove';
+                removeForm.appendChild(removeBtn);
+                actionsTd.appendChild(removeForm);
+
+                tr.appendChild(actionsTd);
+                tbody.appendChild(tr);
+
+                // Remote changes row
+                if (integration.remote_changes && integration.remote_changes.length > 0) {
+                    const remoteRow = document.createElement('tr');
+                    const remoteTd = document.createElement('td');
+                    remoteTd.colSpan = 6;
+                    remoteTd.style.backgroundColor = 'var(--bg-tertiary)';
+                    remoteTd.style.padding = '1rem';
+                    
+                    const remoteTitle = document.createElement('small');
+                    remoteTitle.innerHTML = '<strong><i class="bi bi-cloud-download"></i> Changes to Pull:</strong>';
+                    remoteTd.appendChild(remoteTitle);
+                    
+                    const remoteList = document.createElement('ul');
+                    remoteList.className = 'mb-0 mt-1';
+                    
+                    integration.remote_changes.forEach(change => {
+                        const li = document.createElement('li');
+                        li.className = 'small';
+                        li.style.listStyle = 'none';
+                        
+                        const changeCode = document.createElement('code');
+                        changeCode.textContent = change.file;
+                        li.appendChild(changeCode);
+                        li.appendChild(document.createTextNode(' - '));
+                        
+                        const changeBadge = document.createElement('span');
+                        changeBadge.className = 'badge';
+                        switch(change.type) {
+                            case 'Modified': changeBadge.classList.add('bg-warning'); break;
+                            case 'Added': changeBadge.classList.add('bg-success'); break;
+                            case 'Deleted': changeBadge.classList.add('bg-danger'); break;
+                            case 'Renamed': changeBadge.classList.add('bg-info'); break;
+                            case 'Commit': changeBadge.classList.add('bg-primary'); break;
+                            default: changeBadge.classList.add('bg-secondary');
+                        }
+                        changeBadge.textContent = change.type;
+                        li.appendChild(changeBadge);
+                        
+                        remoteList.appendChild(li);
+                    });
+                    
+                    remoteTd.appendChild(remoteList);
+                    remoteRow.appendChild(remoteTd);
+                    tbody.appendChild(remoteRow);
+                }
+
+                // Local changes row
+                if (integration.local_changes && integration.local_changes.length > 0) {
+                    const localRow = document.createElement('tr');
+                    const localTd = document.createElement('td');
+                    localTd.colSpan = 6;
+                    localTd.style.backgroundColor = 'var(--bg-tertiary)';
+                    localTd.style.padding = '1rem';
+                    
+                    const localTitle = document.createElement('small');
+                    localTitle.innerHTML = '<strong><i class="bi bi-pencil"></i> Local Changes:</strong>';
+                    localTd.appendChild(localTitle);
+                    
+                    const localList = document.createElement('ul');
+                    localList.className = 'mb-0 mt-1';
+                    
+                    integration.local_changes.forEach(change => {
+                        const li = document.createElement('li');
+                        li.className = 'small';
+                        li.style.listStyle = 'none';
+                        
+                        const changeCode = document.createElement('code');
+                        changeCode.textContent = change.file;
+                        li.appendChild(changeCode);
+                        li.appendChild(document.createTextNode(' - '));
+                        
+                        const changeBadge = document.createElement('span');
+                        changeBadge.className = 'badge';
+                        switch(change.type) {
+                            case 'Modified': changeBadge.classList.add('bg-warning'); break;
+                            case 'Added': changeBadge.classList.add('bg-success'); break;
+                            case 'Deleted': changeBadge.classList.add('bg-danger'); break;
+                            case 'Untracked': changeBadge.classList.add('bg-secondary'); break;
+                            default: changeBadge.classList.add('bg-info');
+                        }
+                        changeBadge.textContent = change.type;
+                        li.appendChild(changeBadge);
+                        
+                        localList.appendChild(li);
+                    });
+                    
+                    localTd.appendChild(localList);
+                    localRow.appendChild(localTd);
+                    tbody.appendChild(localRow);
+                }
+            });
+        } catch (error) {
+            console.error('Error loading git data:', error);
+        }
+    }
+
+    // Load data when page loads
+    document.addEventListener('DOMContentLoaded', loadGitData);
+</script>
+{% endif %}
 {% endblock %}
 

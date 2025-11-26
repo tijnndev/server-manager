@@ -2,152 +2,272 @@
 
 {% block process_content %}
 <style>
-.file-bar {
-    background-color: #333;
-    border-radius: 5px;
-    color: #fff !important;
+/* File Manager Styling */
+.file-manager-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
 }
 
-.btn {
-    color: #fff !important;
-    flex: none !important;
-}
-
-.btn span {
-    border-bottom: 1px solid white;
-}
-
-.list-group-item {
-    position: relative;
+.file-manager-header {
+    background: var(--bg-tertiary);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
+    justify-content: space-between;
     align-items: center;
 }
 
-
-.file-checkbox {
-    margin-right: 10px;
-}
-
-.list-group-item .btn {
-    margin-left: 10px;
-}
-
-.drop-zone {
-    display: none;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    color: #fff;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.2rem;
-    border: 2px dashed #fff;
-    z-index: 10;
-}
-
-.list-group-item.drag-hover .drop-zone {
+.file-manager-header h5 {
+    margin: 0;
     display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
 }
 
-.drag-hover {
-    background: red;
+/* Breadcrumb */
+.breadcrumb {
+    background: transparent;
+    padding: 1rem 1.5rem;
+    margin: 0;
 }
 
+.breadcrumb-item a {
+    color: var(--accent-blue);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.breadcrumb-item a:hover {
+    color: var(--accent-blue-hover);
+}
+
+.breadcrumb-item.active {
+    color: var(--text-secondary);
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    color: var(--text-muted);
+}
+
+/* Table Styling */
+.table {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.table thead th {
+    background: var(--bg-tertiary);
+    border-bottom: 2px solid var(--border-color);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 0.875rem 1rem;
+    border-top: none;
+}
+
+.table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.table tbody td {
+    padding: 0.875rem 1rem;
+    vertical-align: middle;
+    border-top: none;
+}
+
+/* Checkbox Styling */
+.file-checkbox,
+#select-all-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-blue);
+}
+
+/* File Links */
+.table a {
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.table a:hover {
+    color: var(--accent-blue);
+}
+
+.table a i {
+    font-size: 1.1rem;
+}
+
+/* Button Styling */
+.btn-group {
+    display: flex;
+    gap: 0.375rem;
+}
+
+.btn-sm {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+}
+
+/* Actions Overlay */
 .actions-overlay {
     position: fixed;
     bottom: -100px;
-    left: 0;
-    width: 100%;
-    background-color: transparent;
-    color: white;
-    padding: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
     z-index: 9999;
-    text-align: center;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
     opacity: 0;
     visibility: hidden;
-    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out, visibility 0s 0.3s;
+    transition: all 0.3s ease-in-out;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
 }
 
 .actions-overlay.active {
-    bottom: 25px;
+    bottom: 20px;
     opacity: 1;
     visibility: visible;
-    transition: bottom 0.3s ease-in-out, opacity 0.3s ease-in-out;
 }
 
-.actions-overlay button {
-    margin: 0 10px;
+.actions-overlay::before {
+    content: attr(data-count);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-right: 0.5rem;
 }
 
-.actions-overlay.active {
-    display: block;
+/* Upload Section */
+.card-footer {
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+    padding: 1.25rem 1.5rem;
 }
 
-.actions-overlay button {
-    margin: 0 10px;
-}
-
-.list-group-item .div {
-    position: relative;
+.card-footer h6 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin: auto;
+    gap: 0.5rem;
 }
 
-    .modal-content {
-        background-color: #333;
-        color: #fff;
+.card-footer .input-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.card-footer .form-control {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.card-footer .form-control:focus {
+    background: var(--bg-secondary);
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+}
+
+/* Modal Styling */
+.modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.modal-header {
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-title {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+}
+
+.modal-body .form-control {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.modal-body .form-control:focus {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+}
+
+.modal-footer {
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+}
+
+.modal-backdrop.show {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* Alert Styling */
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--accent-green);
+    color: var(--accent-green);
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--accent-red);
+    color: var(--accent-red);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .file-manager-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
     }
 
-    .modal-header {
-        border-bottom: 1px solid #444;
+    .btn-group {
+        flex-direction: column;
     }
 
-    .modal-title {
-        color: #fff;
+    .actions-overlay {
+        left: 10px;
+        right: 10px;
+        transform: none;
+        flex-direction: column;
     }
 
-    .modal-body {
-        background-color: #444;
+    .table {
+        font-size: 0.875rem;
     }
 
-    .modal-footer {
-        background-color: #333;
-        border-top: 1px solid #444;
+    .table td, .table th {
+        padding: 0.625rem 0.5rem;
     }
-
-    .modal-footer .btn {
-        color: #fff;
-        background-color: #555;
-        border: 1px solid #666;
-    }
-
-    .modal-footer .btn:hover {
-        background-color: #666;
-        border-color: #777;
-    }
-
-    .modal-footer .btn-danger {
-        background-color: #cc3b3b;
-        border-color: #b32d2d;
-    }
-
-    .modal-footer .btn-danger:hover {
-        background-color: #b32d2d;
-        border-color: #9a2525;
-    }
-
-    .modal-backdrop.show {
-        background-color: rgba(0, 0, 0, 0.7);
-    }
-
-    .breadcrumb {
-        background-color: var(--bg-tertiary);
-    }
+}
 </style>
 
 
@@ -328,6 +448,8 @@
 
 <script>
 let selectedFiles = [];
+
+// Individual checkbox handler
 document.querySelectorAll('.file-checkbox').forEach(checkbox => {
     checkbox.addEventListener('change', (event) => {
         const filePath = event.target.getAttribute('data-path');
@@ -337,68 +459,91 @@ document.querySelectorAll('.file-checkbox').forEach(checkbox => {
             selectedFiles = selectedFiles.filter(path => path !== filePath);
         }
 
+        updateSelectAllCheckbox();
         toggleActionsOverlay();
     });
 });
 
-document.getElementById('select-all-btn').addEventListener('click', () => {
+// Select all checkbox in table header
+document.getElementById('select-all-checkbox').addEventListener('change', (event) => {
     const allCheckboxes = document.querySelectorAll('.file-checkbox');
-    const isAllSelected = Array.from(allCheckboxes).every(checkbox => checkbox.checked);
+    const isChecked = event.target.checked;
 
+    selectedFiles = [];
     allCheckboxes.forEach(checkbox => {
-        checkbox.checked = !isAllSelected;
-        const filePath = checkbox.getAttribute('data-path');
-        if (!isAllSelected && !selectedFiles.includes(filePath)) {
+        checkbox.checked = isChecked;
+        if (isChecked) {
+            const filePath = checkbox.getAttribute('data-path');
             selectedFiles.push(filePath);
-        } else if (isAllSelected) {
-            selectedFiles = selectedFiles.filter(path => path !== filePath);
         }
     });
 
     toggleActionsOverlay();
 });
 
+// Select all button
+document.getElementById('select-all-btn').addEventListener('click', () => {
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    selectAllCheckbox.checked = !selectAllCheckbox.checked;
+    selectAllCheckbox.dispatchEvent(new Event('change'));
+});
+
+function updateSelectAllCheckbox() {
+    const allCheckboxes = document.querySelectorAll('.file-checkbox');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
+    
+    selectAllCheckbox.checked = checkedCount === allCheckboxes.length && allCheckboxes.length > 0;
+    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+}
 
 function toggleActionsOverlay() {
     const overlay = document.getElementById('actions-overlay');
     if (selectedFiles.length > 0) {
         overlay.classList.add('active');
+        overlay.setAttribute('data-count', `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} selected`);
     } else {
         overlay.classList.remove('active');
     }
 }
 
 function deleteSelectedFiles() {
-    if (selectedFiles.length === 0) return;
+    // Use the new bulk operations with progress
+    if (typeof deleteSelectedFilesWithProgress !== 'undefined') {
+        deleteSelectedFilesWithProgress();
+    } else {
+        // Fallback to old method
+        if (selectedFiles.length === 0) return;
 
-    if (confirm("Are you sure you want to delete the selected files?")) {
-        selectedFiles.forEach(filePath => {
-            fetch("{{ url_for('files.delete_files', name=process.name) }}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams({
-                    'filename': filePath,
-                    'location': "{{ current_location }}",
-                    'permanent': true
+        if (confirm("Are you sure you want to delete the selected files?")) {
+            selectedFiles.forEach(filePath => {
+                fetch("{{ url_for('files.delete_files', name=process.name) }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        'filename': filePath,
+                        'location': "{{ current_location }}",
+                        'permanent': true
+                    })
                 })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Deleted file: ' + filePath);
-                    location.reload();
-                } else {
-                    alert('Error deleting file: ' + filePath);
-                }
-            })
-            .catch(error => {
-                console.log(error)
-                console.error('Error:', error);
-                alert('Error deleting file: ' + filePath);
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showSuccess('Deleted file: ' + filePath);
+                        location.reload();
+                    } else {
+                        showError('Error deleting file: ' + filePath);
+                    }
+                })
+                .catch(error => {
+                    console.log(error)
+                    console.error('Error:', error);
+                    showError('Error deleting file: ' + filePath);
+                });
             });
-        });
+        }
     }
 }
 
@@ -414,24 +559,63 @@ function downloadSelectedFiles() {
 }
 
 function confirmDelete(form, filename) {
-    const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
-
-    if (userConfirmed) {
-        const action = confirm(`Do you want to fully delete '${filename}'? Click 'Cancel' to move it to the trash.`);
-        if (action) {
-            form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename + "&permanent=true";
-        } else {
-            form.action = "{{ url_for('files.delete_file', name=process.name, filename='') }}" + filename;
+    // Prevent default form submission
+    event.preventDefault();
+    
+    // Show confirmation with undo option
+    if (typeof showToastWithUndo !== 'undefined') {
+        const formData = new FormData(form);
+        const filepath = formData.get('filename');
+        const location = formData.get('location');
+        
+        showConfirmation(`Delete '${filename}'?`, () => {
+            // Perform delete
+            fetch(form.action, {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToastWithUndo(
+                        `Deleted '${filename}'`,
+                        'success',
+                        5000,
+                        () => {
+                            // Undo delete - would need backend endpoint to restore
+                            showWarning('Undo not yet implemented on backend');
+                        }
+                    );
+                    // Reload after a delay
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Failed to delete: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                showError('Error deleting file: ' + error.message);
+            });
+        });
+    } else {
+        // Fallback to old confirm
+        const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
+        if (userConfirmed) {
+            form.submit();
         }
     }
-
-    return true;
+    
+    return false;
 }
 
 function moveSelectedFiles() {
-    if (selectedFiles.length === 0) return;
-    // Show the move files modal
-    $('#moveFilesModal').modal('show');
+    // Use new bulk operations with progress if available
+    if (typeof moveSelectedFilesWithProgress !== 'undefined') {
+        moveSelectedFilesWithProgress();
+    } else {
+        // Fallback to modal
+        if (selectedFiles.length === 0) return;
+        $('#moveFilesModal').modal('show');
+    }
 }
 
 function submitMove() {

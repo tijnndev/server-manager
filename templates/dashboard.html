@@ -21,17 +21,30 @@
                 </div>
             </div>
             <div class="table-responsive">
-                <table class="table">
+                <table class="table table-sticky-header">
                     <thead>
                         <tr>
                             <th>Process ID</th>
                             <th>Name</th>
                             <th>Type</th>
                             <th>Status</th>
+                            <th>CPU</th>
+                            <th>Memory</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="process-grid"></tbody>
+                    <tbody id="process-grid">
+                        <!-- Skeleton loader -->
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 70px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 50px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 50px;"></div></td>
+                            <td><div class="skeleton skeleton-button"></div></td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -211,19 +224,67 @@
         renderProcesses(Object.entries(allProcesses));
     }
 
+    function getStatusBadgeClass(status) {
+        const statusMap = {
+            'running': { class: 'bg-success', icon: 'bi-play-circle-fill' },
+            'exited': { class: 'bg-secondary', icon: 'bi-stop-circle-fill' },
+            'process stopped': { class: 'bg-warning', icon: 'bi-pause-circle-fill' },
+            'error': { class: 'bg-danger', icon: 'bi-exclamation-circle-fill' },
+            'restarting': { class: 'bg-info', icon: 'bi-arrow-clockwise' }
+        };
+        const normalized = status.toLowerCase();
+        return statusMap[normalized] || { class: 'bg-secondary', icon: 'bi-question-circle-fill' };
+    }
+
     function renderProcesses(processEntries) {
         const grid = document.getElementById('process-grid');
         grid.innerHTML = '';
+        
+        if (processEntries.length === 0) {
+            grid.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center" style="padding: 40px;">
+                        <i class="bi bi-inbox" style="font-size: 48px; color: var(--text-muted);"></i>
+                        <p style="color: var(--text-muted); margin-top: 16px;">No processes found</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
         processEntries.forEach(([name, process]) => {
+            const statusInfo = getStatusBadgeClass(process.status);
+            
+            // Fetch real metrics
+            const cpuUsage = process.metrics?.cpu_percent || 0;
+            const memUsage = process.metrics?.memory_percent || 0;
+            
             const row = `
             <tr data-process-name="${name}">
                 <td><code>${name.substring(0, 12)}</code></td>
                 <td>${name}</td>
                 <td><span class="badge bg-info">${process.type}</span></td>
                 <td>
-                    <span class="badge ${process.status.toLowerCase() === 'running' ? 'bg-success' : 'bg-secondary'}">
+                    <span class="badge ${statusInfo.class}" style="display: flex; align-items: center; gap: 6px; width: fit-content;">
+                        <i class="bi ${statusInfo.icon}"></i>
                         ${process.status.charAt(0).toUpperCase() + process.status.slice(1)}
                     </span>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 40px; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
+                            <div style="width: ${cpuUsage}%; height: 100%; background: ${cpuUsage > 80 ? 'var(--accent-red)' : cpuUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};"></div>
+                        </div>
+                        <span style="font-size: 12px; color: var(--text-secondary);">${cpuUsage}%</span>
+                    </div>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 40px; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
+                            <div style="width: ${memUsage}%; height: 100%; background: ${memUsage > 80 ? 'var(--accent-red)' : memUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};"></div>
+                        </div>
+                        <span style="font-size: 12px; color: var(--text-secondary);">${memUsage}%</span>
+                    </div>
                 </td>
                 <td>
                     <a href="/process/console/${name}" class="btn btn-sm btn-outline-primary">
@@ -263,5 +324,41 @@
 
     // Load user settings when page loads
     loadUserSettings();
+
+    // Fetch real-time metrics for all processes
+    async function fetchProcessMetrics() {
+        if (!allProcesses) return;
+
+        for (const [name, process] of Object.entries(allProcesses)) {
+            if (process.status === 'running') {
+                try {
+                    const response = await fetch(`/process/metrics/${name}`);
+                    if (response.ok) {
+                        const metrics = await response.json();
+                        allProcesses[name].metrics = metrics;
+                    }
+                } catch (error) {
+                    console.error(`Failed to fetch metrics for ${name}:`, error);
+                }
+            }
+        }
+
+        // Re-render with updated metrics
+        const sortValue = document.getElementById('sort-select').value;
+        let entries = Object.entries(allProcesses);
+        
+        if (sortValue === 'alpha') {
+            entries.sort((a, b) => a[0].localeCompare(b[0]));
+        } else if (sortValue === 'alpha-reverse') {
+            entries.sort((a, b) => b[0].localeCompare(a[0]));
+        }
+        
+        renderProcesses(entries);
+    }
+
+    // Fetch metrics every 5 seconds
+    setInterval(fetchProcessMetrics, 5000);
+    // Initial fetch after 1 second
+    setTimeout(fetchProcessMetrics, 1000);
 </script>
 {% endblock content %}
