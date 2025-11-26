@@ -193,13 +193,12 @@ def load_process():
             print(f"Error fetching status for {process.name}: {response['error']}")
             status = "Unknown"
         else:
-            # Handle both dict response with "status" key and direct string status
-            if isinstance(response, dict) and "status" in response:
-                status = response["status"]
-            elif isinstance(response, str):
-                status = response
-            else:
-                status = str(response)
+            # Extract status from response
+            status = response.get("status", "Unknown")
+            
+            # Map "Container Not Running" to "Exited" for cleaner display
+            if status == "Container Not Running":
+                status = "Exited"
                 
             process_dict[process.name] = {
                 "id": process.id,
