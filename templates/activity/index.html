@@ -1,0 +1,240 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history"></i> Activity Log</span>
+                <div class="d-flex gap-2">
+                    <input type="text" id="user-filter" class="form-control form-control-sm" placeholder="Filter by user..." style="width: 200px;">
+                    <select id="action-filter" class="form-select form-select-sm" style="width: 200px;">
+                        <option value="">All Actions</option>
+                    </select>
+                    <button class="btn btn-sm btn-secondary" onclick="refreshLogs()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Target</th>
+                            <th>Details</th>
+                            <th>IP Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activity-logs">
+                        <!-- Skeleton loader -->
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 150px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 150px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <div class="text-muted">
+                    <span id="log-count">Loading...</span>
+                </div>
+                <div class="btn-group" id="pagination">
+                    <!-- Pagination buttons will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+const perPage = 50;
+
+async function loadActivityLogs(page = 1) {
+    try {
+        const userFilter = document.getElementById('user-filter').value;
+        const actionFilter = document.getElementById('action-filter').value;
+        
+        const params = new URLSearchParams({
+            page: page,
+            per_page: perPage
+        });
+        
+        if (userFilter) params.append('user', userFilter);
+        if (actionFilter) params.append('action', actionFilter);
+        
+        const response = await fetch(`/activity/api/logs?${params}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            renderLogs(data.logs);
+            updatePagination(data.page, data.pages, data.total);
+            currentPage = data.page;
+        }
+    } catch (error) {
+        console.error('Failed to load activity logs:', error);
+    }
+}
+
+function renderLogs(logs) {
+    const tbody = document.getElementById('activity-logs');
+    
+    if (logs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted" style="padding: 40px;">
+                    <i class="bi bi-inbox" style="font-size: 48px;"></i>
+                    <p class="mt-3">No activity logs found</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = logs.map(log => {
+        const actionBadge = getActionBadge(log.action);
+        const timeAgo = formatTimeAgo(log.timestamp);
+        
+        return `
+            <tr>
+                <td><span class="text-muted">${timeAgo}</span></td>
+                <td><code>${escapeHtml(log.username)}</code></td>
+                <td>${actionBadge}</td>
+                <td>${log.target ? `<code>${escapeHtml(log.target)}</code>` : '—'}</td>
+                <td><span class="text-muted">${log.details ? escapeHtml(log.details) : '—'}</span></td>
+                <td><span class="text-muted">${log.ip_address || '—'}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getActionBadge(action) {
+    const actionMap = {
+        'started_process': { class: 'bg-success', icon: 'play-fill', text: 'Started Process' },
+        'stopped_process': { class: 'bg-danger', icon: 'stop-fill', text: 'Stopped Process' },
+        'restarted_process': { class: 'bg-warning', icon: 'arrow-clockwise', text: 'Restarted Process' },
+        'created_process': { class: 'bg-info', icon: 'plus-circle', text: 'Created Process' },
+        'deleted_process': { class: 'bg-danger', icon: 'trash', text: 'Deleted Process' },
+        'uploaded_file': { class: 'bg-success', icon: 'upload', text: 'Uploaded File' },
+        'deleted_file': { class: 'bg-danger', icon: 'trash', text: 'Deleted File' },
+        'renamed_file': { class: 'bg-info', icon: 'pencil', text: 'Renamed File' },
+        'updated_settings': { class: 'bg-info', icon: 'gear', text: 'Updated Settings' },
+        'executed_command': { class: 'bg-warning', icon: 'terminal', text: 'Executed Command' },
+        'login': { class: 'bg-success', icon: 'box-arrow-in-right', text: 'Logged In' },
+        'logout': { class: 'bg-secondary', icon: 'box-arrow-right', text: 'Logged Out' },
+    };
+    
+    const config = actionMap[action] || { class: 'bg-secondary', icon: 'question-circle', text: action };
+    
+    return `<span class="badge ${config.class}"><i class="bi bi-${config.icon}"></i> ${config.text}</span>`;
+}
+
+function formatTimeAgo(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (seconds < 60) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+function updatePagination(page, totalPages, totalLogs) {
+    document.getElementById('log-count').textContent = `Showing page ${page} of ${totalPages} (${totalLogs} total logs)`;
+    
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    // Previous button
+    const prevBtn = document.createElement('button');
+    prevBtn.className = `btn btn-sm btn-outline-secondary ${page === 1 ? 'disabled' : ''}`;
+    prevBtn.innerHTML = '<i class="bi bi-chevron-left"></i>';
+    prevBtn.onclick = () => page > 1 && loadActivityLogs(page - 1);
+    pagination.appendChild(prevBtn);
+    
+    // Page numbers (show current, 2 before, 2 after)
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPages, page + 2);
+    
+    for (let i = start; i <= end; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = `btn btn-sm ${i === page ? 'btn-primary' : 'btn-outline-secondary'}`;
+        pageBtn.textContent = i;
+        pageBtn.onclick = () => loadActivityLogs(i);
+        pagination.appendChild(pageBtn);
+    }
+    
+    // Next button
+    const nextBtn = document.createElement('button');
+    nextBtn.className = `btn btn-sm btn-outline-secondary ${page === totalPages ? 'disabled' : ''}`;
+    nextBtn.innerHTML = '<i class="bi bi-chevron-right"></i>';
+    nextBtn.onclick = () => page < totalPages && loadActivityLogs(page + 1);
+    pagination.appendChild(nextBtn);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function refreshLogs() {
+    loadActivityLogs(currentPage);
+}
+
+// Load available action filters
+async function loadActionFilters() {
+    try {
+        const response = await fetch('/activity/api/actions');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('action-filter');
+            data.actions.forEach(action => {
+                const option = document.createElement('option');
+                option.value = action;
+                option.textContent = action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load action filters:', error);
+    }
+}
+
+// Event listeners
+document.getElementById('user-filter').addEventListener('input', () => {
+    clearTimeout(window.filterTimeout);
+    window.filterTimeout = setTimeout(() => loadActivityLogs(1), 500);
+});
+
+document.getElementById('action-filter').addEventListener('change', () => {
+    loadActivityLogs(1);
+});
+
+// Initial load
+document.addEventListener('DOMContentLoaded', () => {
+    loadActivityLogs(1);
+    loadActionFilters();
+});
+
+// Auto-refresh every 30 seconds
+setInterval(() => loadActivityLogs(currentPage), 30000);
+</script>
+{% endblock %}

@@ -365,8 +365,8 @@
                                 <span class="ms-2">{{ file.name }}</span>
                             </a>
                         </td>
-                        <td><span class="text-muted">{{ file.size or '—' }}</span></td>
-                        <td><span class="text-muted">{{ file.modified_time or '—' }}</span></td>
+                        <td><span class="text-muted">{% if file.size is not none %}{{ (file.size / 1024 / 1024) | round(2) if file.size > 1048576 else (file.size / 1024) | round(1) if file.size > 1024 else file.size }} {{ 'MB' if file.size > 1048576 else 'KB' if file.size > 1024 else 'B' }}{% else %}—{% endif %}</span></td>
+                        <td><span class="text-muted">{% if file.modified_time %}{{ file.modified_time | int | timestamp_to_date }}{% else %}—{% endif %}</span></td>
                         <td>
                             <div class="btn-group">
                                 {% if file.name.endswith('.zip') %}

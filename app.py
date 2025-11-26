@@ -35,6 +35,35 @@ db.init_app(app)
 migrate = Migrate(app, db)
 
 
+# Custom Jinja2 filters
+@app.template_filter('timestamp_to_date')
+def timestamp_to_date_filter(timestamp):
+    """Convert Unix timestamp to human-readable date"""
+    from datetime import datetime
+    try:
+        dt = datetime.fromtimestamp(timestamp)
+        now = datetime.now()
+        diff = now - dt
+        
+        if diff.days == 0:
+            if diff.seconds < 60:
+                return "Just now"
+            elif diff.seconds < 3600:
+                minutes = diff.seconds // 60
+                return f"{minutes} min{'s' if minutes > 1 else ''} ago"
+            else:
+                hours = diff.seconds // 3600
+                return f"{hours} hour{'s' if hours > 1 else ''} ago"
+        elif diff.days == 1:
+            return "Yesterday"
+        elif diff.days < 7:
+            return f"{diff.days} days ago"
+        else:
+            return dt.strftime("%b %d, %Y")
+    except:
+        return "Unknown"
+
+
 def create_admin_user():
     if User.query.count() == 0:
         admin = User(username='admin', role="admin", email="test@gmail.com", password_hash=generate_password_hash('tDIg2uDuSOf0b!Uc82'))
@@ -151,6 +180,8 @@ BASE_DIR = os.path.dirname(__file__)
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 PROCESS_DIRECTORY = 'active-servers'
 
+from routes.activity import activity_routes
+
 app.register_blueprint(process_routes, url_prefix='/process')
 app.register_blueprint(file_manager_routes, url_prefix='/files')
 app.register_blueprint(nginx_routes, url_prefix='/nginx')
@@ -158,6 +189,7 @@ app.register_blueprint(git_routes, url_prefix='/git')
 app.register_blueprint(auth_route, url_prefix='/auth')
 app.register_blueprint(email_routes, url_prefix='/email')
 app.register_blueprint(settings_routes, url_prefix='/settings')
+app.register_blueprint(activity_routes, url_prefix='/activity')
 
 
 # WEB

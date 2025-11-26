@@ -41,14 +41,27 @@ def file_manager(name):
         return redirect(url_for('files.file_manager', name=process.name, location=""))
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
-    files = [
-        {
+    files = []
+    for file in os.listdir(current_location):
+        file_full_path = os.path.join(current_location, file)
+        is_dir = os.path.isdir(file_full_path)
+        
+        # Get file stats
+        try:
+            stat = os.stat(file_full_path)
+            file_size = None if is_dir else stat.st_size
+            modified_time = stat.st_mtime
+        except OSError:
+            file_size = None
+            modified_time = None
+        
+        files.append({
             'name': file,
-            'is_directory': os.path.isdir(os.path.join(current_location, file)),
-            'path': os.path.join(relative_location, file) if relative_location != '.' else file
-        }
-        for file in os.listdir(current_location)
-    ]
+            'is_directory': is_dir,
+            'path': os.path.join(relative_location, file) if relative_location != '.' else file,
+            'size': file_size,
+            'modified_time': modified_time
+        })
 
     if request.method == 'POST':
         uploaded_file = request.files.get('file')

@@ -34,7 +34,7 @@
                 <i class="bi bi-terminal-plus"></i> Execute Commands
             </div>
             <div class="card-body">
-                <div class="input-group">
+                <div class="input-group" style="position: relative;">
                     <span class="input-group-text bg-dark text-success">$</span>
                     <input
                         type="text"
@@ -42,12 +42,18 @@
                         id="command-input"
                         placeholder="Enter command to execute..."
                         style="font-family: monospace"
+                        autocomplete="off"
                     />
                     <button class="btn btn-primary" type="button" onclick="executeCommand()" id="execute-btn">
                         Execute
                     </button>
+                    <!-- Command autocomplete dropdown -->
+                    <div id="command-autocomplete" class="command-autocomplete" style="display: none;"></div>
                 </div>
-                <small class="text-muted mt-2 d-block">Commands execute in /app directory.</small>
+                <small class="text-muted mt-2 d-block">
+                    Commands execute in /app directory. 
+                    <span class="text-info">↑↓ to navigate history, Tab to autocomplete, Esc to close</span>
+                </small>
             </div>
         </div>
     </div>
@@ -231,6 +237,237 @@
   let lastLogTimestamp = Date.now();
   let userSettings = null;
 
+  // Command autocomplete state
+  let commandHistory = [];
+  let historyIndex = -1;
+  let currentInput = '';
+  let autocompleteVisible = false;
+  let selectedSuggestionIndex = -1;
+  const autocompleteDropdown = document.getElementById('command-autocomplete');
+
+  // Common commands for autocomplete suggestions
+  const commonCommands = [
+    { cmd: 'ls', desc: 'List directory contents', icon: 'bi-list-ul' },
+    { cmd: 'ls -la', desc: 'List all files with details', icon: 'bi-list-ul' },
+    { cmd: 'cd', desc: 'Change directory', icon: 'bi-folder' },
+    { cmd: 'pwd', desc: 'Print working directory', icon: 'bi-folder2-open' },
+    { cmd: 'cat', desc: 'Display file contents', icon: 'bi-file-text' },
+    { cmd: 'tail -f', desc: 'Follow file changes', icon: 'bi-file-earmark-text' },
+    { cmd: 'grep', desc: 'Search text patterns', icon: 'bi-search' },
+    { cmd: 'find', desc: 'Search for files', icon: 'bi-search' },
+    { cmd: 'ps aux', desc: 'List running processes', icon: 'bi-cpu' },
+    { cmd: 'top', desc: 'Display system tasks', icon: 'bi-speedometer2' },
+    { cmd: 'df -h', desc: 'Disk space usage', icon: 'bi-hdd' },
+    { cmd: 'free -m', desc: 'Memory usage', icon: 'bi-memory' },
+    { cmd: 'netstat -tuln', desc: 'Show network connections', icon: 'bi-network' },
+    { cmd: 'curl', desc: 'Transfer data from URL', icon: 'bi-download' },
+    { cmd: 'wget', desc: 'Download files', icon: 'bi-cloud-download' },
+    { cmd: 'git status', desc: 'Show git status', icon: 'bi-git' },
+    { cmd: 'git log', desc: 'Show commit history', icon: 'bi-clock-history' },
+    { cmd: 'git pull', desc: 'Pull latest changes', icon: 'bi-arrow-down-circle' },
+    { cmd: 'npm install', desc: 'Install npm packages', icon: 'bi-box-seam' },
+    { cmd: 'npm start', desc: 'Start npm script', icon: 'bi-play-circle' },
+    { cmd: 'npm run', desc: 'Run npm script', icon: 'bi-play' },
+    { cmd: 'pip install', desc: 'Install Python package', icon: 'bi-box-seam' },
+    { cmd: 'python', desc: 'Run Python interpreter', icon: 'bi-code-slash' },
+    { cmd: 'node', desc: 'Run Node.js', icon: 'bi-code-square' },
+    { cmd: 'docker ps', desc: 'List containers', icon: 'bi-box' },
+    { cmd: 'docker logs', desc: 'View container logs', icon: 'bi-file-text' },
+    { cmd: 'systemctl status', desc: 'Check service status', icon: 'bi-gear' },
+    { cmd: 'chmod', desc: 'Change file permissions', icon: 'bi-shield-lock' },
+    { cmd: 'chown', desc: 'Change file owner', icon: 'bi-person-badge' },
+    { cmd: 'mkdir', desc: 'Create directory', icon: 'bi-folder-plus' },
+    { cmd: 'rm', desc: 'Remove files', icon: 'bi-trash' },
+    { cmd: 'mv', desc: 'Move/rename files', icon: 'bi-arrow-left-right' },
+    { cmd: 'cp', desc: 'Copy files', icon: 'bi-files' },
+    { cmd: 'echo', desc: 'Print text', icon: 'bi-chat-text' },
+    { cmd: 'env', desc: 'Show environment variables', icon: 'bi-list-check' },
+  ];
+
+  // Load command history from localStorage
+  function loadCommandHistory() {
+    try {
+      const saved = localStorage.getItem('command_history_{{ process.name }}');
+      if (saved) {
+        commandHistory = JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Failed to load command history:', error);
+    }
+  }
+
+  // Save command history to localStorage
+  function saveCommandHistory() {
+    try {
+      // Keep only last 50 commands
+      const recentHistory = commandHistory.slice(-50);
+      localStorage.setItem('command_history_{{ process.name }}', JSON.stringify(recentHistory));
+    } catch (error) {
+      console.error('Failed to save command history:', error);
+    }
+  }
+
+  // Add command to history
+  function addToHistory(command) {
+    // Don't add duplicate consecutive commands
+    if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== command) {
+      commandHistory.push(command);
+      saveCommandHistory();
+    }
+  }
+
+  // Show autocomplete suggestions
+  function showAutocomplete(query) {
+    const suggestions = getSuggestions(query);
+    
+    if (suggestions.length === 0) {
+      hideAutocomplete();
+      return;
+    }
+
+    let html = '';
+    let currentCategory = '';
+
+    suggestions.forEach((suggestion, index) => {
+      if (suggestion.category !== currentCategory) {
+        currentCategory = suggestion.category;
+        html += `<div class="autocomplete-category">${currentCategory}</div>`;
+      }
+
+      html += `
+        <div class="autocomplete-item" data-index="${index}" data-command="${suggestion.cmd}">
+          <i class="${suggestion.icon || 'bi-terminal'} autocomplete-item-icon"></i>
+          <span class="autocomplete-item-text">${highlightMatch(suggestion.cmd, query)}</span>
+          ${suggestion.desc ? `<span class="autocomplete-item-description">${suggestion.desc}</span>` : ''}
+        </div>
+      `;
+    });
+
+    autocompleteDropdown.innerHTML = html;
+    autocompleteDropdown.style.display = 'block';
+    autocompleteVisible = true;
+    selectedSuggestionIndex = -1;
+
+    // Add click listeners to items
+    document.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('click', () => {
+        commandInput.value = item.dataset.command;
+        hideAutocomplete();
+        commandInput.focus();
+      });
+    });
+  }
+
+  // Hide autocomplete
+  function hideAutocomplete() {
+    autocompleteDropdown.style.display = 'none';
+    autocompleteVisible = false;
+    selectedSuggestionIndex = -1;
+  }
+
+  // Get suggestions based on query
+  function getSuggestions(query) {
+    if (!query || query.trim() === '') {
+      return [];
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const suggestions = [];
+
+    // Add matching history items
+    const historyMatches = commandHistory
+      .filter(cmd => cmd.toLowerCase().includes(lowerQuery))
+      .reverse()
+      .slice(0, 5)
+      .map(cmd => ({
+        cmd: cmd,
+        desc: 'From history',
+        icon: 'bi-clock-history',
+        category: 'Recent Commands'
+      }));
+
+    // Add matching common commands
+    const commandMatches = commonCommands
+      .filter(item => item.cmd.toLowerCase().includes(lowerQuery))
+      .slice(0, 10)
+      .map(item => ({
+        ...item,
+        category: 'Common Commands'
+      }));
+
+    return [...historyMatches, ...commandMatches];
+  }
+
+  // Highlight matching text
+  function highlightMatch(text, query) {
+    if (!query) return text;
+    const index = text.toLowerCase().indexOf(query.toLowerCase());
+    if (index === -1) return text;
+    
+    const before = text.substring(0, index);
+    const match = text.substring(index, index + query.length);
+    const after = text.substring(index + query.length);
+    
+    return `${before}<strong>${match}</strong>${after}`;
+  }
+
+  // Navigate autocomplete with arrow keys
+  function navigateAutocomplete(direction) {
+    const items = document.querySelectorAll('.autocomplete-item');
+    if (items.length === 0) return;
+
+    // Remove active class from current item
+    if (selectedSuggestionIndex >= 0) {
+      items[selectedSuggestionIndex].classList.remove('active');
+    }
+
+    // Update index
+    if (direction === 'down') {
+      selectedSuggestionIndex = (selectedSuggestionIndex + 1) % items.length;
+    } else if (direction === 'up') {
+      selectedSuggestionIndex = selectedSuggestionIndex <= 0 ? items.length - 1 : selectedSuggestionIndex - 1;
+    }
+
+    // Add active class to new item
+    items[selectedSuggestionIndex].classList.add('active');
+    items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+  }
+
+  // Select current autocomplete suggestion
+  function selectSuggestion() {
+    const items = document.querySelectorAll('.autocomplete-item');
+    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < items.length) {
+      commandInput.value = items[selectedSuggestionIndex].dataset.command;
+      hideAutocomplete();
+      return true;
+    }
+    return false;
+  }
+
+  // Navigate command history
+  function navigateHistory(direction) {
+    if (commandHistory.length === 0) return;
+
+    if (historyIndex === -1) {
+      currentInput = commandInput.value;
+    }
+
+    if (direction === 'up') {
+      if (historyIndex < commandHistory.length - 1) {
+        historyIndex++;
+        commandInput.value = commandHistory[commandHistory.length - 1 - historyIndex];
+      }
+    } else if (direction === 'down') {
+      if (historyIndex > 0) {
+        historyIndex--;
+        commandInput.value = commandHistory[commandHistory.length - 1 - historyIndex];
+      } else if (historyIndex === 0) {
+        historyIndex = -1;
+        commandInput.value = currentInput;
+      }
+    }
+  }
+
   // Load user preferences and apply console settings
   async function loadConsolePreferences() {
     try {
@@ -267,14 +504,65 @@
   // Initialize console
   function initializeConsole() {
     loadConsolePreferences();
+    loadCommandHistory();
     startConsole();
     startUptimeUpdates();
     updateUIBasedOnStatus("{{ process_status }}");
 
-    // Add command input event listener
-    commandInput.addEventListener("keypress", function (event) {
+    // Add command input event listeners
+    commandInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {
-        executeCommand();
+        if (autocompleteVisible && selectedSuggestionIndex >= 0) {
+          // Select autocomplete suggestion
+          event.preventDefault();
+          selectSuggestion();
+        } else {
+          // Execute command
+          executeCommand();
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (autocompleteVisible) {
+          navigateAutocomplete('up');
+        } else {
+          navigateHistory('up');
+        }
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (autocompleteVisible) {
+          navigateAutocomplete('down');
+        } else {
+          navigateHistory('down');
+        }
+      } else if (event.key === "Tab") {
+        if (autocompleteVisible) {
+          event.preventDefault();
+          selectSuggestion();
+        }
+      } else if (event.key === "Escape") {
+        if (autocompleteVisible) {
+          event.preventDefault();
+          hideAutocomplete();
+        }
+      }
+    });
+
+    // Show autocomplete on input
+    commandInput.addEventListener("input", function (event) {
+      historyIndex = -1; // Reset history navigation
+      const query = commandInput.value.trim();
+      
+      if (query.length > 0) {
+        showAutocomplete(query);
+      } else {
+        hideAutocomplete();
+      }
+    });
+
+    // Hide autocomplete when clicking outside
+    document.addEventListener("click", function (event) {
+      if (!commandInput.contains(event.target) && !autocompleteDropdown.contains(event.target)) {
+        hideAutocomplete();
       }
     });
   }
@@ -387,6 +675,11 @@
       showWarning("Please enter a command");
       return;
     }
+
+    // Add to history before executing
+    addToHistory(command);
+    historyIndex = -1;
+    hideAutocomplete();
 
     const executeBtn = document.getElementById("execute-btn");
     executeBtn.disabled = true;
