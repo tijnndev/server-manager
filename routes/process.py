@@ -972,6 +972,21 @@ def settings(name):
         if not command:
             return "Process command is required", 400
 
+        # Validate domain if provided
+        if domain:
+            from utils import validate_domain_format, check_domain_uniqueness
+            validation = validate_domain_format(domain)
+            if not validation.get("valid"):
+                print("invalid domain")
+                flash(f"Invalid domain: {validation.get('error')}", "danger")
+                domain = None  # Don't save invalid domain
+            else:
+                # Check uniqueness
+                uniqueness = check_domain_uniqueness(domain, current_process_name=name)
+                if not uniqueness.get("unique"):
+                    flash(f"Domain already in use by: {', '.join(uniqueness.get('conflicts', []))}", "warning")
+                    # Still save it but show warning
+
         old_dir = os.path.join(ACTIVE_SERVERS_DIR, old_name)
         new_dir = os.path.join(ACTIVE_SERVERS_DIR, new_name)
 
@@ -1001,7 +1016,12 @@ def settings(name):
         process.domain = domain
 
         try:
+            db.session.add(process)
             db.session.commit()
+            if domain:
+                flash(f"Settings saved successfully. Domain '{domain}' configured.", "success")
+            else:
+                flash("Settings saved successfully.", "success")
         except Exception as e:
             db.session.rollback()
             return f"Database commit failed: {str(e)}", 500

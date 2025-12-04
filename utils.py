@@ -901,6 +901,66 @@ def get_server_ip():
         return None
 
 
+def is_cloudflare_ip(ip_address):
+    """
+    Check if an IP address belongs to Cloudflare.
+    Cloudflare's IP ranges are documented at: https://www.cloudflare.com/ips/
+    """
+    import ipaddress
+    
+    # Cloudflare IPv4 ranges (as of 2024)
+    cloudflare_ipv4_ranges = [
+        "173.245.48.0/20",
+        "103.21.244.0/22",
+        "103.22.200.0/22",
+        "103.31.4.0/22",
+        "141.101.64.0/18",
+        "108.162.192.0/18",
+        "190.93.240.0/20",
+        "188.114.96.0/20",
+        "197.234.240.0/22",
+        "198.41.128.0/17",
+        "162.158.0.0/15",
+        "104.16.0.0/13",
+        "104.24.0.0/14",
+        "172.64.0.0/13",
+        "131.0.252.0/22"
+    ]
+    
+    # Cloudflare IPv6 ranges
+    cloudflare_ipv6_ranges = [
+        "2400:cb00::/32",
+        "2606:4700::/32",
+        "2803:f800::/32",
+        "2405:b500::/32",
+        "2405:8100::/32",
+        "2a06:98c0::/29",
+        "2c0f:f248::/32"
+    ]
+    
+    try:
+        ip_obj = ipaddress.ip_address(ip_address)
+        
+        # Check IPv4 ranges
+        if isinstance(ip_obj, ipaddress.IPv4Address):
+            for cidr in cloudflare_ipv4_ranges:
+                network = ipaddress.ip_network(cidr)
+                if ip_obj in network:
+                    return True
+        # Check IPv6 ranges
+        elif isinstance(ip_obj, ipaddress.IPv6Address):
+            for cidr in cloudflare_ipv6_ranges:
+                network = ipaddress.ip_network(cidr)
+                if ip_obj in network:
+                    return True
+                    
+    except ValueError:
+        # Invalid IP address format
+        pass
+    
+    return False
+
+
 def check_dns_health(domain, server_ip=None):
     """
     Check DNS health for a domain.
@@ -930,6 +990,7 @@ def check_dns_health(domain, server_ip=None):
             "CNAME": []
         },
         "points_to_server": False,
+        "points_to_cloudflare": False,
         "warnings": [],
         "errors": []
     }
@@ -946,6 +1007,8 @@ def check_dns_health(domain, server_ip=None):
             result["records"]["A"].append(ip_address)
             if server_ip and ip_address == server_ip:
                 result["points_to_server"] = True
+            if is_cloudflare_ip(ip_address):
+                result["points_to_cloudflare"] = True
     except dns.resolver.NXDOMAIN:
         result["errors"].append("Domain does not exist (NXDOMAIN)")
         result["status"] = "error"
@@ -963,7 +1026,10 @@ def check_dns_health(domain, server_ip=None):
     try:
         answers = resolver.resolve(domain, 'AAAA')
         for rdata in answers:
-            result["records"]["AAAA"].append(str(rdata))
+            ip_address = str(rdata)
+            result["records"]["AAAA"].append(ip_address)
+            if is_cloudflare_ip(ip_address):
+                result["points_to_cloudflare"] = True
     except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
         pass  # AAAA records are optional
     except Exception:
@@ -984,6 +1050,9 @@ def check_dns_health(domain, server_ip=None):
         result["status"] = "error"
     elif result["points_to_server"]:
         result["status"] = "healthy"
+    elif result["points_to_cloudflare"]:
+        result["status"] = "healthy"  # Cloudflare is acceptable
+        result["warnings"].append("Domain points to Cloudflare CDN (this is normal for proxied domains)")
     elif result["records"]["A"] or result["records"]["AAAA"]:
         result["status"] = "warning"
         result["warnings"].append(f"Domain points to {result['records']['A'][0] if result['records']['A'] else result['records']['AAAA'][0]}, not to this server ({server_ip})")
@@ -1152,13 +1221,13 @@ def get_domain_status(domain, process_name=None):
         result["overall_status"] = "conflict"
     elif dns_status.get("status") == "error":
         result["overall_status"] = "dns_error"
-    elif dns_status.get("status") == "warning":
+    elif dns_status.get("status") == "warning" and not dns_status.get("points_to_cloudflare"):
         result["overall_status"] = "dns_warning"
     elif ssl_status.get("exists") and ssl_status.get("valid"):
         result["overall_status"] = "healthy"
     elif ssl_status.get("exists") and not ssl_status.get("valid"):
         result["overall_status"] = "ssl_expired"
-    elif dns_status.get("points_to_server"):
+    elif dns_status.get("points_to_server") or dns_status.get("points_to_cloudflare"):
         result["overall_status"] = "no_ssl"
     else:
         result["overall_status"] = "needs_configuration"
