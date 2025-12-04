@@ -1,6 +1,52 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
+<style>
+/* No Domain Configured Alert Styling */
+.alert-no-domain {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    color: #856404;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.alert-no-domain::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+}
+
+.alert-no-domain:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.alert-no-domain i {
+    margin-right: 0.5rem;
+    font-size: 1.2em;
+}
+
+.alert-no-domain .alert-link {
+    color: #856404;
+    text-decoration: underline;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.alert-no-domain .alert-link:hover {
+    color: #533f00;
+}
+</style>
 <div class="row gap-0">
     <div class="col-xl-8">
         <div class="card">
@@ -8,13 +54,40 @@
                 <i class="bi bi-globe"></i> Nginx Configuration
             </div>
             <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="domain_name" class="form-label">Domain Name</label>
-                        <input type="text" class="form-control" id="domain_name" name="domain_name" value="{{process.domain}}" placeholder="Enter your domain name">
+                {% if not process.domain %}
+                    <div class="alert alert-warning alert-no-domain">
+                        <i class="bi bi-exclamation-triangle"></i> <strong>No Domain Configured</strong>
+                        <p class="mb-0 mt-2">Please configure a domain name in the <a href="{{ url_for('process.settings', name=process.name) }}" class="alert-link">Process Settings</a> tab before creating Nginx configuration.</p>
                     </div>
+                {% else %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <label class="form-label mb-1">Domain Name</label>
+                                <div class="fs-5 fw-bold">{{ process.domain }}</div>
+                                <small class="text-muted">Configured in <a href="{{ url_for('process.settings', name=process.name) }}">Process Settings</a></small>
+                            </div>
+                            {% if domain_status %}
+                                <div>
+                                    {% if domain_status.overall_status == 'healthy' %}
+                                        <span class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Healthy</span>
+                                    {% elif domain_status.overall_status == 'ssl_expired' %}
+                                        <span class="badge bg-danger fs-6"><i class="bi bi-shield-x"></i> SSL Expired</span>
+                                    {% elif domain_status.overall_status == 'no_ssl' %}
+                                        <span class="badge bg-info fs-6"><i class="bi bi-shield-exclamation"></i> No SSL</span>
+                                    {% elif domain_status.overall_status in ['dns_error', 'dns_warning'] %}
+                                        <span class="badge bg-warning fs-6"><i class="bi bi-exclamation-triangle"></i> DNS Issue</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6"><i class="bi bi-gear"></i> Needs Config</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
 
-                    {% if nginx_content %}
+                <form method="POST">
+                    {% if nginx_content and process.domain %}
                         <div class="mb-3">
                             <label for="nginx_config" class="form-label">NGINX Configuration</label>
                             <input type="hidden" id="nginx_config" name="nginx_config">
@@ -43,7 +116,7 @@
                                 <i class="bi bi-trash"></i> Remove Nginx
                             </button>
                         </div>
-                    {% else %}
+                    {% elif process.domain %}
                         <button type="submit" name="action" value="create_nginx" class="btn btn-success">
                             <i class="bi bi-plus-circle"></i> Create NGINX
                         </button>
@@ -54,6 +127,57 @@
     </div>
 
     <div class="col-xl-4">
+        {% if domain_status and process.domain %}
+        <div class="card mb-3">
+            <div class="card-header {% if domain_status.overall_status == 'healthy' %}bg-success{% elif domain_status.overall_status in ['ssl_expired', 'dns_error'] %}bg-danger{% elif domain_status.overall_status in ['dns_warning', 'no_ssl'] %}bg-warning{% else %}bg-secondary{% endif %}">
+                <i class="bi bi-speedometer2"></i> Domain Health Check
+            </div>
+            <div class="card-body">
+                <h6>DNS Status</h6>
+                {% if domain_status.dns %}
+                    {% if domain_status.dns.status == 'healthy' %}
+                        <div class="alert alert-success py-2 small mb-2">
+                            <i class="bi bi-check-circle"></i> Domain correctly points to server
+                        </div>
+                        {% if domain_status.dns.records.A %}
+                        <small class="text-muted d-block mb-2">A Records: {{ domain_status.dns.records.A|join(', ') }}</small>
+                        {% endif %}
+                    {% elif domain_status.dns.status == 'error' %}
+                        <div class="alert alert-danger py-2 small mb-2">
+                            <i class="bi bi-x-circle"></i> {{ domain_status.dns.errors|join(', ') }}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning py-2 small mb-2">
+                            <i class="bi bi-exclamation-triangle"></i> {{ domain_status.dns.warnings|join(', ') }}
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                <h6 class="mt-3">SSL Certificate</h6>
+                {% if domain_status.ssl %}
+                    {% if domain_status.ssl.exists and domain_status.ssl.valid %}
+                        <div class="alert alert-success py-2 small mb-2">
+                            <i class="bi bi-shield-check"></i> Valid certificate
+                        </div>
+                        <small class="text-muted d-block">Expires: {{ domain_status.ssl.expiration_date }}</small>
+                        <small class="text-muted d-block">Days left: {{ domain_status.ssl.days_until_expiry }}</small>
+                        {% if domain_status.ssl.is_wildcard %}
+                        <span class="badge bg-info mt-1">Wildcard</span>
+                        {% endif %}
+                    {% elif domain_status.ssl.exists %}
+                        <div class="alert alert-danger py-2 small mb-2">
+                            <i class="bi bi-shield-x"></i> {{ domain_status.ssl.errors|join(', ') }}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info py-2 small mb-2">
+                            <i class="bi bi-shield-exclamation"></i> No SSL certificate installed
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card">
             <div class="card-header bg-info">
                 <i class="bi bi-info-circle"></i> Nginx Guide
@@ -61,6 +185,7 @@
             <div class="card-body">
                 <h6>Configuration Tips:</h6>
                 <ul class="list-unstyled small">
+                    <li><i class="bi bi-gear"></i> Configure domain in Process Settings</li>
                     <li><i class="bi bi-globe"></i> Domain name is required for SSL</li>
                     <li><i class="bi bi-shield"></i> Certificates are auto-renewed</li>
                     <li><i class="bi bi-arrow-clockwise"></i> Restart required after changes</li>
@@ -75,6 +200,7 @@
             </div>
             <div class="card-body">
                 <ul class="small mb-0">
+                    <li>Configure domain in settings first</li>
                     <li>Invalid config may break the site</li>
                     <li>SSL certificates require valid domain</li>
                     <li>Changes take effect after restart</li>

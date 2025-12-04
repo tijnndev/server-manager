@@ -3,7 +3,6 @@ import socket
 import subprocess
 from flask import Blueprint, redirect, request, render_template
 import os
-from db import db
 from decorators import owner_or_subuser_required
 from utils import find_process_by_name
 
@@ -13,15 +12,25 @@ nginx_routes = Blueprint('nginx', __name__)
 @nginx_routes.route('/<name>', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def nginx(name):
-    process = find_process_by_name(name)
-    domain_name = request.form.get("domain_name", process.domain or name)
+    from utils import get_domain_status
     
-    process.domain = domain_name
-    db.session.commit()
-
+    process = find_process_by_name(name)
+    
+    # Use process name for nginx files
     nginx_file_path = f'/etc/nginx/sites-available/{name}'
     nginx_enabled_path = f'/etc/nginx/sites-enabled/{name}'
+    
+    # Get domain from process settings
+    domain_name = process.domain or name
     cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
+    
+    # Get domain status if domain is configured
+    domain_status = None
+    if process.domain:
+        try:
+            domain_status = get_domain_status(process.domain, process_name=name)
+        except Exception as e:
+            print(f"Failed to get domain status: {e}")
 
     if request.method == 'POST':
         action = request.form.get("action")
@@ -43,7 +52,8 @@ def nginx(name):
                            page_title="Nginx",
                            process=process,
                            nginx_content=read_nginx_config(nginx_file_path),
-                           cert_exists=os.path.exists(cert_path))
+                           cert_exists=os.path.exists(cert_path),
+                           domain_status=domain_status)
 
 
 def create_nginx_config(process, domain_name, nginx_file_path, nginx_enabled_path):

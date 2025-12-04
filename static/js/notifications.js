@@ -56,6 +56,28 @@ class NotificationManager {
                 navbar.insertBefore(bell, navbar.firstChild);
             }
         }
+
+        // Add click-outside-to-close functionality
+        this.setupClickOutsideListener();
+    }
+
+    setupClickOutsideListener() {
+        // Handle click outside to close notification center
+        document.addEventListener('click', (event) => {
+            const notificationCenter = document.getElementById('notification-center');
+            const notificationBell = document.querySelector('.notification-bell');
+
+            // Check if the notification center is currently open
+            if (notificationCenter && notificationCenter.classList.contains('show')) {
+                // Check if the click was outside the notification center and not on the bell
+                const isClickInsideCenter = notificationCenter.contains(event.target);
+                const isClickOnBell = notificationBell && notificationBell.contains(event.target);
+
+                if (!isClickInsideCenter && !isClickOnBell) {
+                    this.toggleCenter();
+                }
+            }
+        });
     }
 
     loadNotifications() {

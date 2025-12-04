@@ -59,6 +59,111 @@
     max-height: 400px;
     overflow-y: auto;
 }
+
+/* Domain Status Styles */
+#domain-feedback .alert {
+    margin-bottom: 0.75rem;
+    padding: 1rem 1.25rem;
+    font-size: 0.95rem;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+#domain-feedback .alert::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, var(--bs-primary), var(--bs-info));
+}
+
+#domain-feedback .alert.alert-success {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+}
+
+#domain-feedback .alert.alert-success::before {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+#domain-feedback .alert.alert-danger {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    color: #721c24;
+}
+
+#domain-feedback .alert.alert-danger::before {
+    background: linear-gradient(135deg, #dc3545, #fd7e14);
+}
+
+#domain-feedback .alert.alert-warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    color: #856404;
+}
+
+#domain-feedback .alert.alert-warning::before {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+}
+
+#domain-feedback .alert.alert-info {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+    color: #0c5460;
+}
+
+#domain-feedback .alert.alert-info::before {
+    background: linear-gradient(135deg, #17a2b8, #6f42c1);
+}
+
+#domain-feedback .alert:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+#domain-feedback .alert i {
+    margin-right: 0.5rem;
+    font-size: 1.1em;
+}
+
+.domain-status-details {
+    font-size: 0.9rem;
+}
+
+.status-section {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.status-section:last-child {
+    border-bottom: none;
+}
+
+.status-section h6 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.status-section div {
+    margin-bottom: 0.25rem;
+    color: var(--text-secondary);
+}
+
+#domain-status-card {
+    transition: all 0.3s ease;
+}
+
+#domain-input.is-invalid {
+    border-color: #dc3545;
+}
+
+#domain-input.is-valid {
+    border-color: #28a745;
+}
 </style>
 
 <div class="row gap-0">
@@ -104,6 +209,19 @@
                         <div class="col-12 mb-3">
                             <label class="form-label">Description</label>
                             <textarea class="form-control" name="description" rows="3">{{ process.description }}</textarea>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Domain Name</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="domain" id="domain-input" value="{{ process.domain or '' }}" placeholder="example.com or *.example.com">
+                                <button class="btn btn-outline-primary" type="button" id="validate-domain-btn" onclick="validateDomain()">
+                                    <i class="bi bi-check-circle"></i> Validate
+                                </button>
+                            </div>
+                            <div id="domain-feedback" class="mt-2"></div>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> Enter your domain for Nginx configuration and SSL certificates. Supports wildcards (*.domain.com).
+                            </small>
                         </div>
                         <div class="row gap-0 col-12">
                             <div class="col-md-8 mb-3">
@@ -231,6 +349,17 @@
                 </div>
             </div>
         </div>
+
+        <div class="card mt-3" id="domain-status-card" style="display: none;">
+            <div class="card-header" id="domain-status-header">
+                <i class="bi bi-globe"></i> Domain Status
+            </div>
+            <div class="card-body">
+                <div id="domain-status-content">
+                    <!-- Domain status will be loaded here -->
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -338,6 +467,221 @@ async function saveEnvVars() {
         showError('Error saving environment variables: ' + error.message);
         console.error('Error:', error);
     }
+}
+
+// ==================== Domain Validation Functions ====================
+
+async function validateDomain() {
+    const domainInput = document.getElementById('domain-input');
+    const domain = domainInput.value.trim();
+    const feedbackDiv = document.getElementById('domain-feedback');
+    const validateBtn = document.getElementById('validate-domain-btn');
+    
+    if (!domain) {
+        feedbackDiv.innerHTML = '<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> Please enter a domain name</div>';
+        document.getElementById('domain-status-card').style.display = 'none';
+        return;
+    }
+    
+    // Show loading state
+    validateBtn.disabled = true;
+    validateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Validating...';
+    feedbackDiv.innerHTML = '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Validating domain...</div>';
+    
+    try {
+        const response = await fetch('{{ url_for("process.validate_domain", name=process.name) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ domain: domain })
+        });
+        
+        const data = await response.json();
+        
+        // Display validation feedback
+        displayDomainFeedback(data);
+        displayDomainStatus(data);
+        
+    } catch (error) {
+        feedbackDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> Error: ${error.message}</div>`;
+    } finally {
+        validateBtn.disabled = false;
+        validateBtn.innerHTML = '<i class="bi bi-check-circle"></i> Validate';
+    }
+}
+
+function displayDomainFeedback(data) {
+    const feedbackDiv = document.getElementById('domain-feedback');
+    let html = '';
+    
+    // Validation status
+    if (data.validation && !data.validation.valid) {
+        html += `<div class="alert alert-danger">
+            <i class="bi bi-x-circle"></i> <strong>Invalid Domain:</strong> ${data.validation.error}
+        </div>`;
+        feedbackDiv.innerHTML = html;
+        return;
+    }
+    
+    // Uniqueness check
+    if (data.uniqueness && !data.uniqueness.unique) {
+        html += `<div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i> <strong>Domain Conflict:</strong> 
+            This domain is already used by: ${data.uniqueness.conflicts.join(', ')}
+        </div>`;
+    }
+    
+    // DNS status
+    if (data.dns) {
+        if (data.dns.status === 'error') {
+            html += `<div class="alert alert-danger">
+                <i class="bi bi-x-circle"></i> <strong>DNS Error:</strong> ${data.dns.errors.join(', ')}
+            </div>`;
+        } else if (data.dns.status === 'warning') {
+            html += `<div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> <strong>DNS Warning:</strong> ${data.dns.warnings.join(', ')}
+            </div>`;
+        } else if (data.dns.status === 'healthy') {
+            html += `<div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> <strong>DNS Healthy:</strong> Domain correctly points to this server
+            </div>`;
+        }
+    }
+    
+    // SSL status
+    if (data.ssl) {
+        if (!data.ssl.exists) {
+            html += `<div class="alert alert-info">
+                <i class="bi bi-shield-exclamation"></i> <strong>No SSL Certificate:</strong> You can create one from the Nginx tab
+            </div>`;
+        } else if (!data.ssl.valid) {
+            html += `<div class="alert alert-danger">
+                <i class="bi bi-shield-x"></i> <strong>SSL Certificate Expired:</strong> ${data.ssl.errors.join(', ')}
+            </div>`;
+        } else if (data.ssl.warning) {
+            html += `<div class="alert alert-warning">
+                <i class="bi bi-shield-exclamation"></i> <strong>SSL Warning:</strong> ${data.ssl.warning}
+            </div>`;
+        } else {
+            html += `<div class="alert alert-success">
+                <i class="bi bi-shield-check"></i> <strong>SSL Valid:</strong> Certificate expires in ${data.ssl.days_until_expiry} days
+            </div>`;
+        }
+    }
+    
+    if (!html) {
+        html = '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Domain validation passed</div>';
+    }
+    
+    feedbackDiv.innerHTML = html;
+}
+
+function displayDomainStatus(data) {
+    const statusCard = document.getElementById('domain-status-card');
+    const statusHeader = document.getElementById('domain-status-header');
+    const statusContent = document.getElementById('domain-status-content');
+    
+    if (!data.validation || !data.validation.valid) {
+        statusCard.style.display = 'none';
+        return;
+    }
+    
+    // Update header based on overall status
+    const statusIcons = {
+        'healthy': { icon: 'check-circle', class: 'bg-success', text: 'Healthy' },
+        'no_ssl': { icon: 'shield-exclamation', class: 'bg-info', text: 'No SSL' },
+        'ssl_expired': { icon: 'shield-x', class: 'bg-danger', text: 'SSL Expired' },
+        'dns_warning': { icon: 'exclamation-triangle', class: 'bg-warning', text: 'DNS Issue' },
+        'dns_error': { icon: 'x-circle', class: 'bg-danger', text: 'DNS Error' },
+        'conflict': { icon: 'exclamation-triangle', class: 'bg-warning', text: 'Domain Conflict' },
+        'needs_configuration': { icon: 'gear', class: 'bg-secondary', text: 'Needs Configuration' }
+    };
+    
+    const status = statusIcons[data.overall_status] || statusIcons['needs_configuration'];
+    statusHeader.className = `card-header ${status.class}`;
+    statusHeader.innerHTML = `<i class="bi bi-${status.icon}"></i> Domain Status: ${status.text}`;
+    
+    // Build detailed status content
+    let html = `<div class="domain-status-details">`;
+    
+    // DNS Information
+    if (data.dns && data.dns.records) {
+        html += `<div class="status-section">
+            <h6><i class="bi bi-dns"></i> DNS Records</h6>`;
+        
+        if (data.dns.records.A && data.dns.records.A.length > 0) {
+            html += `<div><strong>A Records:</strong> ${data.dns.records.A.join(', ')}</div>`;
+        }
+        if (data.dns.records.AAAA && data.dns.records.AAAA.length > 0) {
+            html += `<div><strong>AAAA Records:</strong> ${data.dns.records.AAAA.join(', ')}</div>`;
+        }
+        if (data.dns.records.CNAME && data.dns.records.CNAME.length > 0) {
+            html += `<div><strong>CNAME Records:</strong> ${data.dns.records.CNAME.join(', ')}</div>`;
+        }
+        html += `<div class="mt-2"><small class="text-muted">Server IP: ${data.dns.server_ip || 'Unknown'}</small></div>`;
+        html += `</div>`;
+    }
+    
+    // SSL Information
+    if (data.ssl && data.ssl.exists) {
+        html += `<div class="status-section mt-3">
+            <h6><i class="bi bi-shield-check"></i> SSL Certificate</h6>`;
+        
+        if (data.ssl.issuer_name) {
+            html += `<div><strong>Issuer:</strong> ${data.ssl.issuer_name}</div>`;
+        }
+        if (data.ssl.validation_type) {
+            html += `<div><strong>Type:</strong> ${data.ssl.validation_type}</div>`;
+        }
+        if (data.ssl.issued_date) {
+            html += `<div><strong>Issued:</strong> ${data.ssl.issued_date}</div>`;
+        }
+        if (data.ssl.expiration_date) {
+            html += `<div><strong>Expires:</strong> ${data.ssl.expiration_date}</div>`;
+        }
+        if (data.ssl.days_until_expiry !== undefined) {
+            const daysClass = data.ssl.days_until_expiry > 30 ? 'text-success' : (data.ssl.days_until_expiry > 0 ? 'text-warning' : 'text-danger');
+            html += `<div><strong>Days Until Expiry:</strong> <span class="${daysClass}">${data.ssl.days_until_expiry}</span></div>`;
+        }
+        if (data.ssl.is_wildcard) {
+            html += `<div class="mt-2"><span class="badge bg-info"><i class="bi bi-asterisk"></i> Wildcard Certificate</span></div>`;
+        }
+        html += `</div>`;
+    }
+    
+    html += `</div>`;
+    
+    statusContent.innerHTML = html;
+    statusCard.style.display = 'block';
+}
+
+// Auto-validate on page load if domain exists
+document.addEventListener('DOMContentLoaded', function() {
+    const domainInput = document.getElementById('domain-input');
+    if (domainInput && domainInput.value.trim()) {
+        validateDomain();
+    }
+    
+    // Add real-time validation on input
+    domainInput.addEventListener('input', debounce(function() {
+        if (domainInput.value.trim().length > 3) {
+            validateDomain();
+        }
+    }, 1000));
+});
+
+// Debounce helper function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 </script>
 

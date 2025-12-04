@@ -967,6 +967,7 @@ def settings(name):
         command = request.form.get('command', '').strip()
         type_ = request.form.get('type', '').strip()
         params = request.form.get('params', '').strip()
+        domain = request.form.get('domain', '').strip() or None
 
         if not command:
             return "Process command is required", 400
@@ -997,6 +998,7 @@ def settings(name):
         process.command = command
         process.type = type_
         process.params = params
+        process.domain = domain
 
         try:
             db.session.commit()
@@ -1641,3 +1643,32 @@ def save_env_vars(name):
         return jsonify({"success": False, "error": f"YAML parsing error: {str(e)}"}), 400
     except Exception as e:
         return jsonify({"success": False, "error": f"Failed to save environment variables: {str(e)}"}), 500
+
+
+@process_routes.route('/validate-domain/<string:name>', methods=['POST'])
+@owner_or_subuser_required()
+def validate_domain(name):
+    """
+    Validate domain and get comprehensive status including DNS, SSL, and uniqueness checks.
+    Expects JSON: {"domain": "example.com"}
+    """
+    from utils import get_domain_status
+    
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found"}), 404
+
+    try:
+        data = request.get_json()
+        if not data or 'domain' not in data:
+            return jsonify({"error": "Missing domain in request"}), 400
+
+        domain = data['domain'].strip()
+        
+        # Get comprehensive domain status
+        status = get_domain_status(domain, process_name=name)
+        
+        return jsonify(status)
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to validate domain: {str(e)}"}), 500
