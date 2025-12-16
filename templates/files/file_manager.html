@@ -377,7 +377,7 @@
                                     </button>
                                 </form>
                                 {% endif %}
-                                <a href="{{ url_for('files.download_file', name=process.name, filename=file.name) }}" class="btn btn-outline-primary btn-sm">
+                                <a href="{{ url_for('files.download_file', name=process.name, relative_path=file.path | replace(process.name + '/', '')) }}" class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-download"></i> Download
                                 </a>
                                 <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '{{ file.name }}');">
