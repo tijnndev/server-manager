@@ -552,8 +552,8 @@ function downloadSelectedFiles() {
     if (selectedFiles.length === 0) return;
     alert('Downloading files: ' + selectedFiles.join(', '));
     selectedFiles.forEach(filePath => {
-        const filename = filePath.split("\\").pop();
-        const downloadUrl = "{{ url_for('files.download_file', name=process.name, filename='__FILENAME__') }}".replace('__FILENAME__', encodeURIComponent(filename));
+        const relativePath = filePath.replace("{{ process.name }}/", "");
+        const downloadUrl = "{{ url_for('files.download_file', name=process.name, relative_path='__REL_PATH__') }}".replace('__REL_PATH__', encodeURIComponent(relativePath));
         window.open(downloadUrl, '_blank');
     });
 }
