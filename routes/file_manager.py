@@ -3,7 +3,7 @@ import zipfile
 import shutil
 import time
 from decorators import owner_or_subuser_required
-from flask import Blueprint, render_template, jsonify, request, send_from_directory, redirect, url_for, flash, session
+from flask import Blueprint, render_template, jsonify, request, send_file, send_from_directory, redirect, url_for, flash, session
 from utils import find_process_by_name
 from models.activity_log import ActivityLog
 file_manager_routes = Blueprint('files', __name__)
@@ -201,34 +201,31 @@ def delete_files(name):
     return jsonify({"error": "Files not found."}), 400
 
 
-@file_manager_routes.route('/<name>/file-manager/download/<filename>', methods=['GET'])
+@file_manager_routes.route('/<name>/file-manager/download/<path:relative_path>', methods=['GET'])
 @owner_or_subuser_required()
-def download_file(name, filename):
+def download_file(name, relative_path):
     try:
         process_path = sanitize_path(ACTIVE_SERVERS_DIR, name)
-        file_path = sanitize_path(process_path, filename)
+        file_path = sanitize_path(process_path, relative_path)
     except ValueError:
         return jsonify({"error": "Invalid path."}), 400
 
-    if os.path.exists(file_path):
-        # Get relative path for logging
-        relative_path = os.path.join(name, filename)
-        
-        # Log activity
-        try:
-            ActivityLog.log_activity(
-                user_id=session.get('user_id'),
-                username=session.get('username'),
-                action='downloaded_file',
-                target=name,
-                details=f"Downloaded: {relative_path}",
-                request_obj=request
-            )
-        except Exception as log_error:
-            print(f"Failed to log activity: {log_error}")
-        
-        return send_from_directory(process_path, filename, as_attachment=True)
-    return jsonify({"error": "File not found"}), 404
+    if not os.path.isfile(file_path):
+        return jsonify({"error": "File not found"}), 404
+
+    try:
+        ActivityLog.log_activity(
+            user_id=session.get('user_id'),
+            username=session.get('username'),
+            action='downloaded_file',
+            target=name,
+            details=f"Downloaded: {os.path.join(name, relative_path)}",
+            request_obj=request
+        )
+    except Exception as log_error:
+        print(f"Failed to log activity: {log_error}")
+
+    return send_file(file_path, as_attachment=True)
 
 
 @file_manager_routes.route('/<name>/new/file', methods=['GET', 'POST'])
