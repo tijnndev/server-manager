@@ -1,5 +1,6 @@
 import redis, os, time, threading, requests, subprocess, signal, sys, cpuinfo, json, socket, psutil, hmac
 from flask import Flask, render_template, request, session, jsonify, g
+from flask_caching import Cache
 from models.user import User
 from models.user_settings import UserSettings
 from routes.file_manager import file_manager_routes
@@ -26,8 +27,30 @@ app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Database connection pool optimization for high concurrency
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 20,              # Connection pool size (increased for 32 workers)
+    'max_overflow': 40,            # Additional connections when pool is exhausted
+    'pool_timeout': 30,            # Seconds to wait for connection from pool
+    'pool_recycle': 3600,          # Recycle connections after 1 hour
+    'pool_pre_ping': True,         # Verify connections before using them
+    'echo_pool': False,            # Disable pool logging in production
+}
+
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 app.secret_key = os.getenv('SECRET_KEY')
+
+# Redis-backed caching configuration
+app.config['CACHE_TYPE'] = 'redis'
+app.config['CACHE_REDIS_HOST'] = os.getenv('REDIS_HOST', 'localhost')
+app.config['CACHE_REDIS_PORT'] = int(os.getenv('REDIS_PORT', 6379))
+app.config['CACHE_REDIS_DB'] = 1  # Use separate DB from worker coordination
+app.config['CACHE_DEFAULT_TIMEOUT'] = 300  # 5 minutes default cache
+app.config['CACHE_KEY_PREFIX'] = 'sm_'
+
+# Initialize cache
+cache = Cache(app)
 
 ENVIRONMENT = os.getenv("ENVIRONMENT")
 
@@ -202,6 +225,7 @@ def dashboard():
 
 @app.route('/api/server/stats')
 @auth_check()
+@cache.cached(timeout=5, key_prefix='server_stats')  # Cache for 5 seconds
 def get_server_stats():
     stats = {
         "cpu_name": cpuinfo.get_cpu_info()["brand_raw"],

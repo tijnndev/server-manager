@@ -9,7 +9,7 @@ Environment="MAIL_USERNAME=mail@tijnn.dev"
 Environment="MAIL_PASSWORD=fEbye1^^xLeA*cMh"
 Environment="MAIL_SERVER=mail.tijnn.dev"
 Environment="MAIL_PORT=465"
-ExecStart=/etc/server-manager/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:7001 app:app
+ExecStart=/etc/server-manager/venv/bin/gunicorn -c /etc/server-manager/gunicorn_config.py app:app
 Restart=always
 
 [Install]

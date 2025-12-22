@@ -79,7 +79,7 @@ else
 fi
 
 echo "Setting up the process..."
-PROCESS_PATH="/etc/systemd/system/server-manager.process"
+PROCESS_PATH="/etc/systemd/system/server-manager.service"
 
 PROCESS_CONTENT="[Unit]
 Description=Server Manager Flask App
@@ -88,7 +88,7 @@ After=network.target
 [Service]
 WorkingDirectory=/etc/server-manager/
 Environment=\"PATH=/etc/server-manager/venv/\"
-ExecStart=/etc/server-manager/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:7001 app:app
+ExecStart=/etc/server-manager/venv/bin/gunicorn -c /etc/server-manager/gunicorn_config.py app:app
 Restart=always
 
 [Install]
