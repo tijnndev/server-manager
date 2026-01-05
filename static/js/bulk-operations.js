@@ -5,10 +5,14 @@
 
 class BulkOperationTracker {
     constructor() {
-        this.createProgressOverlay();
+        // Don't create overlay immediately - wait for DOM to be ready
     }
 
     createProgressOverlay() {
+        if (document.getElementById('bulk-operation-overlay')) {
+            return; // Already created
+        }
+        
         const overlay = document.createElement('div');
         overlay.id = 'bulk-operation-overlay';
         overlay.className = 'progress-overlay';
@@ -28,6 +32,8 @@ class BulkOperationTracker {
     }
 
     start(title, total) {
+        this.createProgressOverlay(); // Ensure overlay exists
+        
         this.total = total;
         this.completed = 0;
         this.cancelled = false;
