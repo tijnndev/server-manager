@@ -448,6 +448,8 @@
 
 <script>
 let selectedFiles = [];
+const processName = '{{ process.name }}';
+const currentLocation = '{{ current_location }}';
 
 // Individual checkbox handler
 document.querySelectorAll('.file-checkbox').forEach(checkbox => {
