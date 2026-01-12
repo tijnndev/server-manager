@@ -38,13 +38,6 @@
         </a>
     </li>
     {% endif %}
-    {% if has_permission(process.name, "discord") %}
-    <li>
-        <a class="nav-link {% if 'discord' in g.page %}active{% endif %}" href="{{ url_for('process.discord', name=process.name) }}">
-            <i class="bi bi-discord"></i> Discord
-        </a>
-    </li>
-    {% endif %}
     {% if has_permission(process.name, "nginx") %}
     <li>
         <a class="nav-link {% if 'nginx' in g.page %}active{% endif %}" href="{{ url_for('nginx.nginx', name=process.name) }}">

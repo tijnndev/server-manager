@@ -12,7 +12,6 @@ import sys
 from datetime import datetime, UTC, timedelta
 from db import db
 from models.process import Process
-from models.discord_integration import DiscordIntegration
 from models.git import GitIntegration
 from models.subuser import SubUser
 from models.activity_log import ActivityLog
@@ -1125,32 +1124,6 @@ def settings_rebuild(name):
         print(f"Failed to log activity: {log_error}")
 
     return redirect(url_for('process.console', name=process.name))
-
-
-@process_routes.route('/discord/<string:name>', methods=['GET', 'POST'])
-@owner_or_subuser_required()
-def discord(name):
-    process = find_process_by_name(name)
-    if request.method == 'POST':
-        webhook_url = request.form.get('webhook_url')
-        events = request.form.getlist('events')
-
-        if webhook_url:
-            integration = DiscordIntegration.query.filter_by(process_name=process.name).first()
-            if not integration:
-                integration = DiscordIntegration(process_name=process.name, webhook_url=webhook_url, events=json.dumps(events))
-            else:
-                integration.webhook_url = webhook_url
-                integration.events_list = events
-
-            db.session.add(integration)
-            db.session.commit()
-            print("Discord integration updated successfully!", "success")
-        else:
-            print("Webhook URL is required!", "danger")
-
-    integration = DiscordIntegration.query.filter_by(process_name=process.name).first()
-    return render_template('process/discord.html', page_title="Discord", process=process, integration=integration)
 
 
 @process_routes.route('/subusers/<string:name>', methods=['GET'])

@@ -32,11 +32,6 @@
         </button>
     </li>
     <li class="nav-item">
-        <button class="nav-link" onclick="switchTab('discord', this)">
-            <i class="bi bi-discord"></i> Discord
-        </button>
-    </li>
-    <li class="nav-item">
         <button class="nav-link" onclick="switchTab('nginx', this)">
             <i class="bi bi-globe"></i> Nginx
         </button>
@@ -207,40 +202,6 @@
                 <div id="file-tree" class="file-tree">
                     <!-- Dynamic content loaded via JS -->
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="tab-pane" id="discord">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Discord Webhook Configuration</h5>
-                <div class="mb-3">
-                    <label class="form-label">Discord Webhook URL</label>
-                    <input type="text" class="form-control" placeholder="https://discord.com/api/webhooks/..." 
-                           value="{{ process.discord_webhook or '' }}" name="discord_webhook">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Notify on Events</label>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="notify-start" 
-                               {% if process.notify_start %}checked{% endif %}>
-                        <label class="form-check-label" for="notify-start">Process Start</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="notify-stop"
-                               {% if process.notify_stop %}checked{% endif %}>
-                        <label class="form-check-label" for="notify-stop">Process Stop</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="notify-restart"
-                               {% if process.notify_restart %}checked{% endif %}>
-                        <label class="form-check-label" for="notify-restart">Process Restart</label>
-                    </div>
-                </div>
-                <button class="btn btn-primary" onclick="saveDiscordWebhook('{{ process.name }}')">
-                    <i class="bi bi-save"></i> Save Webhook
-                </button>
             </div>
         </div>
     </div>
@@ -478,10 +439,6 @@ function deleteProcess(name) {
 
 function fileAction(action) {
     alert(`${action} action not implemented yet.`);
-}
-
-function saveDiscordWebhook(name) {
-    alert('Discord webhook save not implemented yet');
 }
 
 function saveNginxConfig(name) {

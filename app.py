@@ -10,7 +10,6 @@ from routes.email import email_routes
 from routes.settings import settings_routes
 from flask_migrate import Migrate
 from routes.process import process_routes
-from models.discord_integration import DiscordIntegration
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
@@ -124,9 +123,7 @@ def handle_event(event):
             if process is None or event["Type"] != "container":
                 return
 
-            integration = DiscordIntegration.query.filter_by(process_name=process.name).first()
-            if integration and event['Action'] in integration.events_list:
-                send_webhook_message(integration.webhook_url, event)
+            # Discord integration removed
 
 
 def start_listening_for_events():
@@ -145,21 +142,6 @@ def run_event_listener():
     print('Listening event')
     event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
     event_listener_thread.start()
-
-
-def send_webhook_message(webhook_url, event):
-    data = {
-        "content": f"Event triggered: {event['Action']} for container {event['Actor']['Attributes'].get('name', 'Unknown')}"
-    }
-
-    try:
-        response = requests.post(webhook_url, json=data)
-        if response.status_code == 204:
-            print("Webhook message sent successfully!")
-        else:
-            print(f"Failed to send webhook: {response.status_code} - {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"Error sending webhook message: {e}")
 
 
 first_worker = None
