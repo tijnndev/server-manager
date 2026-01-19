@@ -8,8 +8,10 @@ A powerful, production-ready server management application optimized for high-pe
 - 📁 **File Manager** - Browse, edit, upload, and manage files
 - 🔄 **Process Management** - Control and monitor server processes
 - 📊 **Real-time Monitoring** - CPU, memory, disk, and network stats
+- 🛡️ **Crash Detection** - Automatic background monitoring for process failures
 - 🔐 **User Management** - Multi-user support with role-based permissions
 - 📧 **Email Integration** - Built-in email management
+- 🎮 **Discord Integration** - Real-time notifications for process crashes and events
 - 🔗 **Git Integration** - Version control integration
 - 🌐 **Nginx Management** - Web server configuration
 - 📈 **Activity Logging** - Track all user actions
