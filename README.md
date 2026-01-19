@@ -8,8 +8,10 @@ A powerful, production-ready server management application optimized for high-pe
 - 📁 **File Manager** - Browse, edit, upload, and manage files
 - 🔄 **Process Management** - Control and monitor server processes
 - 📊 **Real-time Monitoring** - CPU, memory, disk, and network stats
+- 🛡️ **Crash Detection** - Automatic background monitoring for process failures
 - 🔐 **User Management** - Multi-user support with role-based permissions
 - 📧 **Email Integration** - Built-in email management
+- 🎮 **Discord Integration** - Real-time notifications for process crashes and events
 - 🔗 **Git Integration** - Version control integration
 - 🌐 **Nginx Management** - Web server configuration
 - 📈 **Activity Logging** - Track all user actions
@@ -154,6 +156,27 @@ CREATE DATABASE `server-manager`;
 GRANT ALL PRIVILEGES ON *.* TO 'youruser'@'localhost' IDENTIFIED BY 'your_password';
 FLUSH PRIVILEGES;
 ```
+
+### Discord Integration
+
+Configure Discord notifications to receive alerts for process crashes and power actions directly in your server.
+
+**Setup Instructions:**
+
+1. **Create a Discord Webhook:**
+   - Open your Discord server settings.
+   - Navigate to **Integrations** -> **Webhooks**.
+   - Click **New Webhook** and select the desired channel.
+   - Copy the generated Webhook URL.
+
+2. **Configure in Server Manager:**
+   - Go to **Settings** -> **Preferences**.
+   - Locate the **Discord Integration** section.
+   - Paste your Webhook URL.
+   - Toggle **Enable Discord Notifications**.
+   - Select specific events to monitor (e.g., Process Crashes, Start/Stop Actions).
+
+**Note:** Background process monitoring is enabled by default to automatically detect process failures and trigger notifications.
 
 ## 📦 Deployment
 
