@@ -209,84 +209,6 @@
         </div>
     </div>
 
-    <!-- Discord Integration Section -->
-    <div class="settings-section">
-        <h3 class="section-title">
-            <i class="bi bi-discord"></i>
-            Discord Integration
-        </h3>
-        <p class="section-description">Get real-time notifications in Discord about process events.</p>
-        
-        <div class="setting-item">
-            <div class="setting-info">
-                <label for="discord-enabled" class="setting-label">
-                    <i class="bi bi-toggle-on"></i>
-                    Enable Discord Notifications
-                </label>
-                <p class="setting-help">
-                    Send notifications to Discord when important events occur.
-                </p>
-            </div>
-            <div class="setting-control">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="discord-enabled" {{ 'checked' if user_settings.discord_enabled else '' }} onchange="toggleDiscordSettings()">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-item" id="discord-webhook-setting">
-            <div class="setting-info">
-                <label for="discord-webhook-url" class="setting-label">
-                    <i class="bi bi-link-45deg"></i>
-                    Webhook URL
-                </label>
-                <p class="setting-help">
-                    Your Discord webhook URL. <a href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks" target="_blank" style="color: var(--primary-color);">Learn how to create a webhook</a>
-                </p>
-            </div>
-            <div class="setting-control">
-                <input type="url" id="discord-webhook-url" class="form-control" placeholder="https://discord.com/api/webhooks/..." value="{{ user_settings.discord_webhook_url or '' }}" style="width: 300px;">
-            </div>
-        </div>
-
-        <div class="setting-item" id="discord-crash-setting">
-            <div class="setting-info">
-                <label for="discord-notify-crashes" class="setting-label">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    Notify on Process Crashes
-                </label>
-                <p class="setting-help">
-                    Get notified when a process crashes or encounters an error.
-                </p>
-            </div>
-            <div class="setting-control">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="discord-notify-crashes" {{ 'checked' if user_settings.discord_notify_crashes else '' }}>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="setting-item" id="discord-power-setting">
-            <div class="setting-info">
-                <label for="discord-notify-power-actions" class="setting-label">
-                    <i class="bi bi-power"></i>
-                    Notify on Power Actions
-                </label>
-                <p class="setting-help">
-                    Get notified when processes are started, stopped, or restarted.
-                </p>
-            </div>
-            <div class="setting-control">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="discord-notify-power-actions" {{ 'checked' if user_settings.discord_notify_power_actions else '' }}>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        </div>
-    </div>
-
     <div class="settings-actions">
         <button class="btn btn-primary" onclick="savePreferences()">
             <i class="bi bi-save"></i> Save Changes
@@ -412,14 +334,6 @@
         pointer-events: none;
     }
 
-    /* Discord settings disabled state */
-    #discord-webhook-setting.disabled,
-    #discord-crash-setting.disabled,
-    #discord-power-setting.disabled {
-        opacity: 0.5;
-        pointer-events: none;
-    }
-
     /* Toggle Switch */
     .toggle-switch {
         position: relative;
@@ -525,11 +439,7 @@
         auto_refresh_interval: {{ user_settings.auto_refresh_interval }},
         notification_sounds: {{ 'true' if user_settings.notification_sounds else 'false' }},
         show_timestamps: {{ 'true' if user_settings.show_timestamps else 'false' }},
-        console_word_wrap: {{ 'true' if user_settings.console_word_wrap else 'false' }},
-        discord_enabled: {{ 'true' if user_settings.discord_enabled else 'false' }},
-        discord_webhook_url: '{{ user_settings.discord_webhook_url or '' }}',
-        discord_notify_crashes: {{ 'true' if user_settings.discord_notify_crashes else 'false' }},
-        discord_notify_power_actions: {{ 'true' if user_settings.discord_notify_power_actions else 'false' }}
+        console_word_wrap: {{ 'true' if user_settings.console_word_wrap else 'false' }}
     };
 
     function updateFontSizeDisplay(value) {
@@ -550,23 +460,9 @@
         }
     }
 
-    function toggleDiscordSettings() {
-        const enabled = document.getElementById('discord-enabled').checked;
-        const settings = ['discord-webhook-setting', 'discord-crash-setting', 'discord-power-setting'];
-        settings.forEach(id => {
-            const element = document.getElementById(id);
-            if (!enabled) {
-                element.classList.add('disabled');
-            } else {
-                element.classList.remove('disabled');
-            }
-        });
-    }
-
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         toggleRefreshInterval();
-        toggleDiscordSettings();
     });
 
     async function savePreferences() {
@@ -587,11 +483,7 @@
             auto_refresh_interval: parseInt(document.getElementById('refresh-interval').value),
             notification_sounds: document.getElementById('notification-sounds').checked,
             show_timestamps: document.getElementById('show-timestamps').checked,
-            console_word_wrap: document.getElementById('console-word-wrap').checked,
-            discord_enabled: document.getElementById('discord-enabled').checked,
-            discord_webhook_url: document.getElementById('discord-webhook-url').value,
-            discord_notify_crashes: document.getElementById('discord-notify-crashes').checked,
-            discord_notify_power_actions: document.getElementById('discord-notify-power-actions').checked
+            console_word_wrap: document.getElementById('console-word-wrap').checked
         };
 
         try {
@@ -667,15 +559,10 @@
         document.getElementById('notification-sounds').checked = initialSettings.notification_sounds;
         document.getElementById('show-timestamps').checked = initialSettings.show_timestamps;
         document.getElementById('console-word-wrap').checked = initialSettings.console_word_wrap;
-        document.getElementById('discord-enabled').checked = initialSettings.discord_enabled;
-        document.getElementById('discord-webhook-url').value = initialSettings.discord_webhook_url;
-        document.getElementById('discord-notify-crashes').checked = initialSettings.discord_notify_crashes;
-        document.getElementById('discord-notify-power-actions').checked = initialSettings.discord_notify_power_actions;
         
         updateFontSizeDisplay(initialSettings.console_font_size);
         updateRefreshDisplay(initialSettings.auto_refresh_interval);
         toggleRefreshInterval();
-        toggleDiscordSettings();
         
         document.getElementById('success-alert').style.display = 'none';
         document.getElementById('error-alert').style.display = 'none';

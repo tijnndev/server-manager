@@ -41,11 +41,7 @@ def update_preferences():
             auto_refresh_interval=data.get("auto_refresh_interval"),
             notification_sounds=data.get("notification_sounds"),
             show_timestamps=data.get("show_timestamps"),
-            console_word_wrap=data.get("console_word_wrap"),
-            discord_webhook_url=data.get("discord_webhook_url"),
-            discord_enabled=data.get("discord_enabled"),
-            discord_notify_crashes=data.get("discord_notify_crashes"),
-            discord_notify_power_actions=data.get("discord_notify_power_actions")
+            console_word_wrap=data.get("console_word_wrap")
         )
         
         return jsonify({"success": True, "message": "Preferences updated successfully"})
