@@ -18,6 +18,7 @@ from models.activity_log import ActivityLog
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
 from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler, is_always_running_container, start_process_in_container, stop_process_in_container, execute_command_in_container, execute_interactive_command_in_container
+from utils.discord import DiscordNotifier, get_user_discord_settings
 
 process_routes = Blueprint('process', __name__)
 
@@ -402,11 +403,28 @@ def start_process_console(name):
                     username=session.get('username'),
                     action='started_process',
                     target=name,
-                    details=f"Process started successfully",
+                    details="Process started successfully",
                     request_obj=request
                 )
             except Exception as log_error:
                 print(f"Failed to log activity: {log_error}")
+
+            # Send Discord notification
+            try:
+                from utils.discord import get_user_discord_settings, DiscordNotifier
+                discord_settings = get_user_discord_settings(process.owner_id)
+                if discord_settings and discord_settings.get('notify_power_actions'):
+                    user = User.query.get(process.owner_id)
+                    DiscordNotifier.notify_power_action(
+                        webhook_url=discord_settings['webhook_url'],
+                        action='started',
+                        process_name=process.name,
+                        process_type=process.type,
+                        user=user.username if user else 'Unknown',
+                        success=True
+                    )
+            except Exception as discord_error:
+                print(f"Failed to send Discord notification: {discord_error}")
 
             return jsonify({
                 "message": f"Process '{name}' started successfully.", 
@@ -485,6 +503,23 @@ def stop_process_console(name):
                 )
             except Exception as log_error:
                 print(f"Failed to log activity: {log_error}")
+
+            # Send Discord notification
+            try:
+                from utils.discord import get_user_discord_settings, DiscordNotifier
+                discord_settings = get_user_discord_settings(process.owner_id)
+                if discord_settings and discord_settings.get('notify_power_actions'):
+                    user = User.query.get(process.owner_id)
+                    DiscordNotifier.notify_power_action(
+                        webhook_url=discord_settings['webhook_url'],
+                        action='stopped',
+                        process_name=process.name,
+                        process_type=process.type,
+                        user=user.username if user else 'Unknown',
+                        success=True
+                    )
+            except Exception as discord_error:
+                print(f"Failed to send Discord notification: {discord_error}")
 
             return jsonify({"message": f"Process {name} stopped successfully."})
 
