@@ -14,6 +14,7 @@ A powerful, production-ready server management application optimized for high-pe
 - 🌐 **Nginx Management** - Web server configuration
 - 📈 **Activity Logging** - Track all user actions
 - ⚡ **High Performance** - Optimized for AMD Ryzen 9 7950X3D (scales to any hardware)
+- 💬 **Discord Integration** - Real-time notifications for process crashes and power actions
 
 ## 🎯 Performance Specifications
 
@@ -155,6 +156,27 @@ GRANT ALL PRIVILEGES ON *.* TO 'youruser'@'localhost' IDENTIFIED BY 'your_passwo
 FLUSH PRIVILEGES;
 ```
 
+### Discord Integration
+
+Configure Discord notifications to receive alerts for process crashes and power actions directly in your server.
+
+#### Creating a Discord Webhook
+1. Open your Discord Server Settings.
+2. Go to **Integrations** > **Webhooks**.
+3. Click **New Webhook**.
+4. Name the webhook (e.g., "Server Manager") and select the target channel.
+5. Click **Copy Webhook URL**.
+
+#### Configuration
+Navigate to **Settings** > **Preferences** in the web interface:
+- **Discord Webhook URL:** Paste the URL copied from Discord.
+- **Enable Discord:** Toggle to activate notifications.
+- **Notify on Crashes:** Receive alerts when monitored processes stop unexpectedly.
+
+Supported notification types:
+- 🚨 Process crashes (detected by background monitor)
+- ⚡ Power actions (Start, Stop, Restart)
+
 ## 📦 Deployment
 
 ### Zero-Downtime Deployment
@@ -256,7 +278,9 @@ server-manager/
 │   └── ...
 ├── models/               # Database models
 ├── utils/                # Utility functions
-│   └── performance.py    # Performance helpers
+│   ├── performance.py    # Performance helpers
+│   ├── discord.py        # Discord webhook notifications
+│   └── process_monitor.py # Background process monitoring
 ├── templates/            # HTML templates
 ├── static/              # CSS, JS, images
 └── migrations/          # Database migrations
