@@ -1,6 +1,6 @@
 # 🚀 Server Manager - High-Performance Server Management Panel
 
-A powerful, production-ready server management application optimized for high-performance deployment. Built with Flask, Gunicorn, and Redis, designed to manage Docker containers, processes, files, and more through an web interface.
+A powerful, production-ready server management application optimized for high-performance deployment. Built with Flask, Gunicorn, and Redis, designed to manage Docker containers, processes, files, and more through an intuitive web interface.
 
 ## ✨ Features
 
