@@ -2,7 +2,6 @@ import os
 import subprocess
 from db import db
 from models.base_model import BaseModel
-from models.discord_integration import DiscordIntegration
 from extra import get_project_root
 
 BASE_DIR = get_project_root()
@@ -206,14 +205,6 @@ class Process(BaseModel):
 
     def update_id(self, new_name: str):
         try:
-            integration = DiscordIntegration.query.filter_by(process_name=self.name).first()
-            if integration:
-                integration.process_name = new_name
-                db.session.add(integration)
-                print(f"Updated DiscordIntegration for process_name: {new_name}")
-            else:
-                print('No discord integration found')
-
             self.id = new_name
             db.session.add(self)
 
