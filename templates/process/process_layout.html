@@ -45,6 +45,11 @@
         </a>
     </li>
     {% endif %}
+    <li>
+        <a class="nav-link {% if 'cloudflare' in g.page %}active{% endif %}" href="{{ url_for('process.cloudflare', name=process.name) }}">
+            <i class="bi bi-cloud"></i> Cloudflare
+        </a>
+    </li>
     {% if has_permission(process.name, "email") %}
     <li>
         <a class="nav-link {% if 'email' in g.page %}active{% endif %}" href="{{ url_for('email.email', name=process.name) }}">

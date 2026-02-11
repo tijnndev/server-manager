@@ -1,0 +1,173 @@
+{% extends 'process/process_layout.html' %}
+
+{% block process_content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-cloud"></i> Cloudflare DNS
+                </div>
+                {% if cloudflare_configured %}
+                <span class="badge bg-success">API token configured</span>
+                {% else %}
+                <a href="{{ url_for('settings.preferences_page') }}" class="badge bg-warning text-dark">Add API token in Settings</a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Manage DNS records for <strong>{{ process.domain or 'this process' }}</strong> using your stored Cloudflare token.
+                    {% if server_ip %}Default A record value uses this server IP: <strong>{{ server_ip }}</strong>.{% endif %}
+                </p>
+
+                <div id="cloudflare-alert" style="display:none;"></div>
+
+                <div id="cloudflare-data" data-configured="{{ 'true' if cloudflare_configured else 'false' }}" data-server-ip="{{ server_ip or '' }}"></div>
+
+                <div class="mb-3">
+                    <label class="form-label">Record Type</label>
+                    <select class="form-select" id="cloudflare-record-type" {% if not cloudflare_configured %}disabled{% endif %}>
+                        <option value="A" selected>A</option>
+                        <option value="CNAME">CNAME</option>
+                        <option value="AAAA">AAAA</option>
+                        <option value="TXT">TXT</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Record Name</label>
+                    <input type="text" class="form-control" id="cloudflare-record-name" value="{{ process.domain or '' }}" placeholder="example.com" {% if not cloudflare_configured %}disabled{% endif %}>
+                    <small class="text-muted">Uses the process domain by default. Wildcards will be trimmed to the root.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Record Value</label>
+                    <input type="text" class="form-control" id="cloudflare-record-value" placeholder="{{ server_ip or 'e.g., 203.0.113.10' }}" {% if not cloudflare_configured %}disabled{% endif %}>
+                    <small class="text-muted">For A records, leave blank to use the server IP.</small>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="cloudflare-proxied" {% if not cloudflare_configured %}disabled{% endif %} checked>
+                    <label class="form-check-label" for="cloudflare-proxied">Proxied (orange cloud)</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" id="cloudflare-create-btn" onclick="submitCloudflareRecord('create')" {% if not cloudflare_configured %}disabled{% endif %}>
+                        <i class="bi bi-plus-circle"></i> Create / Upsert
+                    </button>
+                    <button class="btn btn-outline-danger" id="cloudflare-delete-btn" onclick="submitCloudflareRecord('delete')" {% if not cloudflare_configured %}disabled{% endif %}>
+                        <i class="bi bi-trash"></i> Delete Record
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Tips
+            </div>
+            <div class="card-body text-muted small">
+                <ul class="mb-0">
+                    <li>Use a Cloudflare token with <strong>Zone:DNS Edit</strong> and <strong>Zone:Read</strong> for the zones you manage.</li>
+                    <li>We determine the zone from the record name (e.g., app.example.com -> example.com).</li>
+                    <li>Proxied A records will route traffic through Cloudflare (orange cloud). Disable if you need direct origin access.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const cfDataEl = document.getElementById('cloudflare-data');
+const cloudflareConfigured = cfDataEl?.dataset.configured === 'true';
+const cloudflareServerIp = cfDataEl?.dataset.serverIp || '';
+
+function setCloudflarePlaceholder() {
+    const typeSelect = document.getElementById('cloudflare-record-type');
+    const valueInput = document.getElementById('cloudflare-record-value');
+    if (!typeSelect || !valueInput) return;
+
+    const type = typeSelect.value;
+    if (type === 'A') {
+        valueInput.placeholder = cloudflareServerIp || 'Server public IPv4 (e.g., 203.0.113.10)';
+    } else if (type === 'CNAME') {
+        valueInput.placeholder = 'target.example.com';
+    } else if (type === 'AAAA') {
+        valueInput.placeholder = '2001:db8::1';
+    } else {
+        valueInput.placeholder = 'Value';
+    }
+}
+
+async function submitCloudflareRecord(action) {
+    const type = document.getElementById('cloudflare-record-type').value;
+    const name = document.getElementById('cloudflare-record-name').value.trim();
+    const value = document.getElementById('cloudflare-record-value').value.trim();
+    const proxied = document.getElementById('cloudflare-proxied').checked;
+
+    if (!cloudflareConfigured) {
+        showCloudflareAlert('warning', 'Configure your Cloudflare API token in Settings first.');
+        return;
+    }
+
+    if (!name) {
+        showCloudflareAlert('warning', 'Record name is required.');
+        return;
+    }
+
+    if (action === 'create' && type !== 'A' && !value) {
+        showCloudflareAlert('warning', 'Record value is required for this record type.');
+        return;
+    }
+
+    const endpoint = action === 'delete'
+        ? '{{ url_for("process.cloudflare_delete", name=process.name) }}'
+        : '{{ url_for("process.cloudflare_create", name=process.name) }}';
+
+    const button = action === 'delete' ? document.getElementById('cloudflare-delete-btn') : document.getElementById('cloudflare-create-btn');
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + (action === 'delete' ? 'Deleting...' : 'Creating...');
+
+    try {
+        const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ type, name, value, proxied })
+        });
+
+        const data = await resp.json();
+        if (data.success) {
+            showCloudflareAlert('success', data.message || 'Success');
+            if (action === 'create' && !value && type === 'A') {
+                document.getElementById('cloudflare-record-value').value = cloudflareServerIp;
+            }
+        } else {
+            showCloudflareAlert('danger', data.error || 'Request failed.');
+        }
+    } catch (err) {
+        showCloudflareAlert('danger', `Error: ${err.message}`);
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+    }
+}
+
+function showCloudflareAlert(level, message) {
+    const alertBox = document.getElementById('cloudflare-alert');
+    alertBox.className = `alert alert-${level}`;
+    alertBox.innerHTML = `<i class="bi bi-info-circle"></i> ${message}`;
+    alertBox.style.display = 'block';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const typeSelect = document.getElementById('cloudflare-record-type');
+    if (typeSelect) {
+        typeSelect.addEventListener('change', setCloudflarePlaceholder);
+        setCloudflarePlaceholder();
+    }
+});
+</script>
+{% endblock %}

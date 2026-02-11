@@ -1108,6 +1108,27 @@ def settings(name):
     )
 
 
+@process_routes.route('/cloudflare/<string:name>', methods=['GET'])
+@owner_or_subuser_required()
+def cloudflare(name):
+    process = find_process_by_name(name)
+    if not process:
+        return redirect(url_for('dashboard'))
+
+    user_id = session.get("user_id")
+    user_settings = UserSettings.get_or_create(user_id) if user_id else None
+    cloudflare_configured = bool(user_settings and user_settings.cloudflare_api_token)
+    server_ip = get_server_ip()
+
+    return render_template(
+        'process/cloudflare.html',
+        page_title="Cloudflare",
+        process=process,
+        cloudflare_configured=cloudflare_configured,
+        server_ip=server_ip
+    )
+
+
 def update_compose_file(compose_path, process_name, command):
     """Update docker-compose.yml with the new command."""
     if not os.path.exists(compose_path):
