@@ -83,7 +83,12 @@ class NotificationManager {
     loadNotifications() {
         const stored = localStorage.getItem('notifications');
         if (stored) {
-            this.notifications = JSON.parse(stored);
+            const parsed = JSON.parse(stored);
+            // Ensure legacy notifications gain a read flag
+            this.notifications = parsed.map(notif => ({
+                ...notif,
+                read: notif.read === undefined ? false : notif.read
+            }));
             this.renderNotifications();
             this.updateBadge();
         }
@@ -168,7 +173,7 @@ class NotificationManager {
     }
 
     addNotification(notification) {
-        this.notifications.unshift(notification);
+        this.notifications.unshift({ ...notification, read: false });
         if (this.notifications.length > this.maxNotifications) {
             this.notifications = this.notifications.slice(0, this.maxNotifications);
         }
@@ -194,13 +199,13 @@ class NotificationManager {
                 : notif.message;
             
             return `
-                <div class="notification-item notification-${notif.type}">
+                <div class="notification-item notification-${notif.type} ${notif.read ? 'notification-read' : ''}">
                     <i class="${this.getIcon(notif.type)}"></i>
                     <div class="notification-content">
                         <div class="notification-message" title="${this.escapeHtml(notif.message)}">${this.escapeHtml(displayMessage)}</div>
                         <div class="notification-time">${this.formatTime(notif.timestamp)}</div>
                     </div>
-                    <button class="notification-delete" onclick="notificationManager.deleteNotification(${index})" title="Delete notification">
+                    <button class="notification-delete" onclick="notificationManager.deleteNotification(${index}, event)" title="Delete notification">
                         <i class="bi bi-x"></i>
                     </button>
                 </div>
@@ -229,8 +234,19 @@ class NotificationManager {
         center.classList.toggle('show');
     }
 
-    deleteNotification(index) {
+    deleteNotification(index, event = null) {
+        if (event) {
+            event.stopPropagation();
+        }
         this.notifications.splice(index, 1);
+        this.saveNotifications();
+        this.renderNotifications();
+        this.updateBadge();
+    }
+
+    markAllRead() {
+        if (this.notifications.length === 0) return;
+        this.notifications = this.notifications.map(notif => ({ ...notif, read: true }));
         this.saveNotifications();
         this.renderNotifications();
         this.updateBadge();
@@ -248,7 +264,8 @@ class NotificationManager {
     updateBadge() {
         const badge = document.getElementById('notification-badge');
         if (badge) {
-            const count = this.notifications.length;
+            const unreadCount = this.notifications.filter(n => !n.read).length;
+            const count = unreadCount;
             badge.textContent = count > 99 ? '99+' : count;
             badge.style.display = count > 0 ? 'block' : 'none';
         }

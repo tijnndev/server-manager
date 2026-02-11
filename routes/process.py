@@ -18,12 +18,29 @@ from models.activity_log import ActivityLog
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
 from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler, is_always_running_container, start_process_in_container, stop_process_in_container, execute_command_in_container, execute_interactive_command_in_container
+from utils.discord import DiscordNotifier, get_user_discord_settings
 
 process_routes = Blueprint('process', __name__)
 
 PROCESS_DIRECTORY = 'active-servers'
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
+
+# Lightweight in-memory cache to avoid repeated docker status calls during rapid page loads
+PROCESS_STATUS_CACHE = {}
+PROCESS_STATUS_CACHE_TTL = 5  # seconds
+
+
+def _make_process_cache_key(user_id, role):
+    return f"{role or 'user'}:{user_id or 'anon'}"
+
+
+def invalidate_process_cache(cache_key=None):
+    """Invalidate cached process status results."""
+    if cache_key:
+        PROCESS_STATUS_CACHE.pop(cache_key, None)
+    else:
+        PROCESS_STATUS_CACHE.clear()
 
 
 def get_container_id(process_name):
@@ -175,6 +192,13 @@ def load_process():
     user_id = session.get('user_id')
     if not user_id:
         return process_dict
+
+    cache_key = _make_process_cache_key(user_id, session.get("role"))
+    now = time.time()
+    cached_entry = PROCESS_STATUS_CACHE.get(cache_key)
+    if cached_entry and now - cached_entry.get("timestamp", 0) < PROCESS_STATUS_CACHE_TTL:
+        # Return a shallow copy to avoid accidental mutation of cached data
+        return dict(cached_entry.get("data", {}))
     
     user = User.query.filter_by(id=user_id).first()
 
@@ -210,6 +234,7 @@ def load_process():
                 "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
+    PROCESS_STATUS_CACHE[cache_key] = {"timestamp": now, "data": process_dict}
     return process_dict
 
 
@@ -361,6 +386,7 @@ def start_process_console(name):
             result = start_process_in_container(name)
             if result["success"]:
                 update_process_runtime_metadata(process)
+                invalidate_process_cache()
                 return jsonify({
                     "message": result["message"], 
                     "status": get_process_status(process.name), 
@@ -394,6 +420,7 @@ def start_process_console(name):
             time.sleep(2)
 
             update_process_runtime_metadata(process)
+            invalidate_process_cache()
 
             # Log activity
             try:
@@ -402,11 +429,28 @@ def start_process_console(name):
                     username=session.get('username'),
                     action='started_process',
                     target=name,
-                    details=f"Process started successfully",
+                    details="Process started successfully",
                     request_obj=request
                 )
             except Exception as log_error:
                 print(f"Failed to log activity: {log_error}")
+
+            # Send Discord notification
+            try:
+                from utils.discord import get_user_discord_settings, DiscordNotifier
+                discord_settings = get_user_discord_settings(process.owner_id)
+                if discord_settings and discord_settings.get('notify_power_actions'):
+                    user = User.query.get(process.owner_id)
+                    DiscordNotifier.notify_power_action(
+                        webhook_url=discord_settings['webhook_url'],
+                        action='started',
+                        process_name=process.name,
+                        process_type=process.type,
+                        user=user.username if user else 'Unknown',
+                        success=True
+                    )
+            except Exception as discord_error:
+                print(f"Failed to send Discord notification: {discord_error}")
 
             return jsonify({
                 "message": f"Process '{name}' started successfully.", 
@@ -485,6 +529,25 @@ def stop_process_console(name):
                 )
             except Exception as log_error:
                 print(f"Failed to log activity: {log_error}")
+
+            invalidate_process_cache()
+
+            # Send Discord notification
+            try:
+                from utils.discord import get_user_discord_settings, DiscordNotifier
+                discord_settings = get_user_discord_settings(process.owner_id)
+                if discord_settings and discord_settings.get('notify_power_actions'):
+                    user = User.query.get(process.owner_id)
+                    DiscordNotifier.notify_power_action(
+                        webhook_url=discord_settings['webhook_url'],
+                        action='stopped',
+                        process_name=process.name,
+                        process_type=process.type,
+                        user=user.username if user else 'Unknown',
+                        success=True
+                    )
+            except Exception as discord_error:
+                print(f"Failed to send Discord notification: {discord_error}")
 
             return jsonify({"message": f"Process {name} stopped successfully."})
 

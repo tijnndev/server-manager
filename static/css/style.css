@@ -1189,7 +1189,7 @@ a:hover {
     height: 100vh;
     background: var(--bg-secondary);
     border-left: 1px solid var(--border-color);
-    z-index: 9999;
+    z-index: 99999;
     transition: right 0.3s ease;
     display: flex;
     flex-direction: column;
@@ -1240,6 +1240,10 @@ a:hover {
 
 .notification-item:hover {
     background: var(--bg-hover);
+}
+
+.notification-item.notification-read {
+    opacity: 0.75;
 }
 
 .notification-item i {

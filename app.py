@@ -266,5 +266,25 @@ def inject_static_vars():
     }
 
 
+# Initialize process monitoring
+def init_process_monitoring():
+    """Initialize background process monitoring for crash detection."""
+    try:
+        from utils.process_monitor import start_process_monitoring
+        # Start monitoring with 30 second interval
+        start_process_monitoring(interval=30)
+        print("Process monitoring initialized")
+    except Exception as e:
+        print(f"Failed to start process monitoring: {e}")
+
+
+# Start monitoring when app starts (only in production)
+if ENVIRONMENT == "production":
+    init_process_monitoring()
+
+
 if __name__ == "__main__":
+    # Also start monitoring in development mode
+    if ENVIRONMENT != "production":
+        init_process_monitoring()
     app.run(host="0.0.0.0", port=7001, debug=True)

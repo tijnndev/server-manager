@@ -236,6 +236,7 @@
   let isPageActive = true;
   let lastLogTimestamp = Date.now();
   let userSettings = null;
+  let currentStatus = "{{ process_status|lower }}";
 
   // Command autocomplete state
   let commandHistory = [];
@@ -507,7 +508,7 @@
     loadCommandHistory();
     startConsole();
     startUptimeUpdates();
-    updateUIBasedOnStatus("{{ process_status }}");
+  updateProcessStatus("{{ process_status }}");
 
     // Add command input event listeners
     commandInput.addEventListener("keydown", function (event) {
@@ -615,6 +616,16 @@
         if (message && !seenMessages.has(message)) {
             seenMessages.add(message);
             consoleOutput.innerHTML += message + "\n";
+      const lowerMessage = message.toLowerCase();
+      if (lowerMessage.includes('build process finished') || lowerMessage.includes('build completed')) {
+        updateProcessStatus('running');
+      }
+      if (lowerMessage.includes('stopped successfully') || lowerMessage.includes('process stopped') || lowerMessage.includes('container stopped')) {
+        updateProcessStatus('exited');
+      }
+      if (lowerMessage.includes('process started successfully') || lowerMessage.includes('server started')) {
+        updateProcessStatus('running');
+      }
             
             // Increment new logs counter if not auto-scrolling
             if (enhancedConsole && !enhancedConsole.autoScroll) {
@@ -625,7 +636,8 @@
             
             lastLogTimestamp = Date.now();
         }
-      };      eventSource.onerror = function (event) {
+    };
+    eventSource.onerror = function (event) {
         // Silently handle reconnection without showing error messages
         // EventSource automatically reconnects, so we don't need to do anything
         console.log("EventSource reconnecting...");
@@ -893,8 +905,10 @@
   }
 
   function updateProcessStatus(status) {
-    updateUIBasedOnStatus(status);
-    statusLabel.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    const normalized = (status || '').toString().toLowerCase();
+    currentStatus = normalized;
+    updateUIBasedOnStatus(normalized);
+    statusLabel.textContent = normalized.charAt(0).toUpperCase() + normalized.slice(1);
   }
 
   function updateUIBasedOnStatus(status) {
@@ -905,7 +919,7 @@
     // Remove all status classes
     statusDot.className = "status-dot";
 
-    switch (status.toLowerCase()) {
+    switch ((status || '').toLowerCase()) {
       case "running":
         statusDot.classList.add("running");
         startBtn.disabled = true;
@@ -945,6 +959,12 @@
       const response = await fetch(`/process/metrics/{{ process.name }}`);
       if (response.ok) {
         const metrics = await response.json();
+
+        const normalizedStatus = (metrics.status || '').toLowerCase();
+        const mappedStatus = normalizedStatus === 'stopped' ? 'exited' : normalizedStatus;
+        if (mappedStatus && mappedStatus !== currentStatus) {
+          updateProcessStatus(mappedStatus);
+        }
         
         if (metrics.status === 'running') {
           // Update CPU

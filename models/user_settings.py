@@ -26,6 +26,12 @@ class UserSettings(BaseModel):
     # Console preferences
     show_timestamps = db.Column(db.Boolean, nullable=False, default=True)
     console_word_wrap = db.Column(db.Boolean, nullable=False, default=True)
+    
+    # Discord integration
+    discord_webhook_url = db.Column(db.String(500), nullable=True)
+    discord_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    discord_notify_crashes = db.Column(db.Boolean, nullable=False, default=True)
+    discord_notify_power_actions = db.Column(db.Boolean, nullable=False, default=True)
 
     # Relationship to User
     user = db.relationship('User', backref=db.backref('settings', uselist=False, cascade='all, delete-orphan'))
@@ -48,6 +54,10 @@ class UserSettings(BaseModel):
             "notification_sounds": self.notification_sounds,
             "show_timestamps": self.show_timestamps,
             "console_word_wrap": self.console_word_wrap,
+            "discord_webhook_url": self.discord_webhook_url,
+            "discord_enabled": self.discord_enabled,
+            "discord_notify_crashes": self.discord_notify_crashes,
+            "discord_notify_power_actions": self.discord_notify_power_actions,
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }
