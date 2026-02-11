@@ -287,6 +287,31 @@
         </div>
     </div>
 
+    <!-- Cloudflare Integration Section -->
+    <div class="settings-section">
+        <h3 class="section-title">
+            <i class="bi bi-cloud"></i>
+            Cloudflare Integration
+        </h3>
+        <p class="section-description">Store your Cloudflare API token to manage DNS records from each process page.</p>
+
+        <div class="setting-item">
+            <div class="setting-info">
+                <label for="cloudflare-api-token" class="setting-label">
+                    <i class="bi bi-key"></i>
+                    API Token
+                </label>
+                <p class="setting-help">
+                    Create a scoped token with permissions: <strong>Zone:DNS Edit</strong> and <strong>Zone:Read</strong>. Keep this token secret.
+                </p>
+            </div>
+            <div class="setting-control" style="width: 340px;">
+                <input type="password" id="cloudflare-api-token" class="form-control" placeholder="cf_token_..." value="{{ user_settings.cloudflare_api_token or '' }}">
+                <small class="text-muted">Stored per user; used when creating/deleting DNS records for your processes.</small>
+            </div>
+        </div>
+    </div>
+
     <div class="settings-actions">
         <button class="btn btn-primary" onclick="savePreferences()">
             <i class="bi bi-save"></i> Save Changes
@@ -515,22 +540,25 @@
     }
 </style>
 
+{% set initial_settings = {
+    "remember_filters": user_settings.remember_filters,
+    "theme": user_settings.theme,
+    "compact_mode": user_settings.compact_mode,
+    "console_font_size": user_settings.console_font_size,
+    "auto_refresh_enabled": user_settings.auto_refresh_enabled,
+    "auto_refresh_interval": user_settings.auto_refresh_interval,
+    "notification_sounds": user_settings.notification_sounds,
+    "show_timestamps": user_settings.show_timestamps,
+    "console_word_wrap": user_settings.console_word_wrap,
+    "discord_enabled": user_settings.discord_enabled,
+    "discord_webhook_url": user_settings.discord_webhook_url or '',
+    "discord_notify_crashes": user_settings.discord_notify_crashes,
+    "discord_notify_power_actions": user_settings.discord_notify_power_actions,
+    "cloudflare_api_token": user_settings.cloudflare_api_token or ''
+} %}
+
 <script>
-    const initialSettings = {
-        remember_filters: {{ 'true' if user_settings.remember_filters else 'false' }},
-        theme: '{{ user_settings.theme }}',
-        compact_mode: {{ 'true' if user_settings.compact_mode else 'false' }},
-        console_font_size: {{ user_settings.console_font_size }},
-        auto_refresh_enabled: {{ 'true' if user_settings.auto_refresh_enabled else 'false' }},
-        auto_refresh_interval: {{ user_settings.auto_refresh_interval }},
-        notification_sounds: {{ 'true' if user_settings.notification_sounds else 'false' }},
-        show_timestamps: {{ 'true' if user_settings.show_timestamps else 'false' }},
-        console_word_wrap: {{ 'true' if user_settings.console_word_wrap else 'false' }},
-        discord_enabled: {{ 'true' if user_settings.discord_enabled else 'false' }},
-        discord_webhook_url: '{{ user_settings.discord_webhook_url or '' }}',
-        discord_notify_crashes: {{ 'true' if user_settings.discord_notify_crashes else 'false' }},
-        discord_notify_power_actions: {{ 'true' if user_settings.discord_notify_power_actions else 'false' }}
-    };
+    const initialSettings = JSON.parse('{{ initial_settings | tojson | safe }}');
 
     function updateFontSizeDisplay(value) {
         document.getElementById('font-size-display').textContent = value;
@@ -591,7 +619,8 @@
             discord_enabled: document.getElementById('discord-enabled').checked,
             discord_webhook_url: document.getElementById('discord-webhook-url').value,
             discord_notify_crashes: document.getElementById('discord-notify-crashes').checked,
-            discord_notify_power_actions: document.getElementById('discord-notify-power-actions').checked
+            discord_notify_power_actions: document.getElementById('discord-notify-power-actions').checked,
+            cloudflare_api_token: document.getElementById('cloudflare-api-token').value
         };
 
         try {
@@ -671,6 +700,7 @@
         document.getElementById('discord-webhook-url').value = initialSettings.discord_webhook_url;
         document.getElementById('discord-notify-crashes').checked = initialSettings.discord_notify_crashes;
         document.getElementById('discord-notify-power-actions').checked = initialSettings.discord_notify_power_actions;
+    document.getElementById('cloudflare-api-token').value = initialSettings.cloudflare_api_token;
         
         updateFontSizeDisplay(initialSettings.console_font_size);
         updateRefreshDisplay(initialSettings.auto_refresh_interval);

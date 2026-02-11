@@ -17,7 +17,9 @@ from models.subuser import SubUser
 from models.activity_log import ActivityLog
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
-from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler, is_always_running_container, start_process_in_container, stop_process_in_container, execute_command_in_container, execute_interactive_command_in_container
+from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler, is_always_running_container, start_process_in_container, stop_process_in_container, execute_command_in_container, execute_interactive_command_in_container, get_server_ip
+from utils.cloudflare import extract_zone_name, get_zone_id, create_dns_record, find_dns_record, delete_dns_record
+from models.user_settings import UserSettings
 from utils.discord import DiscordNotifier, get_user_discord_settings
 
 process_routes = Blueprint('process', __name__)
@@ -1090,7 +1092,20 @@ def settings(name):
 
         return redirect(url_for('process.console', name=new_name))
 
-    return render_template('process/settings.html', page_title="Settings", process=process, types=types)
+    # Cloudflare context
+    current_user_id = session.get("user_id")
+    user_settings = UserSettings.get_or_create(current_user_id) if current_user_id else None
+    cloudflare_configured = bool(user_settings and user_settings.cloudflare_api_token)
+    server_ip = get_server_ip()
+
+    return render_template(
+        'process/settings.html',
+        page_title="Settings",
+        process=process,
+        types=types,
+        cloudflare_configured=cloudflare_configured,
+        server_ip=server_ip
+    )
 
 
 def update_compose_file(compose_path, process_name, command):
@@ -1129,6 +1144,89 @@ def update_dockerfile(dockerfile_path, command):
         dockerfile.writelines(lines)
 
     print(f"Dockerfile for {dockerfile_path} updated with new command: {command}")
+
+
+@process_routes.route('/cloudflare/<string:name>/create', methods=['POST'])
+@owner_or_subuser_required()
+def cloudflare_create(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    data = request.get_json() or {}
+    record_type = (data.get('type') or 'A').upper()
+    record_name = (data.get('name') or process.domain or '').strip().lstrip('*.')
+    value = (data.get('value') or '').strip()
+    proxied = bool(data.get('proxied', False))
+
+    if not record_name:
+        return jsonify({"success": False, "error": "Set a domain on the process first."}), 400
+
+    # Fallback to server IP for A records when value omitted
+    if record_type == 'A' and not value:
+        value = get_server_ip() or ''
+
+    if not value:
+        return jsonify({"success": False, "error": "Record value is required."}), 400
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    user_settings = UserSettings.get_or_create(int(user_id))
+    token = user_settings.cloudflare_api_token if user_settings else None
+    if not token:
+        return jsonify({"success": False, "error": "Cloudflare API token is not configured in Settings."}), 400
+
+    zone_name = extract_zone_name(process.domain or record_name)
+    zone_id = get_zone_id(token, zone_name)
+    if not zone_id:
+        return jsonify({"success": False, "error": f"Cloudflare zone not found for {zone_name}."}), 404
+
+    result = create_dns_record(token, zone_id, record_type, record_name, value, proxied=proxied)
+    if not result.get('success'):
+        return jsonify({"success": False, "error": result.get('errors') or result.get('messages') or "Failed to create DNS record"}), 400
+
+    return jsonify({"success": True, "message": "DNS record created", "data": result.get('result')})
+
+
+@process_routes.route('/cloudflare/<string:name>/delete', methods=['POST'])
+@owner_or_subuser_required()
+def cloudflare_delete(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    data = request.get_json() or {}
+    record_type = (data.get('type') or 'A').upper()
+    record_name = (data.get('name') or process.domain or '').strip().lstrip('*.')
+
+    if not record_name:
+        return jsonify({"success": False, "error": "Record name is required."}), 400
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    user_settings = UserSettings.get_or_create(int(user_id))
+    token = user_settings.cloudflare_api_token if user_settings else None
+    if not token:
+        return jsonify({"success": False, "error": "Cloudflare API token is not configured in Settings."}), 400
+
+    zone_name = extract_zone_name(process.domain or record_name)
+    zone_id = get_zone_id(token, zone_name)
+    if not zone_id:
+        return jsonify({"success": False, "error": f"Cloudflare zone not found for {zone_name}."}), 404
+
+    record_id = find_dns_record(token, zone_id, record_name, record_type)
+    if not record_id:
+        return jsonify({"success": False, "error": "DNS record not found in Cloudflare."}), 404
+
+    result = delete_dns_record(token, zone_id, record_id)
+    if not result.get('success'):
+        return jsonify({"success": False, "error": result.get('errors') or result.get('messages') or "Failed to delete DNS record"}), 400
+
+    return jsonify({"success": True, "message": "DNS record deleted"})
 
 
 def rebuild_process(project_dir, name):
@@ -1554,8 +1652,6 @@ def get_process_metrics(name):
     Get real-time CPU and memory metrics for a process.
     Returns JSON with cpu_percent, memory_percent, memory_mb.
     """
-    import psutil
-    
     process = find_process_by_name(name)
     if not process:
         return jsonify({"error": "Process not found"}), 404
@@ -1691,7 +1787,7 @@ def save_env_vars(name):
 
         return jsonify({
             "success": True, 
-            "message": f"Environment variables saved. Restart the process for changes to take effect.",
+            "message": "Environment variables saved. Restart the process for changes to take effect.",
             "vars_saved": len(env_dict)
         })
 
@@ -1708,7 +1804,7 @@ def validate_domain(name):
     Validate domain and get comprehensive status including DNS, SSL, and uniqueness checks.
     Expects JSON: {"domain": "example.com"}
     """
-    from utils import get_domain_status
+    from utils import get_domain_status  # type: ignore
     
     process = find_process_by_name(name)
     if not process:

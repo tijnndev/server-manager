@@ -33,6 +33,9 @@ class UserSettings(BaseModel):
     discord_notify_crashes = db.Column(db.Boolean, nullable=False, default=True)
     discord_notify_power_actions = db.Column(db.Boolean, nullable=False, default=True)
 
+    # Cloudflare integration
+    cloudflare_api_token = db.Column(db.String(255), nullable=True)
+
     # Relationship to User
     user = db.relationship('User', backref=db.backref('settings', uselist=False, cascade='all, delete-orphan'))
 
@@ -58,6 +61,7 @@ class UserSettings(BaseModel):
             "discord_enabled": self.discord_enabled,
             "discord_notify_crashes": self.discord_notify_crashes,
             "discord_notify_power_actions": self.discord_notify_power_actions,
+            "cloudflare_api_token": self.cloudflare_api_token,
             "created_at": self.created_at,
             "updated_at": self.updated_at
         }
