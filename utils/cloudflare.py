@@ -1,5 +1,5 @@
 import requests
-from typing import Optional
+from typing import Optional, Any
 
 API_BASE = "https://api.cloudflare.com/client/v4"
 
@@ -69,6 +69,18 @@ def create_dns_record(token: str, zone_id: str, record_type: str, name: str, con
     return resp.json()
 
 
+def update_dns_record(token: str, zone_id: str, record_id: str, record_type: str, name: str, content: str, proxied: bool = False, ttl: int = 120) -> dict:
+    payload = {
+        "type": record_type,
+        "name": name,
+        "content": content,
+        "ttl": ttl,
+        "proxied": proxied,
+    }
+    resp = requests.put(f"{API_BASE}/zones/{zone_id}/dns_records/{record_id}", headers=_headers(token), json=payload, timeout=10)
+    return resp.json()
+
+
 def find_dns_record(token: str, zone_id: str, name: str, record_type: str) -> Optional[str]:
     params = {"name": name, "type": record_type, "per_page": 1}
     resp = requests.get(f"{API_BASE}/zones/{zone_id}/dns_records", headers=_headers(token), params=params, timeout=10)
@@ -81,6 +93,14 @@ def find_dns_record(token: str, zone_id: str, name: str, record_type: str) -> Op
     if not results:
         return None
     return results[0].get("id")
+
+
+def list_dns_records(token: str, zone_id: str, name: Optional[str] = None) -> dict:
+    params: dict[str, Any] = {"per_page": 100}
+    if name:
+        params["name"] = name
+    resp = requests.get(f"{API_BASE}/zones/{zone_id}/dns_records", headers=_headers(token), params=params, timeout=10)
+    return resp.json()
 
 
 def delete_dns_record(token: str, zone_id: str, record_id: str) -> dict:

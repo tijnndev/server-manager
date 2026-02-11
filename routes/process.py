@@ -18,7 +18,15 @@ from models.activity_log import ActivityLog
 from decorators import owner_or_subuser_required, owner_required
 from models.user import User
 from utils import find_process_by_name, find_types, get_process_status, generate_random_string, send_email, execute_handler, is_always_running_container, start_process_in_container, stop_process_in_container, execute_command_in_container, execute_interactive_command_in_container, get_server_ip
-from utils.cloudflare import extract_zone_name, get_zone_id, create_dns_record, find_dns_record, delete_dns_record
+from utils.cloudflare import (
+    extract_zone_name,
+    get_zone_id,
+    create_dns_record,
+    update_dns_record,
+    find_dns_record,
+    delete_dns_record,
+    list_dns_records,
+)
 from models.user_settings import UserSettings
 from utils.discord import DiscordNotifier, get_user_discord_settings
 
@@ -1221,8 +1229,9 @@ def cloudflare_delete(name):
     data = request.get_json() or {}
     record_type = (data.get('type') or 'A').upper()
     record_name = (data.get('name') or process.domain or '').strip().lstrip('*.')
+    record_id = data.get('record_id')
 
-    if not record_name:
+    if not record_name and not record_id:
         return jsonify({"success": False, "error": "Record name is required."}), 400
 
     user_id = session.get('user_id')
@@ -1239,15 +1248,86 @@ def cloudflare_delete(name):
     if not zone_id:
         return jsonify({"success": False, "error": f"Cloudflare zone not found for {zone_name}."}), 404
 
-    record_id = find_dns_record(token, zone_id, record_name, record_type)
     if not record_id:
-        return jsonify({"success": False, "error": "DNS record not found in Cloudflare."}), 404
+        record_id = find_dns_record(token, zone_id, record_name, record_type)
+        if not record_id:
+            return jsonify({"success": False, "error": "DNS record not found in Cloudflare."}), 404
 
     result = delete_dns_record(token, zone_id, record_id)
     if not result.get('success'):
         return jsonify({"success": False, "error": result.get('errors') or result.get('messages') or "Failed to delete DNS record"}), 400
 
     return jsonify({"success": True, "message": "DNS record deleted"})
+
+
+@process_routes.route('/cloudflare/<string:name>/update', methods=['POST'])
+@owner_or_subuser_required()
+def cloudflare_update(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    data = request.get_json() or {}
+    record_id = data.get('record_id')
+    record_type = (data.get('type') or 'A').upper()
+    record_name = (data.get('name') or process.domain or '').strip().lstrip('*.')
+    value = (data.get('value') or '').strip()
+    proxied = bool(data.get('proxied', False))
+
+    if not record_id:
+        return jsonify({"success": False, "error": "record_id is required for update."}), 400
+    if not record_name:
+        return jsonify({"success": False, "error": "Record name is required."}), 400
+    if not value:
+        return jsonify({"success": False, "error": "Record value is required."}), 400
+
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    user_settings = UserSettings.get_or_create(int(uid))
+    token = user_settings.cloudflare_api_token if user_settings else None
+    if not token:
+        return jsonify({"success": False, "error": "Cloudflare API token is not configured in Settings."}), 400
+
+    zone_name = extract_zone_name(process.domain or record_name)
+    zone_id = get_zone_id(token, zone_name)
+    if not zone_id:
+        return jsonify({"success": False, "error": f"Cloudflare zone not found for {zone_name}."}), 404
+
+    result = update_dns_record(token, zone_id, record_id, record_type, record_name, value, proxied=proxied)
+    if not result.get('success'):
+        return jsonify({"success": False, "error": result.get('errors') or result.get('messages') or "Failed to update DNS record"}), 400
+
+    return jsonify({"success": True, "message": "DNS record updated", "data": result.get('result')})
+
+
+@process_routes.route('/cloudflare/<string:name>/records', methods=['GET'])
+@owner_or_subuser_required()
+def cloudflare_records(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    user_settings = UserSettings.get_or_create(int(uid))
+    token = user_settings.cloudflare_api_token if user_settings else None
+    if not token:
+        return jsonify({"success": False, "error": "Cloudflare API token is not configured in Settings."}), 400
+
+    domain = process.domain or ''
+    zone_name = extract_zone_name(domain)
+    zone_id = get_zone_id(token, zone_name)
+    if not zone_id:
+        return jsonify({"success": False, "error": f"Cloudflare zone not found for {zone_name}."}), 404
+
+    result = list_dns_records(token, zone_id, domain or None)
+    if not result.get('success'):
+        return jsonify({"success": False, "error": result.get('errors') or result.get('messages') or "Failed to list DNS records"}), 400
+
+    records = result.get('result') or []
+    return jsonify({"success": True, "records": records})
 
 
 def rebuild_process(project_dir, name):
