@@ -1,3 +1,8 @@
+from gevent import monkey
+
+# Patch standard library early for gevent compatibility (must happen before any other imports)
+monkey.patch_all()
+
 import redis, os, time, threading, requests, subprocess, signal, sys, cpuinfo, json, socket, psutil, hmac
 from flask import Flask, render_template, request, session, jsonify, g
 from flask_caching import Cache
