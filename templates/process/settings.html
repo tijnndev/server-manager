@@ -358,7 +358,7 @@
                 {% if cloudflare_configured %}
                 <span class="badge bg-success">Token configured</span>
                 {% else %}
-                <a href="{{ url_for('settings.preferences') }}" class="badge bg-warning text-dark">Add API token in Settings</a>
+                <a href="{{ url_for('settings.preferences_page') }}" class="badge bg-warning text-dark">Add API token in Settings</a>
                 {% endif %}
             </div>
             <div class="card-body">
