@@ -45,7 +45,8 @@ def update_preferences():
             discord_webhook_url=data.get("discord_webhook_url"),
             discord_enabled=data.get("discord_enabled"),
             discord_notify_crashes=data.get("discord_notify_crashes"),
-            discord_notify_power_actions=data.get("discord_notify_power_actions")
+            discord_notify_power_actions=data.get("discord_notify_power_actions"),
+            cloudflare_api_token=data.get("cloudflare_api_token")
         )
         
         return jsonify({"success": True, "message": "Preferences updated successfully"})
