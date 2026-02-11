@@ -29,9 +29,6 @@ class NotificationManager {
                 <div class="notification-header">
                     <h3><i class="bi bi-bell"></i> Notifications</h3>
                     <div class="notification-actions">
-                        <button onclick="notificationManager.markAllRead()" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-check2-all"></i> Mark All Read
-                        </button>
                         <button onclick="notificationManager.clearAll()" class="btn btn-sm btn-secondary">
                             <i class="bi bi-trash"></i> Clear All
                         </button>
