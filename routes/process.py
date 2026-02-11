@@ -26,6 +26,22 @@ PROCESS_DIRECTORY = 'active-servers'
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 
+# Lightweight in-memory cache to avoid repeated docker status calls during rapid page loads
+PROCESS_STATUS_CACHE = {}
+PROCESS_STATUS_CACHE_TTL = 5  # seconds
+
+
+def _make_process_cache_key(user_id, role):
+    return f"{role or 'user'}:{user_id or 'anon'}"
+
+
+def invalidate_process_cache(cache_key=None):
+    """Invalidate cached process status results."""
+    if cache_key:
+        PROCESS_STATUS_CACHE.pop(cache_key, None)
+    else:
+        PROCESS_STATUS_CACHE.clear()
+
 
 def get_container_id(process_name):
     process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
@@ -176,6 +192,13 @@ def load_process():
     user_id = session.get('user_id')
     if not user_id:
         return process_dict
+
+    cache_key = _make_process_cache_key(user_id, session.get("role"))
+    now = time.time()
+    cached_entry = PROCESS_STATUS_CACHE.get(cache_key)
+    if cached_entry and now - cached_entry.get("timestamp", 0) < PROCESS_STATUS_CACHE_TTL:
+        # Return a shallow copy to avoid accidental mutation of cached data
+        return dict(cached_entry.get("data", {}))
     
     user = User.query.filter_by(id=user_id).first()
 
@@ -211,6 +234,7 @@ def load_process():
                 "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
+    PROCESS_STATUS_CACHE[cache_key] = {"timestamp": now, "data": process_dict}
     return process_dict
 
 
@@ -362,6 +386,7 @@ def start_process_console(name):
             result = start_process_in_container(name)
             if result["success"]:
                 update_process_runtime_metadata(process)
+                invalidate_process_cache()
                 return jsonify({
                     "message": result["message"], 
                     "status": get_process_status(process.name), 
@@ -395,6 +420,7 @@ def start_process_console(name):
             time.sleep(2)
 
             update_process_runtime_metadata(process)
+            invalidate_process_cache()
 
             # Log activity
             try:
@@ -503,6 +529,8 @@ def stop_process_console(name):
                 )
             except Exception as log_error:
                 print(f"Failed to log activity: {log_error}")
+
+            invalidate_process_cache()
 
             # Send Discord notification
             try:

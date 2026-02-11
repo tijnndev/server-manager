@@ -1,22 +1,6 @@
-services:
-  roundcube:
-    image: roundcube/roundcubemail:latest
-    container_name: roundcube
-    ports:
-      - "8080:80"  # Expose Roundcube's web UI on port 8080
-    environment:
-      ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
-      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail.tijnn.dev
-      ROUNDCUBEMAIL_DEFAULT_PORT: 993
-      ROUNDCUBEMAIL_SMTP_SERVER: tls://mail.tijnn.dev
-      ROUNDCUBEMAIL_SMTP_PORT: 587
-      ROUNDCUBEMAIL_SMTP_USER: smtp@tijnn.dev
-      ROUNDCUBEMAIL_SMTP_PASSWORD: yourpassword
-    depends_on:
-      - mailserver
-    networks:
-      - mailnetwork
+version: "3.8"
 
+services:
   mailserver:
     image: ghcr.io/docker-mailserver/docker-mailserver:latest
     container_name: mailserver
@@ -26,46 +10,54 @@ services:
       - ./maildata:/var/mail
       - ./mailstate:/var/mail-state
       - ./maillogs:/var/log/mail
-      - ./config/:/tmp/docker-mailserver/
-      - /etc/letsencrypt/live/mail.tijnn.dev/fullchain.pem:/tmp/docker-mailserver/ssl/mail.tijnn.dev.crt:ro
-      - /etc/letsencrypt/live/mail.tijnn.dev/privkey.pem:/tmp/docker-mailserver/ssl/mail.tijnn.dev.key:ro
-
+      - ./config:/tmp/docker-mailserver
+      - /etc/server-manager/mail-certs:/tmp/docker-mailserver/ssl:ro
     ports:
-      - "25:25"     # SMTP (standard)
-      - "465:465"   # SMTPS (SMTP over SSL)
-      - "587:587"   # SMTP submission
-      - "993:993"   # IMAPS
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "993:993"
     environment:
-      - ENABLE_SPAMASSASSIN=1
-      - ENABLE_CLAMAV=1
-      - MAIL_USER=smtp@tijnn.dev
-      - MAIL_PASS=yourpassword
-      - TLS_LEVEL=modern
-      - ONE_DIR=1
-      - PERMIT_DOCKER=network
-      - PERMIT_DOCKER=host
-      - POSTFIX_INET_PROTOCOLS=ipv4
-      - ENABLE_SMTPS=1              # Enable SMTPS explicitly (port 465)
-      - SMTP_ONLY=0
-      - ENABLE_POSTFIX_VIRTUAL_TRANSPORT=1
-      - POSTMASTER_ADDRESS=postmaster@tijnn.dev
-      - OVERRIDE_HOSTNAME=mail.tijnn.dev
-      - RELAY_HOST=                 # Leave empty for direct delivery
-      - RELAY_PORT=25
-      - RELAY_USER=
-      - RELAY_PASSWORD=
-      - SSL_TYPE=manual
-      - SSL_CERT_PATH=/tmp/docker-mailserver/ssl/mail.tijnn.dev.crt
-      - SSL_KEY_PATH=/tmp/docker-mailserver/ssl/mail.tijnn.dev.key
-      - DMS_DEBUG=1                 # Enable debug mode
-      - ENABLE_SASLAUTHD=0
-    cap_add:
-      - NET_ADMIN
-      - SYS_PTRACE
+      ENABLE_IMAP: 1
+      ENABLE_POP3: 0
+      ENABLE_SPAMASSASSIN: 1
+      ENABLE_CLAMAV: 1
+      ENABLE_SMTPS: 1
+      SMTP_ONLY: 0
+      TLS_LEVEL: modern
+      SSL_TYPE: manual
+      SSL_CERT_PATH: /tmp/docker-mailserver/ssl/fullchain.pem
+      SSL_KEY_PATH: /tmp/docker-mailserver/ssl/privkey.pem
+      POSTMASTER_ADDRESS: postmaster@tijnn.dev
+      OVERRIDE_HOSTNAME: mail.tijnn.dev
+      ONE_DIR: 1
+      DMS_DEBUG: 1
     restart: always
     networks:
       - mailnetwork
-      
+
+  roundcube:
+    image: roundcube/roundcubemail:latest
+    container_name: roundcube
+    ports:
+      - "8080:80"
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: tls://mailserver
+      ROUNDCUBEMAIL_DEFAULT_PORT: 143
+      ROUNDCUBEMAIL_SMTP_SERVER: tls://mailserver
+      ROUNDCUBEMAIL_SMTP_PORT: 587
+      ROUNDCUBEMAIL_SMTP_USER: "%u"
+      ROUNDCUBEMAIL_SMTP_PASSWORD: "%p"
+      ROUNDCUBEMAIL_SMTP_AUTH_TYPE: LOGIN
+      ROUNDCUBEMAIL_IMAP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false}}'
+      ROUNDCUBEMAIL_SMTP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false}}'
+      ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
+    depends_on:
+      - mailserver
+    restart: always
+    networks:
+      - mailnetwork
+
 networks:
   mailnetwork:
     driver: bridge
