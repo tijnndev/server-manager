@@ -158,8 +158,37 @@ class Process(BaseModel):
 
         # Check if this is an always-running container
         if is_always_running_container(name):
-            # Use the new process-aware status checking
-            return check_process_running_in_container(name)
+            # For python processes, just check container status since they are always running
+            if process.type == 'python':
+                try:
+                    process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+                    os.chdir(process_dir)
+
+                    result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+                    container_id = result.stdout.strip()
+
+                    if not container_id:
+                        return "Exited"
+
+                    result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], capture_output=True, text=True)
+
+                    if result.returncode != 0:
+                        return "Error"
+
+                    container_status = result.stdout.strip()
+
+                    if container_status == 'running':
+                        return "Running"
+                    
+                    return "Exited"
+
+                except subprocess.CalledProcessError as e:
+                    return "Error"
+                except Exception as e:
+                    return "Error"
+            else:
+                # Use the new process-aware status checking for other types
+                return check_process_running_in_container(name)
         else:
             # Use traditional container status checking for legacy containers
             try:
