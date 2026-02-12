@@ -34,8 +34,46 @@ def get_process_status(name):
 
     # Check if this is an always-running container
     if is_always_running_container(name):
-        # Use the new process-aware status checking
-        return check_process_running_in_container(name)
+        # For python processes, just check container status since they are always running
+        if process.type == 'python':
+            try:
+                process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+                os.chdir(process_dir)
+
+                result = subprocess.run(
+                    ["docker-compose", "ps", "-q", name],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                container_id = result.stdout.strip()
+
+                if not container_id:
+                    return {"process": name, "status": "Exited"}
+
+                result = subprocess.run(
+                    ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
+                    capture_output=True,
+                    text=True,
+                )
+
+                if result.returncode != 0:
+                    return {"error": "Failed to get process status from docker inspect."}
+
+                container_status = result.stdout.strip()
+
+                if container_status == "running":
+                    return {"process": name, "status": "Running"}
+
+                return {"process": name, "status": "Exited"}
+
+            except subprocess.CalledProcessError as e:
+                return {"error": f"Failed to get process status: {e.stderr}"}
+            except Exception as e:
+                return {"error": str(e)}
+        else:
+            # Use the new process-aware status checking for other types
+            return check_process_running_in_container(name)
     else:
         # Use traditional container status checking for legacy containers
         try:
