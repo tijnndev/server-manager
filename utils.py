@@ -24,7 +24,7 @@ from models.process import Process
 live_log_streams = defaultdict(Queue)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
+ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, "active-servers")
 
 
 def get_process_status(name):
@@ -42,22 +42,31 @@ def get_process_status(name):
             process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
             os.chdir(process_dir)
 
-            result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                ["docker-compose", "ps", "-q", name],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
             container_id = result.stdout.strip()
 
             if not container_id:
                 return {"process": name, "status": "Exited"}
 
-            result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], capture_output=True, text=True)
+            result = subprocess.run(
+                ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
+                capture_output=True,
+                text=True,
+            )
 
             if result.returncode != 0:
                 return {"error": "Failed to get process status from docker inspect."}
 
             container_status = result.stdout.strip()
 
-            if container_status == 'running':
+            if container_status == "running":
                 return {"process": name, "status": "Running"}
-            
+
             return {"process": name, "status": "Exited"}
 
         except subprocess.CalledProcessError as e:
@@ -65,7 +74,7 @@ def get_process_status(name):
         except Exception as e:
             return {"error": str(e)}
 
-    
+
 def find_process_by_name(name):
     with current_app.app_context():
         return Process.query.filter_by(name=name).first()
@@ -82,7 +91,9 @@ EMAIL_ADDRESS = os.getenv("MAIL_USERNAME", "")
 EMAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
 
 
-def send_email(to: str, subject: str, body: str, type: str = 'auth', attachment: str = ""):
+def send_email(
+    to: str, subject: str, body: str, type: str = "auth", attachment: str = ""
+):
     message = MIMEMultipart()
     message["From"] = f"Server Manager <{type}@tijnn.dev>"
     message["To"] = to
@@ -90,11 +101,11 @@ def send_email(to: str, subject: str, body: str, type: str = 'auth', attachment:
     message.attach(MIMEText(body, "html"))
 
     if attachment:
-        part = MIMEBase('application', 'octet-stream')
-        with open(attachment, 'rb') as file:
+        part = MIMEBase("application", "octet-stream")
+        with open(attachment, "rb") as file:
             part.set_payload(file.read())
         encoders.encode_base64(part)
-        part.add_header('Content-Disposition', f'attachment; filename={attachment}')
+        part.add_header("Content-Disposition", f"attachment; filename={attachment}")
         message.attach(part)
 
     try:
@@ -105,12 +116,12 @@ def send_email(to: str, subject: str, body: str, type: str = 'auth', attachment:
     except Exception as e:
         print(f"Failed to send email: {e}")
         return False
-    
+
 
 def generate_random_string(length: int) -> str:
     """Generates a random string of a specified length."""
     characters = string.ascii_letters + string.digits
-    return ''.join(random.choice(characters) for _ in range(length))
+    return "".join(random.choice(characters) for _ in range(length))
 
 
 def check_process_running_in_container(name):
@@ -120,61 +131,89 @@ def check_process_running_in_container(name):
         os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["docker-compose", "ps", "-q", name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         container_id = result.stdout.strip()
 
         if not container_id:
             return {"status": "Container Not Running", "container_running": False}
 
         # Check if container is running
-        result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], 
-                              capture_output=True, text=True)
-        
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
+            capture_output=True,
+            text=True,
+        )
+
         container_status = result.stdout.strip()
-        
-        if result.returncode != 0 or container_status != 'running':
+
+        if result.returncode != 0 or container_status != "running":
             return {"status": "Container Not Running", "container_running": False}
 
         # Get the main command from environment variable
-        result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
-                              capture_output=True, text=True)
-        
-        
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range .Config.Env}}{{println .}}{{end}}",
+                container_id,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
         main_command = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('MAIN_COMMAND='):
-                main_command = line.split('=', 1)[1].strip('"')
+        for line in result.stdout.split("\n"):
+            if line.startswith("MAIN_COMMAND="):
+                main_command = line.split("=", 1)[1].strip('"')
                 break
 
         if not main_command:
-            return {"status": "Running", "container_running": True, "process_running": True}
+            return {
+                "status": "Running",
+                "container_running": True,
+                "process_running": True,
+            }
 
         # Check if the main process is running inside the container
-        result = subprocess.run(['docker', 'exec', container_id, 'ps', 'aux'], 
-                              capture_output=True, text=True)
-        
+        result = subprocess.run(
+            ["docker", "exec", container_id, "ps", "aux"],
+            capture_output=True,
+            text=True,
+        )
+
         if result.returncode != 0:
-            return {"status": "Process Stopped", "container_running": True, "process_running": False}
+            return {
+                "status": "Process Stopped",
+                "container_running": True,
+                "process_running": False,
+            }
 
         # Parse process list to find our main command
         processes = result.stdout
         command_parts = main_command.split()
-        
+
         # Define process name mappings for common web servers
         # These map the MAIN_COMMAND to the actual process names that run
         process_name_mappings = {
-            'apache2-foreground': ['apache2', 'httpd'],
-            'php-fpm': ['php-fpm'],
-            'nginx': ['nginx'],
-            'vite': ['node', 'vite'],
-            'npm': ['node', 'npm'],
-            'node': ['node'],
-            'minecraft': ['java'],
-            'java': ['java'],
-            'python': ['python'],
-            'python3': ['python3'],
+            "apache2-foreground": ["apache2", "httpd"],
+            "php-fpm": ["php-fpm"],
+            "nginx": ["nginx"],
+            "vite": ["node", "vite"],
+            "npm": ["node", "npm"],
+            "node": ["node"],
+            "nodejs": ["node", "npm"],
+            "minecraft": ["java"],
+            "java": ["java"],
+            "python": ["python", "python3"],
+            "python3": ["python3"],
         }
-        
+
         # Determine what processes to look for
         search_terms = []
         for cmd_part in command_parts:
@@ -182,38 +221,49 @@ def check_process_running_in_container(name):
                 search_terms.extend(process_name_mappings[cmd_part])
             elif len(cmd_part) > 2:  # Only use meaningful parts
                 search_terms.append(cmd_part)
-        
+
         # If no specific search terms, use original command parts
         if not search_terms:
             search_terms = [part for part in command_parts if len(part) > 2]
-        
+
         # Look for the main command in the process list (exclude zombie processes and ps/grep itself)
         process_running = False
         matching_processes = []
-        for line in processes.split('\n')[1:]:  # Skip header
+        for line in processes.split("\n")[1:]:  # Skip header
             if line.strip():
                 # Skip ps aux and grep commands themselves
-                if 'ps aux' in line or 'grep' in line:
+                if "ps aux" in line or "grep" in line:
                     continue
-                    
+
                 # Check if this is a zombie process (contains <defunct> or Z state)
-                if '<defunct>' in line or ' Z ' in line:
+                if "<defunct>" in line or " Z " in line:
                     continue
-                    
+
                 # Check if any search term appears in the process line
                 for term in search_terms:
                     if term in line:
                         process_running = True
                         matching_processes.append(line.strip())
                         break
-        
+
         if process_running:
-            return {"status": "Running", "container_running": True, "process_running": True}
+            return {
+                "status": "Running",
+                "container_running": True,
+                "process_running": True,
+            }
         else:
-            return {"status": "Process Stopped", "container_running": True, "process_running": False}
+            return {
+                "status": "Process Stopped",
+                "container_running": True,
+                "process_running": False,
+            }
 
     except subprocess.CalledProcessError as e:
-        return {"status": "Error", "error": f"Failed to check process status: {e.stderr}"}
+        return {
+            "status": "Error",
+            "error": f"Failed to check process status: {e.stderr}",
+        }
     except Exception as e:
         return {"status": "Error", "error": str(e)}
 
@@ -225,111 +275,181 @@ def start_process_in_container(name):
         os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["docker-compose", "ps", "-q", name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         container_id = result.stdout.strip()
 
         if not container_id:
             # Container not running, start it first
-            subprocess.run(['docker-compose', 'up', '-d'], check=True)
+            subprocess.run(["docker-compose", "up", "-d"], check=True)
             # Wait for container to be ready
             import time
+
             time.sleep(2)
-            
+
             # Get new container ID
-            result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                ["docker-compose", "ps", "-q", name],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
             container_id = result.stdout.strip()
 
         # Get the main command from environment
-        result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
-                              capture_output=True, text=True)
-        
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range .Config.Env}}{{println .}}{{end}}",
+                container_id,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
         main_command = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('MAIN_COMMAND='):
-                main_command = line.split('=', 1)[1].strip('"')
+        for line in result.stdout.split("\n"):
+            if line.startswith("MAIN_COMMAND="):
+                main_command = line.split("=", 1)[1].strip('"')
                 break
 
         if not main_command:
-            return {"success": False, "error": "No MAIN_COMMAND found in container environment"}
+            return {
+                "success": False,
+                "error": "No MAIN_COMMAND found in container environment",
+            }
 
         # First, let's stop any existing processes to clean up zombies
         stop_process_in_container(name)
 
         # Clear the old log file and create a fresh one
         log_file = f"/tmp/{name}_process.log"
-        subprocess.run(['docker', 'exec', container_id, 'sh', '-c', f'> {log_file}'], 
-                      capture_output=True, text=True)
-        
+        subprocess.run(
+            ["docker", "exec", container_id, "sh", "-c", f"> {log_file}"],
+            capture_output=True,
+            text=True,
+        )
+
         # Create a wrapper script that logs both stdout and stderr
-        wrapper_script = '''#!/bin/bash
+        wrapper_script = """#!/bin/bash
 cd /app
 which npm | tee -a {log_file} 2>&1 || echo "npm not found" | tee -a {log_file}
 which node | tee -a {log_file} 2>&1 || echo "node not found" | tee -a {log_file}
 exec {main_command} 2>&1 | tee -a {log_file}
-'''.format(log_file=log_file, main_command=main_command)
-        
+""".format(log_file=log_file, main_command=main_command)
+
         # First, create the script content in a temporary file and copy it to container
-        wrapper_script.encode('utf-8')
-        
+        wrapper_script.encode("utf-8")
+
         # Write script using docker exec with proper escaping
-        script_creation_command = f'''cat > /tmp/start_process.sh << 'EOF'
+        script_creation_command = f"""cat > /tmp/start_process.sh << 'EOF'
 {wrapper_script}
 EOF
-chmod +x /tmp/start_process.sh'''
-        
-        script_result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', script_creation_command], 
-                                     capture_output=True, text=True)
-        
+chmod +x /tmp/start_process.sh"""
+
+        script_result = subprocess.run(
+            ["docker", "exec", container_id, "sh", "-c", script_creation_command],
+            capture_output=True,
+            text=True,
+        )
+
         if script_result.returncode != 0:
-            return {"success": False, "error": f"Failed to create wrapper script: {script_result.stderr}"}
-        
+            return {
+                "success": False,
+                "error": f"Failed to create wrapper script: {script_result.stderr}",
+            }
+
         # Verify the script was created successfully
-        verify_result = subprocess.run(['docker', 'exec', container_id, 'test', '-f', '/tmp/start_process.sh'], 
-                                     capture_output=True, text=True)
+        verify_result = subprocess.run(
+            ["docker", "exec", container_id, "test", "-f", "/tmp/start_process.sh"],
+            capture_output=True,
+            text=True,
+        )
         if verify_result.returncode != 0:
-            return {"success": False, "error": "Wrapper script was not created successfully"}
-        
+            return {
+                "success": False,
+                "error": "Wrapper script was not created successfully",
+            }
 
         # Start the process using the wrapper script in background
-        result = subprocess.run(['docker', 'exec', '-d', container_id, '/tmp/start_process.sh'], 
-                              capture_output=True, text=True)
-        
+        result = subprocess.run(
+            ["docker", "exec", "-d", container_id, "/tmp/start_process.sh"],
+            capture_output=True,
+            text=True,
+        )
+
         if result.returncode == 0:
             # Wait a moment and check if the process is actually running
             import time
+
             time.sleep(2)
-            
+
             # Add a message to the live log stream to indicate process started
             from datetime import datetime
-            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] ===== PROCESS RESTART =====')
-            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Process start initiated')
-            
+
+            live_log_streams[name].put(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ===== PROCESS RESTART ====="
+            )
+            live_log_streams[name].put(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Process start initiated"
+            )
+
             # Check if process started successfully
             status_check = check_process_running_in_container(name)
-            
-            if status_check.get('process_running'):
-                live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Process started successfully')
+
+            if status_check.get("process_running"):
+                live_log_streams[name].put(
+                    f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Process started successfully"
+                )
                 return {"success": True, "message": "Process started successfully"}
             else:
                 # Process failed to start or crashed immediately
-                live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Process failed to start or crashed')
+                live_log_streams[name].put(
+                    f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Process failed to start or crashed"
+                )
                 # Get recent logs to see what went wrong
-                log_result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', f'tail -10 {log_file} 2>/dev/null || echo "No logs found"'], 
-                                          capture_output=True, text=True)
-                for line in log_result.stdout.split('\n'):
+                log_result = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        container_id,
+                        "sh",
+                        "-c",
+                        f'tail -10 {log_file} 2>/dev/null || echo "No logs found"',
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                for line in log_result.stdout.split("\n"):
                     if line.strip():
                         live_log_streams[name].put(line.strip())
-                return {"success": False, "error": f"Process started but crashed immediately. Check logs for details."}
+                return {
+                    "success": False,
+                    "error": f"Process started but crashed immediately. Check logs for details.",
+                }
         else:
             from datetime import datetime
-            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] Failed to start process: {result.stderr}')
-            return {"success": False, "error": f"Failed to start process: {result.stderr}"}
+
+            live_log_streams[name].put(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Failed to start process: {result.stderr}"
+            )
+            return {
+                "success": False,
+                "error": f"Failed to start process: {result.stderr}",
+            }
 
     except subprocess.CalledProcessError as e:
         return {"success": False, "error": f"Failed to start process: {e.stderr}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
-    
+
+
 def kill_process_tree(pid, inside_container=False, container_id=None):
     """
     Kill a process and all its children.
@@ -339,16 +459,30 @@ def kill_process_tree(pid, inside_container=False, container_id=None):
     if inside_container and container_id:
         try:
             # Get child PIDs inside the container
-            ps_result = subprocess.run([
-                'docker', 'exec', container_id, 'ps', '-o', 'pid,ppid', '--no-headers'
-            ], capture_output=True, text=True)
+            ps_result = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    container_id,
+                    "ps",
+                    "-o",
+                    "pid,ppid",
+                    "--no-headers",
+                ],
+                capture_output=True,
+                text=True,
+            )
             if ps_result.returncode != 0:
-                return {"success": False, "message": "Failed to get process tree inside container."}
+                return {
+                    "success": False,
+                    "message": "Failed to get process tree inside container.",
+                }
             pid_map = {}
-            for line in ps_result.stdout.split('\n'):
+            for line in ps_result.stdout.split("\n"):
                 parts = line.split()
                 if len(parts) == 2:
                     pid_map[parts[0]] = parts[1]
+
             # Find all children recursively
             def get_children(target_pid):
                 children = [p for p, parent in pid_map.items() if parent == target_pid]
@@ -357,13 +491,24 @@ def kill_process_tree(pid, inside_container=False, container_id=None):
                     all_children.append(child)
                     all_children.extend(get_children(child))
                 return all_children
+
             all_pids = [pid] + get_children(pid)
             # Kill all processes inside the container
             for p in all_pids:
-                subprocess.run(['docker', 'exec', container_id, 'kill', '-TERM', p], capture_output=True, text=True)
-            return {"success": True, "message": f"Killed process tree for PID {pid} inside container."}
+                subprocess.run(
+                    ["docker", "exec", container_id, "kill", "-TERM", p],
+                    capture_output=True,
+                    text=True,
+                )
+            return {
+                "success": True,
+                "message": f"Killed process tree for PID {pid} inside container.",
+            }
         except Exception as e:
-            return {"success": False, "message": f"Failed to kill process tree inside container: {e}"}
+            return {
+                "success": False,
+                "message": f"Failed to kill process tree inside container: {e}",
+            }
     else:
         # Host process tree kill (use with caution)
         try:
@@ -372,9 +517,13 @@ def kill_process_tree(pid, inside_container=False, container_id=None):
             for child in children:
                 child.kill()
             parent.kill()
-            return {"success": True, "message": f"Process tree for PID {pid} killed on host."}
+            return {
+                "success": True,
+                "message": f"Process tree for PID {pid} killed on host.",
+            }
         except Exception as e:
             return {"success": False, "message": f"Failed to kill process tree: {e}"}
+
 
 def stop_process_in_container(name):
     """Stop the main process inside the container without stopping the container"""
@@ -383,38 +532,58 @@ def stop_process_in_container(name):
         os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["docker-compose", "ps", "-q", name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         container_id = result.stdout.strip()
 
         if not container_id:
             return {"success": True, "message": "Container not running"}
 
         # Get the main command from environment
-        result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
-                              capture_output=True, text=True)
-        
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range .Config.Env}}{{println .}}{{end}}",
+                container_id,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
         main_command = None
-        for line in result.stdout.split('\n'):
-            if line.startswith('MAIN_COMMAND='):
-                main_command = line.split('=', 1)[1].strip('"')
+        for line in result.stdout.split("\n"):
+            if line.startswith("MAIN_COMMAND="):
+                main_command = line.split("=", 1)[1].strip('"')
                 break
 
         if not main_command:
-            return {"success": False, "error": "No MAIN_COMMAND found in container environment"}
+            return {
+                "success": False,
+                "error": "No MAIN_COMMAND found in container environment",
+            }
 
         # Get the process port for additional cleanup
         process = find_process_by_name(name)
         process_port = None
-        if process and hasattr(process, 'port_id') and process.port_id:
+        if process and hasattr(process, "port_id") and process.port_id:
             process_port = 8000 + process.port_id
 
         # Kill processes matching the main command
         command_parts = main_command.split()
-        
+
         # Get process list
-        result = subprocess.run(['docker', 'exec', container_id, 'ps', 'aux'], 
-                              capture_output=True, text=True)
-        
+        result = subprocess.run(
+            ["docker", "exec", container_id, "ps", "aux"],
+            capture_output=True,
+            text=True,
+        )
+
         if result.returncode != 0:
             return {"success": False, "error": "Failed to get process list"}
 
@@ -423,8 +592,8 @@ def stop_process_in_container(name):
         processes_to_kill = []
         zombie_processes = []
         port_processes = []
-        
-        for line in result.stdout.split('\n')[1:]:  # Skip header
+
+        for line in result.stdout.split("\n")[1:]:  # Skip header
             if line.strip():
                 # Extract PID (second column)
                 parts = line.split()
@@ -432,7 +601,7 @@ def stop_process_in_container(name):
                     pid = parts[1]
                     # Check if this process matches our command
                     if any(part in line for part in command_parts if len(part) > 2):
-                        if '<defunct>' in line or ' Z ' in line:
+                        if "<defunct>" in line or " Z " in line:
                             zombie_processes.append((pid, line.strip()))
                         else:
                             processes_to_kill.append((pid, line.strip()))
@@ -441,28 +610,53 @@ def stop_process_in_container(name):
         if process_port:
             try:
                 # Check for processes listening on the port using netstat
-                netstat_result = subprocess.run(['docker', 'exec', container_id, 'netstat', '-tlnp'], 
-                                              capture_output=True, text=True)
+                netstat_result = subprocess.run(
+                    ["docker", "exec", container_id, "netstat", "-tlnp"],
+                    capture_output=True,
+                    text=True,
+                )
                 if netstat_result.returncode == 0:
-                    for line in netstat_result.stdout.split('\n'):
-                        if f':{process_port}' in line and 'LISTEN' in line:
+                    for line in netstat_result.stdout.split("\n"):
+                        if f":{process_port}" in line and "LISTEN" in line:
                             # Extract PID from netstat output (format: pid/program_name)
                             parts = line.split()
                             if len(parts) >= 7:
                                 pid_program = parts[6]
-                                if '/' in pid_program:
-                                    port_pid = pid_program.split('/')[0]
-                                    if port_pid.isdigit() and port_pid not in [p[0] for p in processes_to_kill]:
-                                        port_processes.append((port_pid, f"Process listening on port {process_port}"))
+                                if "/" in pid_program:
+                                    port_pid = pid_program.split("/")[0]
+                                    if port_pid.isdigit() and port_pid not in [
+                                        p[0] for p in processes_to_kill
+                                    ]:
+                                        port_processes.append(
+                                            (
+                                                port_pid,
+                                                f"Process listening on port {process_port}",
+                                            )
+                                        )
                 else:
                     # Fallback: try using lsof if netstat fails
-                    lsof_result = subprocess.run(['docker', 'exec', container_id, 'lsof', '-ti', f':{process_port}'], 
-                                               capture_output=True, text=True)
+                    lsof_result = subprocess.run(
+                        [
+                            "docker",
+                            "exec",
+                            container_id,
+                            "lsof",
+                            "-ti",
+                            f":{process_port}",
+                        ],
+                        capture_output=True,
+                        text=True,
+                    )
                     if lsof_result.returncode == 0:
-                        for pid in lsof_result.stdout.strip().split('\n'):
+                        for pid in lsof_result.stdout.strip().split("\n"):
                             if pid.strip() and pid.strip().isdigit():
                                 if pid.strip() not in [p[0] for p in processes_to_kill]:
-                                    port_processes.append((pid.strip(), f"Process listening on port {process_port}"))
+                                    port_processes.append(
+                                        (
+                                            pid.strip(),
+                                            f"Process listening on port {process_port}",
+                                        )
+                                    )
             except Exception:
                 pass
 
@@ -470,23 +664,31 @@ def stop_process_in_container(name):
         if process_port:
             try:
                 # Use netstat to find host processes listening on the port
-                netstat_result = subprocess.run(['netstat', '-ano'], capture_output=True, text=True)
+                netstat_result = subprocess.run(
+                    ["netstat", "-ano"], capture_output=True, text=True
+                )
                 if netstat_result.returncode == 0:
-                    for line in netstat_result.stdout.split('\n'):
-                        if f':{process_port} ' in line and 'LISTENING' in line:
+                    for line in netstat_result.stdout.split("\n"):
+                        if f":{process_port} " in line and "LISTENING" in line:
                             parts = line.split()
                             if len(parts) >= 5:
                                 host_pid = parts[-1]
                                 if host_pid.isdigit():
                                     # Try to kill the process
-                                    subprocess.run(['taskkill', '/PID', host_pid, '/F'], capture_output=True, text=True)
+                                    subprocess.run(
+                                        ["taskkill", "/PID", host_pid, "/F"],
+                                        capture_output=True,
+                                        text=True,
+                                    )
             except Exception:
                 pass
 
         # Kill active processes first
         all_processes_to_kill = processes_to_kill + port_processes
         for pid, process_description in all_processes_to_kill:
-            kill_result = kill_process_tree(pid, inside_container=True, container_id=container_id)
+            kill_result = kill_process_tree(
+                pid, inside_container=True, container_id=container_id
+            )
             if kill_result.get("success"):
                 processes_killed += 1
 
@@ -496,22 +698,45 @@ def stop_process_in_container(name):
             for zombie_pid, zombie_line in zombie_processes:
                 # Zombies are already dead, they just need to be reaped by parent
                 # Let's try to get their parent PID and signal it
-                ppid_result = subprocess.run(['docker', 'exec', container_id, 'ps', '-o', 'pid,ppid', '--no-headers'], 
-                                           capture_output=True, text=True)
+                ppid_result = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        container_id,
+                        "ps",
+                        "-o",
+                        "pid,ppid",
+                        "--no-headers",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
                 if ppid_result.returncode == 0:
-                    for line in ppid_result.stdout.split('\n'):
+                    for line in ppid_result.stdout.split("\n"):
                         if line.strip() and zombie_pid in line.split():
                             parts = line.split()
                             if len(parts) >= 2 and parts[0] == zombie_pid:
                                 parent_pid = parts[1]
                                 # Send SIGCHLD to parent to force reaping
-                                subprocess.run(['docker', 'exec', container_id, 'kill', '-CHLD', parent_pid], 
-                                             capture_output=True, text=True)
+                                subprocess.run(
+                                    [
+                                        "docker",
+                                        "exec",
+                                        container_id,
+                                        "kill",
+                                        "-CHLD",
+                                        parent_pid,
+                                    ],
+                                    capture_output=True,
+                                    text=True,
+                                )
 
         if processes_killed > 0 or zombie_processes:
             message = f"Stopped {processes_killed} process(es)"
             if len(port_processes) > 0:
-                message += f" (including {len(port_processes)} port-listening process(es))"
+                message += (
+                    f" (including {len(port_processes)} port-listening process(es))"
+                )
             if zombie_processes:
                 message += f" and cleaned {len(zombie_processes)} zombie process(es)"
             return {"success": True, "message": message}
@@ -531,20 +756,34 @@ def is_always_running_container(name):
         os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["docker-compose", "ps", "-q", name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         container_id = result.stdout.strip()
 
         if not container_id:
             return False
 
         # Check for MAIN_COMMAND in environment
-        result = subprocess.run(['docker', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', container_id],
-                              capture_output=True, text=True)
-        
-        for line in result.stdout.split('\n'):
-            if line.startswith('MAIN_COMMAND='):
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range .Config.Env}}{{println .}}{{end}}",
+                container_id,
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        for line in result.stdout.split("\n"):
+            if line.startswith("MAIN_COMMAND="):
                 return True
-        
+
         return False
 
     except Exception:
@@ -619,28 +858,31 @@ def execute_handler(handler_type, function_name, *args, **kwargs):
     except ModuleNotFoundError:
         raise ImportError(f"Handler '{handler_type}' not found.") from None
     except AttributeError:
-        raise AttributeError(f"Function '{function_name}' not found in '{handler_type}'.") from None
-    
+        raise AttributeError(
+            f"Function '{function_name}' not found in '{handler_type}'."
+        ) from None
 
-handlers_folder = os.path.join(os.getcwd(), 'handlers')
+
+handlers_folder = os.path.join(os.getcwd(), "handlers")
 
 
 def find_types():
     types = []
-    
+
     for _root, _dirs, files in os.walk(handlers_folder):
         for filename in files:
-            
-            if filename.endswith('.py') and filename not in types:
-                types.append(filename.split('.')[0])
-    
+            if filename.endswith(".py") and filename not in types:
+                types.append(filename.split(".")[0])
+
     return types
 
 
 def _send_command_to_minecraft_console(container_id, process_name, command, timeout):
     """Send a command to a Minecraft JVM by streaming into the server's STDIN."""
-    sanitized_command = command.rstrip('\n') + '\n'
-    encoded_command = base64.b64encode(sanitized_command.encode('utf-8')).decode('ascii')
+    sanitized_command = command.rstrip("\n") + "\n"
+    encoded_command = base64.b64encode(sanitized_command.encode("utf-8")).decode(
+        "ascii"
+    )
 
     shell_script = textwrap.dedent(
         f"""
@@ -657,31 +899,35 @@ def _send_command_to_minecraft_console(container_id, process_name, command, time
     )
 
     result = subprocess.run(
-        ['docker', 'exec', container_id, '/bin/sh', '-c', shell_script],
+        ["docker", "exec", container_id, "/bin/sh", "-c", shell_script],
         capture_output=True,
         text=True,
-        timeout=timeout
+        timeout=timeout,
     )
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if result.returncode == 0:
-        live_log_streams[process_name].put(f'[{timestamp}] Command delivered to Minecraft JVM')
+        live_log_streams[process_name].put(
+            f"[{timestamp}] Command delivered to Minecraft JVM"
+        )
         return {
             "success": True,
             "stdout": "Command forwarded to Minecraft server console",
             "stderr": "",
-            "return_code": 0
+            "return_code": 0,
         }
 
-    error_message = result.stderr.strip() or "Failed to forward command to Minecraft server"
-    live_log_streams[process_name].put(f'[{timestamp}] [ERROR] {error_message}')
+    error_message = (
+        result.stderr.strip() or "Failed to forward command to Minecraft server"
+    )
+    live_log_streams[process_name].put(f"[{timestamp}] [ERROR] {error_message}")
     return {
         "success": False,
         "error": error_message,
         "stdout": result.stdout,
         "stderr": result.stderr,
-        "return_code": result.returncode
+        "return_code": result.returncode,
     }
 
 
@@ -692,27 +938,39 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
         os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["docker-compose", "ps", "-q", name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         container_id = result.stdout.strip()
 
         if not container_id:
             return {"success": False, "error": "Container is not running"}
 
         # Check if container is actually running
-        result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], 
-                              capture_output=True, text=True)
-        
-        if result.returncode != 0 or result.stdout.strip() != 'running':
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0 or result.stdout.strip() != "running":
             return {"success": False, "error": "Container is not in running state"}
 
         # Check if this is a Minecraft server by checking the process type in database
         process = find_process_by_name(name)
-        is_minecraft = process and process.type == 'minecraft'
+        is_minecraft = process and process.type == "minecraft"
 
         # For Minecraft servers, feed STDIN directly (mirrors how Pterodactyl streams commands)
         if is_minecraft:
-            live_log_streams[name].put(f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] $ {command}')
-            return _send_command_to_minecraft_console(container_id, name, command, timeout)
+            live_log_streams[name].put(
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] $ {command}"
+            )
+            return _send_command_to_minecraft_console(
+                container_id, name, command, timeout
+            )
 
         # For non-Minecraft containers, use the original approach
         # Execute the command inside the container
@@ -724,15 +982,19 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
             f"echo \"[$(date -u +'%Y-%m-%d %H:%M:%S')] $line\" >> {log_file}; "
             f"done"
         )
-        result = subprocess.run(['docker', 'exec', container_id, 'sh', '-c', full_command], 
-                              capture_output=True, text=True, timeout=timeout)
-        
+        result = subprocess.run(
+            ["docker", "exec", container_id, "sh", "-c", full_command],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
         if result.returncode == 0:
             return {
-                "success": True, 
+                "success": True,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "return_code": result.returncode
+                "return_code": result.returncode,
             }
         else:
             # Do NOT log error to the persistent log file, only stream it with timestamp
@@ -741,7 +1003,7 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
                 "error": f"Command failed with return code {result.returncode}",
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "return_code": result.returncode
+                "return_code": result.returncode,
             }
 
     except subprocess.TimeoutExpired:
@@ -759,45 +1021,66 @@ def execute_interactive_command_in_container(name, command, working_dir="/app"):
         os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["docker-compose", "ps", "-q", name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         container_id = result.stdout.strip()
 
         if not container_id:
-            return {"success": False, "error": "Container is not running", "process": None}
+            return {
+                "success": False,
+                "error": "Container is not running",
+                "process": None,
+            }
 
         # Check if container is actually running
-        result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Status}}', container_id], 
-                              capture_output=True, text=True)
-        
-        if result.returncode != 0 or result.stdout.strip() != 'running':
-            return {"success": False, "error": "Container is not in running state", "process": None}
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0 or result.stdout.strip() != "running":
+            return {
+                "success": False,
+                "error": "Container is not in running state",
+                "process": None,
+            }
 
         # Start the interactive command
         full_command = f"cd {working_dir} && {command}"
-        
+
         # Start the process in interactive mode
         process = subprocess.Popen(
-            ['docker', 'exec', '-it', container_id, 'sh', '-c', full_command],
+            ["docker", "exec", "-it", container_id, "sh", "-c", full_command],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1
+            bufsize=1,
         )
-        
+
         return {
             "success": True,
             "process": process,
-            "message": "Interactive command started successfully"
+            "message": "Interactive command started successfully",
         }
 
     except subprocess.CalledProcessError as e:
-        return {"success": False, "error": f"Failed to start interactive command: {e.stderr}", "process": None}
+        return {
+            "success": False,
+            "error": f"Failed to start interactive command: {e.stderr}",
+            "process": None,
+        }
     except Exception as e:
         return {"success": False, "error": str(e), "process": None}
 
 
 # ==================== Domain Validation and DNS Health Check Functions ====================
+
 
 def validate_domain_format(domain):
     """
@@ -806,76 +1089,103 @@ def validate_domain_format(domain):
     """
     if not domain or not isinstance(domain, str):
         return {"valid": False, "error": "Domain cannot be empty"}
-    
+
     # Strip whitespace
     domain = domain.strip()
-    
+
     # Check length (253 chars max for full domain, 63 per label)
     if len(domain) > 253:
         return {"valid": False, "error": "Domain name is too long (max 253 characters)"}
-    
+
     # Convert to lowercase for consistency
     domain = domain.lower()
-    
+
     # Support wildcard domains for SSL
-    is_wildcard = domain.startswith('*.')
+    is_wildcard = domain.startswith("*.")
     if is_wildcard:
         domain = domain[2:]  # Remove wildcard for validation
-    
+
     # Check if domain is empty after removing wildcard
     if not domain:
         return {"valid": False, "error": "Invalid wildcard domain"}
-    
+
     # Basic regex pattern for domain validation
     # Allows: alphanumeric, hyphens, dots, and IDN (internationalized domain names)
     domain_pattern = re.compile(
-        r'^(?:[a-z0-9\u00a1-\uffff](?:[a-z0-9\u00a1-\uffff-]{0,61}[a-z0-9\u00a1-\uffff])?\.)*'
-        r'(?:[a-z0-9\u00a1-\uffff](?:[a-z0-9\u00a1-\uffff-]{0,61}[a-z0-9\u00a1-\uffff])?)$',
-        re.IGNORECASE
+        r"^(?:[a-z0-9\u00a1-\uffff](?:[a-z0-9\u00a1-\uffff-]{0,61}[a-z0-9\u00a1-\uffff])?\.)*"
+        r"(?:[a-z0-9\u00a1-\uffff](?:[a-z0-9\u00a1-\uffff-]{0,61}[a-z0-9\u00a1-\uffff])?)$",
+        re.IGNORECASE,
     )
-    
+
     if not domain_pattern.match(domain):
-        return {"valid": False, "error": "Invalid domain format. Use only letters, numbers, hyphens, and dots"}
-    
+        return {
+            "valid": False,
+            "error": "Invalid domain format. Use only letters, numbers, hyphens, and dots",
+        }
+
     # Check for consecutive dots
-    if '..' in domain:
+    if ".." in domain:
         return {"valid": False, "error": "Domain cannot contain consecutive dots"}
-    
+
     # Check if starts or ends with hyphen or dot
-    if domain.startswith('-') or domain.endswith('-') or domain.startswith('.') or domain.endswith('.'):
-        return {"valid": False, "error": "Domain cannot start or end with hyphen or dot"}
-    
+    if (
+        domain.startswith("-")
+        or domain.endswith("-")
+        or domain.startswith(".")
+        or domain.endswith(".")
+    ):
+        return {
+            "valid": False,
+            "error": "Domain cannot start or end with hyphen or dot",
+        }
+
     # Split into labels and validate each
-    labels = domain.split('.')
-    
+    labels = domain.split(".")
+
     # Need at least 2 labels (domain.tld) unless it's localhost
-    if len(labels) < 2 and domain != 'localhost':
-        return {"valid": False, "error": "Domain must have at least two parts (e.g., example.com)"}
-    
+    if len(labels) < 2 and domain != "localhost":
+        return {
+            "valid": False,
+            "error": "Domain must have at least two parts (e.g., example.com)",
+        }
+
     # Validate each label
     for label in labels:
         if not label:
             return {"valid": False, "error": "Domain contains empty label"}
         if len(label) > 63:
-            return {"valid": False, "error": f"Label '{label}' is too long (max 63 characters)"}
-        if label.startswith('-') or label.endswith('-'):
-            return {"valid": False, "error": f"Label '{label}' cannot start or end with hyphen"}
-    
+            return {
+                "valid": False,
+                "error": f"Label '{label}' is too long (max 63 characters)",
+            }
+        if label.startswith("-") or label.endswith("-"):
+            return {
+                "valid": False,
+                "error": f"Label '{label}' cannot start or end with hyphen",
+            }
+
     # Validate TLD (last label) - should be at least 2 characters and not all numeric
     tld = labels[-1]
-    if len(tld) < 2 and domain != 'localhost':
-        return {"valid": False, "error": "Top-level domain must be at least 2 characters"}
-    
+    if len(tld) < 2 and domain != "localhost":
+        return {
+            "valid": False,
+            "error": "Top-level domain must be at least 2 characters",
+        }
+
     # TLD should not be all numbers
     if tld.isdigit():
         return {"valid": False, "error": "Top-level domain cannot be all numbers"}
-    
+
     # Common invalid patterns
-    if domain in ['example.com', 'example.org', 'test.com', 'localhost.localdomain']:
-        return {"valid": False, "error": "Please use a real domain name", "warning": True}
-    
+    if domain in ["example.com", "example.org", "test.com", "localhost.localdomain"]:
+        return {
+            "valid": False,
+            "error": "Please use a real domain name",
+            "warning": True,
+        }
+
     # Return normalized domain (with wildcard if it was present)
-    normalized = ('*.' + domain) if is_wildcard else domain
+    normalized = ("*." + domain) if is_wildcard else domain
     return {"valid": True, "normalized": normalized}
 
 
@@ -884,12 +1194,15 @@ def get_server_ip():
     try:
         # Try to get public IP from external service
         import urllib.request
-        with urllib.request.urlopen('https://api.ipify.org?format=text', timeout=5) as response:
-            public_ip = response.read().decode('utf-8').strip()
+
+        with urllib.request.urlopen(
+            "https://api.ipify.org?format=text", timeout=5
+        ) as response:
+            public_ip = response.read().decode("utf-8").strip()
             return public_ip
     except Exception:
         pass
-    
+
     # Fallback: get local network IP
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -907,7 +1220,7 @@ def is_cloudflare_ip(ip_address):
     Cloudflare's IP ranges are documented at: https://www.cloudflare.com/ips/
     """
     import ipaddress
-    
+
     # Cloudflare IPv4 ranges (as of 2024)
     cloudflare_ipv4_ranges = [
         "173.245.48.0/20",
@@ -924,9 +1237,9 @@ def is_cloudflare_ip(ip_address):
         "104.16.0.0/13",
         "104.24.0.0/14",
         "172.64.0.0/13",
-        "131.0.252.0/22"
+        "131.0.252.0/22",
     ]
-    
+
     # Cloudflare IPv6 ranges
     cloudflare_ipv6_ranges = [
         "2400:cb00::/32",
@@ -935,12 +1248,12 @@ def is_cloudflare_ip(ip_address):
         "2405:b500::/32",
         "2405:8100::/32",
         "2a06:98c0::/29",
-        "2c0f:f248::/32"
+        "2c0f:f248::/32",
     ]
-    
+
     try:
         ip_obj = ipaddress.ip_address(ip_address)
-        
+
         # Check IPv4 ranges
         if isinstance(ip_obj, ipaddress.IPv4Address):
             for cidr in cloudflare_ipv4_ranges:
@@ -953,11 +1266,11 @@ def is_cloudflare_ip(ip_address):
                 network = ipaddress.ip_network(cidr)
                 if ip_obj in network:
                     return True
-                    
+
     except ValueError:
         # Invalid IP address format
         pass
-    
+
     return False
 
 
@@ -968,40 +1281,38 @@ def check_dns_health(domain, server_ip=None):
     """
     if not domain:
         return {"status": "error", "error": "Domain is required"}
-    
+
     # Validate domain format first
     validation = validate_domain_format(domain)
     if not validation.get("valid"):
         return {"status": "error", "error": validation.get("error")}
-    
-    domain = validation.get("normalized", domain).lstrip('*.')  # Remove wildcard for DNS check
-    
+
+    domain = validation.get("normalized", domain).lstrip(
+        "*."
+    )  # Remove wildcard for DNS check
+
     # Get server IP if not provided
     if not server_ip:
         server_ip = get_server_ip()
-    
+
     result = {
         "status": "unknown",
         "domain": domain,
         "server_ip": server_ip,
-        "records": {
-            "A": [],
-            "AAAA": [],
-            "CNAME": []
-        },
+        "records": {"A": [], "AAAA": [], "CNAME": []},
         "points_to_server": False,
         "points_to_cloudflare": False,
         "warnings": [],
-        "errors": []
+        "errors": [],
     }
-    
+
     resolver = dns.resolver.Resolver()
     resolver.timeout = 5
     resolver.lifetime = 5
-    
+
     # Check A records (IPv4)
     try:
-        answers = resolver.resolve(domain, 'A')
+        answers = resolver.resolve(domain, "A")
         for rdata in answers:
             ip_address = str(rdata)
             result["records"]["A"].append(ip_address)
@@ -1021,10 +1332,10 @@ def check_dns_health(domain, server_ip=None):
         return result
     except Exception as e:
         result["warnings"].append(f"A record check failed: {str(e)}")
-    
+
     # Check AAAA records (IPv6)
     try:
-        answers = resolver.resolve(domain, 'AAAA')
+        answers = resolver.resolve(domain, "AAAA")
         for rdata in answers:
             ip_address = str(rdata)
             result["records"]["AAAA"].append(ip_address)
@@ -1034,17 +1345,17 @@ def check_dns_health(domain, server_ip=None):
         pass  # AAAA records are optional
     except Exception:
         pass
-    
+
     # Check CNAME records
     try:
-        answers = resolver.resolve(domain, 'CNAME')
+        answers = resolver.resolve(domain, "CNAME")
         for rdata in answers:
             result["records"]["CNAME"].append(str(rdata))
     except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
         pass  # CNAME is optional
     except Exception:
         pass
-    
+
     # Determine overall status
     if result["errors"]:
         result["status"] = "error"
@@ -1052,14 +1363,18 @@ def check_dns_health(domain, server_ip=None):
         result["status"] = "healthy"
     elif result["points_to_cloudflare"]:
         result["status"] = "healthy"  # Cloudflare is acceptable
-        result["warnings"].append("Domain points to Cloudflare CDN (this is normal for proxied domains)")
+        result["warnings"].append(
+            "Domain points to Cloudflare CDN (this is normal for proxied domains)"
+        )
     elif result["records"]["A"] or result["records"]["AAAA"]:
         result["status"] = "warning"
-        result["warnings"].append(f"Domain points to {result['records']['A'][0] if result['records']['A'] else result['records']['AAAA'][0]}, not to this server ({server_ip})")
+        result["warnings"].append(
+            f"Domain points to {result['records']['A'][0] if result['records']['A'] else result['records']['AAAA'][0]}, not to this server ({server_ip})"
+        )
     else:
         result["status"] = "warning"
         result["warnings"].append("No DNS records found for domain")
-    
+
     return result
 
 
@@ -1068,86 +1383,106 @@ def check_ssl_certificate(domain):
     Check SSL certificate status and get expiration information.
     Returns dict with 'exists', 'valid', 'expiration_date', 'days_until_expiry', 'issuer', 'validation_type'
     """
-    cert_path = f'/etc/letsencrypt/live/{domain}/fullchain.pem'
-    
-    result = {
-        "exists": False,
-        "valid": False,
-        "domain": domain,
-        "errors": []
-    }
-    
+    cert_path = f"/etc/letsencrypt/live/{domain}/fullchain.pem"
+
+    result = {"exists": False, "valid": False, "domain": domain, "errors": []}
+
     # Check if certificate file exists
     if not os.path.exists(cert_path):
         result["errors"].append("Certificate file not found")
         return result
-    
+
     result["exists"] = True
-    
+
     try:
         # Read certificate using openssl
-        cmd = ['openssl', 'x509', '-in', cert_path, '-noout', '-dates', '-issuer', '-subject']
+        cmd = [
+            "openssl",
+            "x509",
+            "-in",
+            cert_path,
+            "-noout",
+            "-dates",
+            "-issuer",
+            "-subject",
+        ]
         proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        
+
         output = proc.stdout
-        
+
         # Parse expiration date
-        for line in output.split('\n'):
-            if line.startswith('notAfter='):
-                date_str = line.replace('notAfter=', '').strip()
+        for line in output.split("\n"):
+            if line.startswith("notAfter="):
+                date_str = line.replace("notAfter=", "").strip()
                 # Parse date format: "Jan 1 00:00:00 2025 GMT"
-                expiration_date = datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z')
-                result["expiration_date"] = expiration_date.strftime('%Y-%m-%d %H:%M:%S')
-                
+                expiration_date = datetime.strptime(date_str, "%b %d %H:%M:%S %Y %Z")
+                result["expiration_date"] = expiration_date.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+
                 # Calculate days until expiry
                 days_until_expiry = (expiration_date - datetime.now()).days
                 result["days_until_expiry"] = days_until_expiry
-                
+
                 # Determine if valid
                 if days_until_expiry > 0:
                     result["valid"] = True
                 else:
                     result["valid"] = False
-                    result["errors"].append(f"Certificate expired {abs(days_until_expiry)} days ago")
-                
+                    result["errors"].append(
+                        f"Certificate expired {abs(days_until_expiry)} days ago"
+                    )
+
                 # Add warning if expiring soon
                 if 0 < days_until_expiry <= 30:
-                    result["warning"] = f"Certificate expires in {days_until_expiry} days"
-            
-            elif line.startswith('notBefore='):
-                date_str = line.replace('notBefore=', '').strip()
-                issued_date = datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z')
-                result["issued_date"] = issued_date.strftime('%Y-%m-%d')
-            
-            elif line.startswith('issuer='):
-                issuer = line.replace('issuer=', '').strip()
+                    result["warning"] = (
+                        f"Certificate expires in {days_until_expiry} days"
+                    )
+
+            elif line.startswith("notBefore="):
+                date_str = line.replace("notBefore=", "").strip()
+                issued_date = datetime.strptime(date_str, "%b %d %H:%M:%S %Y %Z")
+                result["issued_date"] = issued_date.strftime("%Y-%m-%d")
+
+            elif line.startswith("issuer="):
+                issuer = line.replace("issuer=", "").strip()
                 result["issuer"] = issuer
-                
+
                 # Determine validation type based on issuer
                 if "Let's Encrypt" in issuer or "LE" in issuer:
                     result["validation_type"] = "DV"  # Domain Validation
                     result["issuer_name"] = "Let's Encrypt"
-                elif "DigiCert" in issuer or "GlobalSign" in issuer or "Comodo" in issuer:
-                    result["validation_type"] = "OV/EV"  # Could be Organization or Extended Validation
-                    result["issuer_name"] = issuer.split('CN=')[1].split(',')[0] if 'CN=' in issuer else "Unknown"
+                elif (
+                    "DigiCert" in issuer or "GlobalSign" in issuer or "Comodo" in issuer
+                ):
+                    result["validation_type"] = (
+                        "OV/EV"  # Could be Organization or Extended Validation
+                    )
+                    result["issuer_name"] = (
+                        issuer.split("CN=")[1].split(",")[0]
+                        if "CN=" in issuer
+                        else "Unknown"
+                    )
                 else:
                     result["validation_type"] = "Unknown"
                     result["issuer_name"] = "Unknown"
-        
+
         # Check if certificate is for wildcard domain
-        cmd_check_cn = ['openssl', 'x509', '-in', cert_path, '-noout', '-text']
-        proc_cn = subprocess.run(cmd_check_cn, capture_output=True, text=True, check=True)
-        
-        if '*.%s' % domain in proc_cn.stdout or '*.' in proc_cn.stdout:
+        cmd_check_cn = ["openssl", "x509", "-in", cert_path, "-noout", "-text"]
+        proc_cn = subprocess.run(
+            cmd_check_cn, capture_output=True, text=True, check=True
+        )
+
+        if "*.%s" % domain in proc_cn.stdout or "*." in proc_cn.stdout:
             result["is_wildcard"] = True
         else:
             result["is_wildcard"] = False
-        
+
     except subprocess.CalledProcessError as e:
         result["errors"].append(f"Failed to read certificate: {e.stderr}")
     except Exception as e:
         result["errors"].append(f"Error checking certificate: {str(e)}")
-    
+
     return result
 
 
@@ -1158,20 +1493,17 @@ def check_domain_uniqueness(domain, current_process_name=None):
     """
     if not domain:
         return {"unique": True, "conflicts": []}
-    
+
     with current_app.app_context():
         from models.process import Process
-        
+
         # Query all processes with this domain
         processes = Process.query.filter(Process.domain == domain).all()
-        
+
         # Filter out current process if specified
         conflicts = [p.name for p in processes if p.name != current_process_name]
-        
-        return {
-            "unique": len(conflicts) == 0,
-            "conflicts": conflicts
-        }
+
+        return {"unique": len(conflicts) == 0, "conflicts": conflicts}
 
 
 def get_domain_status(domain, process_name=None):
@@ -1181,39 +1513,39 @@ def get_domain_status(domain, process_name=None):
     """
     if not domain:
         return {"status": "empty", "error": "No domain configured"}
-    
+
     result = {
         "domain": domain,
         "validation": None,
         "dns": None,
         "ssl": None,
         "uniqueness": None,
-        "overall_status": "unknown"
+        "overall_status": "unknown",
     }
-    
+
     # 1. Validate domain format
     validation = validate_domain_format(domain)
     result["validation"] = validation
-    
+
     if not validation.get("valid"):
         result["overall_status"] = "invalid"
         return result
-    
+
     normalized_domain = validation.get("normalized", domain)
-    
+
     # 2. Check domain uniqueness
     uniqueness = check_domain_uniqueness(normalized_domain, process_name)
     result["uniqueness"] = uniqueness
-    
+
     # 3. Check DNS health
     dns_status = check_dns_health(normalized_domain)
     result["dns"] = dns_status
-    
+
     # 4. Check SSL certificate (skip for wildcard domains in DNS)
-    check_domain = normalized_domain.lstrip('*.')
+    check_domain = normalized_domain.lstrip("*.")
     ssl_status = check_ssl_certificate(check_domain)
     result["ssl"] = ssl_status
-    
+
     # Determine overall status
     if not validation.get("valid"):
         result["overall_status"] = "invalid"
@@ -1221,7 +1553,9 @@ def get_domain_status(domain, process_name=None):
         result["overall_status"] = "conflict"
     elif dns_status.get("status") == "error":
         result["overall_status"] = "dns_error"
-    elif dns_status.get("status") == "warning" and not dns_status.get("points_to_cloudflare"):
+    elif dns_status.get("status") == "warning" and not dns_status.get(
+        "points_to_cloudflare"
+    ):
         result["overall_status"] = "dns_warning"
     elif ssl_status.get("exists") and ssl_status.get("valid"):
         result["overall_status"] = "healthy"
@@ -1231,5 +1565,5 @@ def get_domain_status(domain, process_name=None):
         result["overall_status"] = "no_ssl"
     else:
         result["overall_status"] = "needs_configuration"
-    
+
     return result
