@@ -1,14 +1,15 @@
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
 import shutil
 import threading
-import time, yaml
+import time
+import yaml
 import subprocess
 from flask import stream_with_context
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
-import os, json, re, pytz
+import os, re, pytz
 import shlex
-import sys
 from datetime import datetime, UTC, timedelta
 from db import db
 from models.process import Process
@@ -28,7 +29,6 @@ from utils.cloudflare import (
     list_dns_records,
 )
 from models.user_settings import UserSettings
-from utils.discord import DiscordNotifier, get_user_discord_settings
 
 process_routes = Blueprint('process', __name__)
 
@@ -220,29 +220,30 @@ def load_process():
     if session.get("role") == "admin":
         processes = Process.query.all()
 
-    for process in processes:
+    def _fetch_status(process):
         response = get_process_status(process.name)
-
         if "error" in response:
             print(f"Error fetching status for {process.name}: {response['error']}")
-            status = "Unknown"
-        else:
-            # Extract status from response
-            status = response.get("status", "Unknown")
-            
-            # Map "Container Not Running" to "Exited" for cleaner display
-            if status == "Container Not Running":
-                status = "Exited"
-                
-            process_dict[process.name] = {
-                "id": process.id,
-                "type": process.type,
-                "command": process.command,
-                "file_location": process.file_location,
-                "name": process.name,
-                "status": status,
-                "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            }
+            return process.name, None
+        status = response.get("status", "Unknown")
+        if status == "Container Not Running":
+            status = "Exited"
+        return process.name, {
+            "id": process.id,
+            "type": process.type,
+            "command": process.command,
+            "file_location": process.file_location,
+            "name": process.name,
+            "status": status,
+            "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+    with ThreadPoolExecutor(max_workers=min(len(processes), 10)) as executor:
+        futures = {executor.submit(_fetch_status, p): p for p in processes}
+        for future in as_completed(futures):
+            name, entry = future.result()
+            if entry is not None:
+                process_dict[name] = entry
 
     PROCESS_STATUS_CACHE[cache_key] = {"timestamp": now, "data": process_dict}
     return process_dict
@@ -304,6 +305,18 @@ def add_process():
         docker_result = execute_handler(f"create.{process_type}", "create_docker_file", new_process, dockerfile_path)
 
         if not compose_result.success or not docker_result.success:
+            # Cleanup: remove DB entry and process directory
+            try:
+                db.session.delete(new_process)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            try:
+                if os.path.exists(process_dir):
+                    import shutil
+                    shutil.rmtree(process_dir)
+            except Exception:
+                pass
             return jsonify({"error": compose_result.message if not compose_result.success else docker_result.message}), 400
 
         os.chdir(process_dir)
@@ -327,8 +340,36 @@ def add_process():
         return jsonify({"redirect_url": url_for("process.console", name=new_process.name)})
 
     except OSError as e:
+        # Cleanup: remove DB entry and process directory if created
+        try:
+            process = Process.query.filter_by(name=process_name).first()
+            if process:
+                db.session.delete(process)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+        try:
+            if os.path.exists(process_dir):
+                import shutil
+                shutil.rmtree(process_dir)
+        except Exception:
+            pass
         return jsonify({"error": f"Failed to create process directory: {e}"}), 500
     except subprocess.CalledProcessError as e:
+        # Cleanup: remove DB entry and process directory if created
+        try:
+            process = Process.query.filter_by(name=process_name).first()
+            if process:
+                db.session.delete(process)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+        try:
+            if os.path.exists(process_dir):
+                import shutil
+                shutil.rmtree(process_dir)
+        except Exception:
+            pass
         return jsonify({"error": f"Failed to start docker container: {e}"}), 500
 
 
