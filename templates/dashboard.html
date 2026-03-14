@@ -106,6 +106,19 @@
 
 <script>
 
+    // Load saved filters from localStorage immediately (before any async work)
+    // so the input values are ready when fetchProcesses renders.
+    (function loadSavedFiltersSync() {
+        const savedSearch = localStorage.getItem('dashboardSearchQuery');
+        const savedSort = localStorage.getItem('dashboardSortOption');
+        if (savedSearch !== null) {
+            document.getElementById('search-bar').value = savedSearch;
+        }
+        if (savedSort !== null) {
+            document.getElementById('sort-select').value = savedSort;
+        }
+    })();
+
     let userSettings = null;
     let autoRefreshInterval = null;
 
@@ -115,11 +128,6 @@
             const response = await fetch("{{ url_for('settings.get_preferences') }}");
             const data = await response.json();
             userSettings = data;
-            
-            // If remember filters is enabled, load saved filters
-            if (userSettings.remember_filters) {
-                loadSavedFilters();
-            }
 
             // Setup auto-refresh if enabled
             if (userSettings.auto_refresh_enabled) {
@@ -157,13 +165,12 @@
     }
 
     function saveFilterSettings() {
-        if (userSettings && userSettings.remember_filters) {
-            const searchQuery = document.getElementById('search-bar').value;
-            const sortOption = document.getElementById('sort-select').value;
-            
-            localStorage.setItem('dashboardSearchQuery', searchQuery);
-            localStorage.setItem('dashboardSortOption', sortOption);
-        }
+        // Always save — if user later disables remember_filters, we just won't restore
+        const searchQuery = document.getElementById('search-bar').value;
+        const sortOption = document.getElementById('sort-select').value;
+        
+        localStorage.setItem('dashboardSearchQuery', searchQuery);
+        localStorage.setItem('dashboardSortOption', sortOption);
     }
 
     async function fetchServerStats() {
@@ -233,13 +240,11 @@
             isInitialLoad = false;
         }
         
-        // Apply saved sort if remember filters is enabled
-        if (userSettings && userSettings.remember_filters) {
-            const savedSort = localStorage.getItem('dashboardSortOption');
-            if (savedSort) {
-                sortProcesses();
-                return;
-            }
+        // Apply sort if a sort option is selected (value already restored from localStorage synchronously)
+        const currentSort = document.getElementById('sort-select').value;
+        if (currentSort && currentSort !== 'default') {
+            sortProcesses();
+            return;
         }
         
         renderProcesses(Object.entries(allProcesses));

@@ -176,11 +176,19 @@
 
                 // Actions
                 const actionsTd = document.createElement('td');
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
                 
                 const pullForm = document.createElement('form');
                 pullForm.action = `/git/${processName}/pull_latest/${integration.id}`;
                 pullForm.method = 'POST';
                 pullForm.className = 'd-inline';
+                if (csrfToken) {
+                    const pullCsrf = document.createElement('input');
+                    pullCsrf.type = 'hidden';
+                    pullCsrf.name = 'csrf_token';
+                    pullCsrf.value = csrfToken;
+                    pullForm.appendChild(pullCsrf);
+                }
                 const pullBtn = document.createElement('button');
                 pullBtn.type = 'submit';
                 pullBtn.className = 'btn btn-sm btn-info me-1';
@@ -193,6 +201,13 @@
                 removeForm.method = 'POST';
                 removeForm.className = 'd-inline';
                 removeForm.onsubmit = () => confirm('Remove this repository?');
+                if (csrfToken) {
+                    const removeCsrf = document.createElement('input');
+                    removeCsrf.type = 'hidden';
+                    removeCsrf.name = 'csrf_token';
+                    removeCsrf.value = csrfToken;
+                    removeForm.appendChild(removeCsrf);
+                }
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'submit';
                 removeBtn.className = 'btn btn-sm btn-danger';

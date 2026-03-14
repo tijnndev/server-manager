@@ -27,89 +27,71 @@ ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, "active-servers")
 
 
 def get_process_status(name):
+    """Get the status of a process by name.
+    Uses the batch docker ps approach (via compose labels) for consistency
+    with the dashboard, falling back to docker compose ps -q if needed.
+    """
     process = find_process_by_name(name)
     if not process:
         return {"error": "Process not found"}
 
-    # Check if this is an always-running container
-    if is_always_running_container(name):
-        # For python processes, just check container status since they are always running
-        if process.type == 'python':
-            try:
-                process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
-                result = subprocess.run(
-                    ["docker", "compose", "ps", "-q", name],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                    cwd=process_dir,
-                )
-                container_id = result.stdout.strip()
-
-                if not container_id:
-                    return {"process": name, "status": "Exited"}
-
-                result = subprocess.run(
-                    ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
-                    capture_output=True,
-                    text=True,
-                )
-
-                if result.returncode != 0:
-                    return {"error": "Failed to get process status from docker inspect."}
-
-                container_status = result.stdout.strip()
-
-                if container_status == "running":
-                    return {"process": name, "status": "Running"}
-
-                return {"process": name, "status": "Exited"}
-
-            except subprocess.CalledProcessError as e:
-                return {"error": f"Failed to get process status: {e.stderr}"}
-            except Exception as e:
-                return {"error": str(e)}
-        else:
-            # Use the new process-aware status checking for other types
-            return check_process_running_in_container(name)
-    else:
-        # Use traditional container status checking for legacy containers
-        try:
-            process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
-            result = subprocess.run(
-                ["docker", "compose", "ps", "-q", name],
-                capture_output=True,
-                text=True,
-                check=True,
-                cwd=process_dir,
-            )
-            container_id = result.stdout.strip()
-
-            if not container_id:
-                return {"process": name, "status": "Exited"}
-
-            result = subprocess.run(
-                ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode != 0:
-                return {"error": "Failed to get process status from docker inspect."}
-
-            container_status = result.stdout.strip()
-
-            if container_status == "running":
+    # First try the fast batch lookup (same method as dashboard)
+    try:
+        from routes.process import _get_all_container_statuses
+        container_statuses = _get_all_container_statuses()
+        container_info = container_statuses.get(name)
+        if container_info:
+            state = container_info['state']
+            if state == 'running':
+                # For always-running containers, also check if the inner process is alive
+                if is_always_running_container(name) and process.type != 'python':
+                    return check_process_running_in_container(name)
                 return {"process": name, "status": "Running"}
+            elif state in ('exited', 'dead', 'created'):
+                return {"process": name, "status": "Exited"}
+            elif state == 'restarting':
+                return {"process": name, "status": "Restarting"}
+            else:
+                return {"process": name, "status": "Exited"}
+    except Exception:
+        pass  # Fall through to legacy method
 
+    # Fallback: direct docker compose ps (slower but works if batch import fails)
+    try:
+        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+
+        result = subprocess.run(
+            ["docker", "compose", "ps", "-q", name],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=process_dir,
+        )
+        container_id = result.stdout.strip()
+
+        if not container_id:
             return {"process": name, "status": "Exited"}
 
-        except subprocess.CalledProcessError as e:
-            return {"error": f"Failed to get process status: {e.stderr}"}
-        except Exception as e:
-            return {"error": str(e)}
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            return {"error": "Failed to get process status from docker inspect."}
+
+        container_status = result.stdout.strip()
+
+        if container_status == "running":
+            return {"process": name, "status": "Running"}
+
+        return {"process": name, "status": "Exited"}
+
+    except subprocess.CalledProcessError as e:
+        return {"error": f"Failed to get process status: {e.stderr}"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def find_process_by_name(name):
