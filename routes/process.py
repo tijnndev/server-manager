@@ -1,5 +1,4 @@
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from queue import Queue
 import shutil
 import threading
@@ -40,6 +39,104 @@ ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 PROCESS_STATUS_CACHE = {}
 PROCESS_STATUS_CACHE_TTL = 5  # seconds
 
+# Global cache for batch docker status lookups (avoids per-container subprocess calls)
+_DOCKER_PS_CACHE = {}
+_DOCKER_PS_CACHE_TIMESTAMP = 0
+_DOCKER_PS_CACHE_TTL = 3  # seconds
+
+
+def _get_all_container_statuses():
+    """
+    Fetch ALL container statuses in a single 'docker ps -a' call.
+    Returns a dict mapping container name -> {id, status, state}.
+    This replaces N individual 'docker-compose ps' calls with 1 call.
+    """
+    global _DOCKER_PS_CACHE, _DOCKER_PS_CACHE_TIMESTAMP
+    now = time.time()
+    if _DOCKER_PS_CACHE and now - _DOCKER_PS_CACHE_TIMESTAMP < _DOCKER_PS_CACHE_TTL:
+        return _DOCKER_PS_CACHE
+
+    try:
+        result = subprocess.run(
+            ['docker', 'ps', '-a', '--format', '{{.ID}}|{{.Names}}|{{.State}}|{{.Status}}'],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return _DOCKER_PS_CACHE  # Return stale cache on error
+
+        containers = {}
+        for line in result.stdout.strip().splitlines():
+            if not line.strip():
+                continue
+            parts = line.split('|', 3)
+            if len(parts) >= 3:
+                cid, name, state = parts[0], parts[1], parts[2]
+                status_text = parts[3] if len(parts) > 3 else state
+                # docker-compose names containers as <project>_<service>_1 or <project>-<service>-1
+                # Also store by the raw name for direct lookup
+                base_name = name.split('_')[0] if '_' in name else name.split('-')[0]
+                containers[name] = {'id': cid, 'state': state, 'status': status_text}
+                containers[base_name] = {'id': cid, 'state': state, 'status': status_text}
+
+        _DOCKER_PS_CACHE = containers
+        _DOCKER_PS_CACHE_TIMESTAMP = now
+        return containers
+    except (subprocess.TimeoutExpired, Exception) as e:
+        print(f"[batch_docker] Failed to fetch container statuses: {e}")
+        return _DOCKER_PS_CACHE  # Return stale cache
+
+
+def _get_all_container_stats():
+    """
+    Fetch CPU/memory stats for ALL running containers in a single 'docker stats --no-stream' call.
+    Returns a dict mapping container name -> {cpu_percent, memory_percent, memory_mb}.
+    Replaces N individual 'docker stats' calls with 1 call.
+    """
+    try:
+        result = subprocess.run(
+            ['docker', 'stats', '--no-stream', '--format', '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}'],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            return {}
+
+        stats = {}
+        for line in result.stdout.strip().splitlines():
+            if not line.strip():
+                continue
+            parts = line.split('|', 3)
+            if len(parts) >= 3:
+                name = parts[0]
+                cpu_str = parts[1].replace('%', '').strip()
+                mem_str = parts[2].replace('%', '').strip()
+
+                cpu_percent = float(cpu_str) if cpu_str else 0.0
+                memory_percent = float(mem_str) if mem_str else 0.0
+
+                memory_mb = 0.0
+                if len(parts) > 3:
+                    mem_usage = parts[3].split('/')[0].strip()
+                    if 'GiB' in mem_usage:
+                        memory_mb = float(mem_usage.replace('GiB', '').strip()) * 1024
+                    elif 'MiB' in mem_usage:
+                        memory_mb = float(mem_usage.replace('MiB', '').strip())
+                    elif 'KiB' in mem_usage:
+                        memory_mb = float(mem_usage.replace('KiB', '').strip()) / 1024
+
+                base_name = name.split('_')[0] if '_' in name else name.split('-')[0]
+                entry = {
+                    'cpu_percent': round(cpu_percent, 2),
+                    'memory_percent': round(memory_percent, 2),
+                    'memory_mb': round(memory_mb, 2)
+                }
+                stats[name] = entry
+                stats[base_name] = entry
+
+        return stats
+    except (subprocess.TimeoutExpired, Exception) as e:
+        print(f"[batch_stats] Failed to fetch container stats: {e}")
+        return {}
+
 
 def _make_process_cache_key(user_id, role):
     return f"{role or 'user'}:{user_id or 'anon'}"
@@ -47,13 +144,22 @@ def _make_process_cache_key(user_id, role):
 
 def invalidate_process_cache(cache_key=None):
     """Invalidate cached process status results."""
+    global _DOCKER_PS_CACHE_TIMESTAMP
     if cache_key:
         PROCESS_STATUS_CACHE.pop(cache_key, None)
     else:
         PROCESS_STATUS_CACHE.clear()
+    _DOCKER_PS_CACHE_TIMESTAMP = 0  # Also invalidate the docker ps cache
 
 
 def get_container_id(process_name):
+    """Get container ID - tries batch cache first, falls back to docker-compose."""
+    # Fast path: check batch cache
+    containers = _get_all_container_statuses()
+    if process_name in containers:
+        return containers[process_name]['id']
+
+    # Slow fallback: docker-compose ps
     process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
     try:
         result = subprocess.run(
@@ -220,14 +326,28 @@ def load_process():
     if session.get("role") == "admin":
         processes = Process.query.all()
 
-    def _fetch_status(process):
-        response = get_process_status(process.name)
-        if "error" in response:
-            print(f"Error fetching status for {process.name}: {response['error']}")
-            return process.name, None
-        status = response.get("status", "Unknown")
-        if status == "Container Not Running":
-            status = "Exited"
+    # PERFORMANCE: Fetch ALL container statuses in a single docker call
+    # instead of running 'docker-compose ps' per container (saves ~1-3s per container)
+    container_statuses = _get_all_container_statuses()
+
+    def _fetch_status_fast(process):
+        """Fast status lookup using pre-fetched batch data."""
+        container_info = container_statuses.get(process.name)
+        if container_info:
+            state = container_info['state']
+            if state == 'running':
+                status = 'Running'
+            elif state in ('exited', 'dead', 'created'):
+                status = 'Exited'
+            elif state == 'restarting':
+                status = 'Restarting'
+            elif state == 'paused':
+                status = 'Paused'
+            else:
+                status = 'Unknown'
+        else:
+            status = 'Exited'
+
         return process.name, {
             "id": process.id,
             "type": process.type,
@@ -238,12 +358,11 @@ def load_process():
             "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-    with ThreadPoolExecutor(max_workers=min(len(processes), 10)) as executor:
-        futures = {executor.submit(_fetch_status, p): p for p in processes}
-        for future in as_completed(futures):
-            name, entry = future.result()
-            if entry is not None:
-                process_dict[name] = entry
+    # No threading needed - batch data is already fetched
+    for p in processes:
+        name, entry = _fetch_status_fast(p)
+        if entry is not None:
+            process_dict[name] = entry
 
     PROCESS_STATUS_CACHE[cache_key] = {"timestamp": now, "data": process_dict}
     return process_dict
@@ -253,6 +372,17 @@ def load_process():
 def get_process():
     processes = load_process()
     return jsonify(processes)
+
+
+@process_routes.route('/all-metrics', methods=['GET'])
+def get_all_process_metrics():
+    """
+    Fetch CPU/memory metrics for ALL containers in a single docker stats call.
+    Returns JSON mapping process name -> {cpu_percent, memory_percent, memory_mb}.
+    Replaces N individual /metrics/<name> calls from the dashboard.
+    """
+    stats = _get_all_container_stats()
+    return jsonify(stats)
 
 
 @process_routes.route('/create', methods=['GET', 'POST'])

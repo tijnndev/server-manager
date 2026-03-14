@@ -350,24 +350,25 @@
     // Load user settings when page loads
     loadUserSettings();
 
-    // Fetch real-time metrics for all processes
+    // Fetch real-time metrics for all processes (batch - single API call)
     async function fetchProcessMetrics() {
         if (!allProcesses || Object.keys(allProcesses).length === 0) return;
 
-        for (const [name, process] of Object.entries(allProcesses)) {
-            if (process.status && process.status.toLowerCase() === 'running') {
-                try {
-                    const response = await fetch(`/process/metrics/${name}`);
-                    if (response.ok) {
-                        const metrics = await response.json();
-                        allProcesses[name].metrics = metrics;
-                    } else {
-                        console.warn(`Failed to fetch metrics for ${name}: ${response.status} ${response.statusText}`);
-                    }
-                } catch (error) {
-                    console.error(`Failed to fetch metrics for ${name}:`, error);
+        try {
+            const response = await fetch('/process/all-metrics');
+            if (!response.ok) {
+                console.warn(`Failed to fetch batch metrics: ${response.status}`);
+                return;
+            }
+            const allMetrics = await response.json();
+
+            for (const [name, process] of Object.entries(allProcesses)) {
+                if (allMetrics[name]) {
+                    allProcesses[name].metrics = allMetrics[name];
                 }
             }
+        } catch (error) {
+            console.error('Failed to fetch batch metrics:', error);
         }
 
         // Update metrics in-place without re-rendering the entire table
