@@ -26,6 +26,34 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, "active-servers")
 
 
+def _get_container_id(name):
+    """Get container ID for a process name.
+    Uses the batch docker ps cache (Docker Compose labels) first for correct mapping,
+    falls back to docker compose ps -q if the batch cache is unavailable.
+    """
+    # Fast path: batch cache (uses Docker labels, always maps correctly)
+    try:
+        from routes.process import _get_all_container_statuses
+        container_statuses = _get_all_container_statuses()
+        container_info = container_statuses.get(name)
+        if container_info:
+            return container_info['id']
+    except Exception:
+        pass
+
+    # Slow fallback: docker compose ps -q
+    process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "ps", "-q", name],
+            capture_output=True, text=True, check=True, cwd=process_dir,
+        )
+        cid = result.stdout.strip()
+        return cid if cid else None
+    except Exception:
+        return None
+
+
 def get_process_status(name):
     """Get the status of a process by name.
     Uses the batch docker ps approach (via compose labels) for consistency
@@ -57,17 +85,9 @@ def get_process_status(name):
         pass  # Fall through to legacy method
 
     # Fallback: direct docker compose ps (slower but works if batch import fails)
+    # Fallback: direct docker inspect (slower but works if batch import fails)
     try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
-        result = subprocess.run(
-            ["docker", "compose", "ps", "-q", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=process_dir,
-        )
-        container_id = result.stdout.strip()
+        container_id = _get_container_id(name)
 
         if not container_id:
             return {"process": name, "status": "Exited"}
@@ -147,17 +167,7 @@ def generate_random_string(length: int) -> str:
 def check_process_running_in_container(name):
     """Check if the main process is running inside the container"""
     try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
-        # Get container ID
-        result = subprocess.run(
-            ["docker", "compose", "ps", "-q", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=process_dir,
-        )
-        container_id = result.stdout.strip()
+        container_id = _get_container_id(name)
 
         if not container_id:
             return {"status": "Container Not Running", "container_running": False}
@@ -294,14 +304,7 @@ def start_process_in_container(name):
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
 
         # Get container ID
-        result = subprocess.run(
-            ["docker", "compose", "ps", "-q", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=process_dir,
-        )
-        container_id = result.stdout.strip()
+        container_id = _get_container_id(name)
 
         if not container_id:
             # Container not running, start it first
@@ -312,14 +315,7 @@ def start_process_in_container(name):
             time.sleep(2)
 
             # Get new container ID
-            result = subprocess.run(
-                ["docker", "compose", "ps", "-q", name],
-                capture_output=True,
-                text=True,
-                check=True,
-                cwd=process_dir,
-            )
-            container_id = result.stdout.strip()
+            container_id = _get_container_id(name)
 
         # Get the main command from environment
         result = subprocess.run(
@@ -549,17 +545,8 @@ def kill_process_tree(pid, inside_container=False, container_id=None):
 def stop_process_in_container(name):
     """Stop the main process inside the container without stopping the container"""
     try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
         # Get container ID
-        result = subprocess.run(
-            ["docker", "compose", "ps", "-q", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=process_dir,
-        )
-        container_id = result.stdout.strip()
+        container_id = _get_container_id(name)
 
         if not container_id:
             return {"success": True, "message": "Container not running"}
@@ -784,17 +771,8 @@ def is_always_running_container(name):
         return cached["value"]
 
     try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
         # Get container ID
-        result = subprocess.run(
-            ["docker", "compose", "ps", "-q", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=process_dir,
-        )
-        container_id = result.stdout.strip()
+        container_id = _get_container_id(name)
 
         if not container_id:
             _ALWAYS_RUNNING_CACHE[name] = {"value": False, "timestamp": now}
@@ -969,17 +947,8 @@ def _send_command_to_minecraft_console(container_id, process_name, command, time
 def execute_command_in_container(name, command, working_dir="/app", timeout=30):
     """Execute a command inside the container and return the result"""
     try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
         # Get container ID
-        result = subprocess.run(
-            ["docker", "compose", "ps", "-q", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=process_dir,
-        )
-        container_id = result.stdout.strip()
+        container_id = _get_container_id(name)
 
         if not container_id:
             return {"success": False, "error": "Container is not running"}
@@ -1052,17 +1021,8 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
 def execute_interactive_command_in_container(name, command, working_dir="/app"):
     """Execute an interactive command inside the container (returns process handle for real-time interaction)"""
     try:
-        process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-
         # Get container ID
-        result = subprocess.run(
-            ["docker", "compose", "ps", "-q", name],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=process_dir,
-        )
-        container_id = result.stdout.strip()
+        container_id = _get_container_id(name)
 
         if not container_id:
             return {
