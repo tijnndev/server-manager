@@ -8,7 +8,6 @@ import smtplib
 from flask import current_app
 import os
 import subprocess
-import random
 import string
 import importlib
 import textwrap
@@ -167,14 +166,14 @@ def check_process_running_in_container(name):
     """Check if the main process is running inside the container"""
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
         result = subprocess.run(
-            ["docker-compose", "ps", "-q", name],
+            ["docker", "compose", "ps", "-q", name],
             capture_output=True,
             text=True,
             check=True,
+            cwd=process_dir,
         )
         container_id = result.stdout.strip()
 
@@ -311,20 +310,20 @@ def start_process_in_container(name):
     """Start the main process inside an already running container with proper log streaming"""
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
         result = subprocess.run(
-            ["docker-compose", "ps", "-q", name],
+            ["docker", "compose", "ps", "-q", name],
             capture_output=True,
             text=True,
             check=True,
+            cwd=process_dir,
         )
         container_id = result.stdout.strip()
 
         if not container_id:
             # Container not running, start it first
-            subprocess.run(["docker-compose", "up", "-d"], check=True)
+            subprocess.run(["docker", "compose", "up", "-d"], check=True, cwd=process_dir)
             # Wait for container to be ready
             import time
 
@@ -332,10 +331,11 @@ def start_process_in_container(name):
 
             # Get new container ID
             result = subprocess.run(
-                ["docker-compose", "ps", "-q", name],
+                ["docker", "compose", "ps", "-q", name],
                 capture_output=True,
                 text=True,
                 check=True,
+                cwd=process_dir,
             )
             container_id = result.stdout.strip()
 
@@ -568,14 +568,14 @@ def stop_process_in_container(name):
     """Stop the main process inside the container without stopping the container"""
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
         result = subprocess.run(
-            ["docker-compose", "ps", "-q", name],
+            ["docker", "compose", "ps", "-q", name],
             capture_output=True,
             text=True,
             check=True,
+            cwd=process_dir,
         )
         container_id = result.stdout.strip()
 
@@ -788,22 +788,34 @@ def stop_process_in_container(name):
         return {"success": False, "error": str(e)}
 
 
+_ALWAYS_RUNNING_CACHE = {}
+_ALWAYS_RUNNING_CACHE_TTL = 30  # seconds
+
+
 def is_always_running_container(name):
-    """Check if this is an always-running container (has MAIN_COMMAND environment variable)"""
+    """Check if this is an always-running container (has MAIN_COMMAND environment variable).
+    Result is cached for 30 seconds to avoid repeated subprocess calls."""
+    import time as _time
+    now = _time.time()
+    cached = _ALWAYS_RUNNING_CACHE.get(name)
+    if cached and now - cached["timestamp"] < _ALWAYS_RUNNING_CACHE_TTL:
+        return cached["value"]
+
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
         result = subprocess.run(
-            ["docker-compose", "ps", "-q", name],
+            ["docker", "compose", "ps", "-q", name],
             capture_output=True,
             text=True,
             check=True,
+            cwd=process_dir,
         )
         container_id = result.stdout.strip()
 
         if not container_id:
+            _ALWAYS_RUNNING_CACHE[name] = {"value": False, "timestamp": now}
             return False
 
         # Check for MAIN_COMMAND in environment
@@ -821,8 +833,10 @@ def is_always_running_container(name):
 
         for line in result.stdout.split("\n"):
             if line.startswith("MAIN_COMMAND="):
+                _ALWAYS_RUNNING_CACHE[name] = {"value": True, "timestamp": now}
                 return True
 
+        _ALWAYS_RUNNING_CACHE[name] = {"value": False, "timestamp": now}
         return False
 
     except Exception:
@@ -974,14 +988,14 @@ def execute_command_in_container(name, command, working_dir="/app", timeout=30):
     """Execute a command inside the container and return the result"""
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
         result = subprocess.run(
-            ["docker-compose", "ps", "-q", name],
+            ["docker", "compose", "ps", "-q", name],
             capture_output=True,
             text=True,
             check=True,
+            cwd=process_dir,
         )
         container_id = result.stdout.strip()
 
@@ -1057,14 +1071,14 @@ def execute_interactive_command_in_container(name, command, working_dir="/app"):
     """Execute an interactive command inside the container (returns process handle for real-time interaction)"""
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
         result = subprocess.run(
-            ["docker-compose", "ps", "-q", name],
+            ["docker", "compose", "ps", "-q", name],
             capture_output=True,
             text=True,
             check=True,
+            cwd=process_dir,
         )
         container_id = result.stdout.strip()
 

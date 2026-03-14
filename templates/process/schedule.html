@@ -9,6 +9,7 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Cron Schedule Expression</label>
                         <div class="input-group">
@@ -70,6 +71,7 @@
                             <td><span class="badge bg-info">{{ job.command }}</span></td>
                             <td>
                                 <form action="{{ url_for('process.delete_cron_job', name=process.name) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="line" value="{{ job.line }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
                                         <i class="bi bi-trash"></i>

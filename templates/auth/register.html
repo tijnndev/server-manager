@@ -37,6 +37,7 @@
                 server</p>
 
             <form method="post" class="login-form" id="registerForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <div class="input-group">
                         <div class="input-icon">

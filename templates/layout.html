@@ -8,6 +8,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}{{ page_title }} | Server Manager{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='images/puregarden_fav.svg') }}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
@@ -22,6 +23,26 @@
     <script src="{{ url_for('static', filename='js/file-manager-enhanced.js') }}"></script>
     <script src="{{ url_for('static', filename='js/swipe-gestures.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bulk-operations.js') }}"></script>
+    <script>
+        // Global CSRF token for all fetch() calls
+        (function() {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (csrfToken) {
+                const originalFetch = window.fetch;
+                window.fetch = function(url, options = {}) {
+                    if (options.method && options.method.toUpperCase() !== 'GET') {
+                        options.headers = options.headers || {};
+                        if (options.headers instanceof Headers) {
+                            if (!options.headers.has('X-CSRFToken')) options.headers.set('X-CSRFToken', csrfToken);
+                        } else {
+                            options.headers['X-CSRFToken'] = options.headers['X-CSRFToken'] || csrfToken;
+                        }
+                    }
+                    return originalFetch.call(this, url, options);
+                };
+            }
+        })();
+    </script>
 </head>
 <body class="dark-theme">
     {% if page_title and page_title == "File Manager" %}

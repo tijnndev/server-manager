@@ -87,6 +87,7 @@
                 {% endif %}
 
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     {% if nginx_content and process.domain %}
                         <div class="mb-3">
                             <label for="nginx_config" class="form-label">NGINX Configuration</label>

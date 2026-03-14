@@ -7,7 +7,7 @@ import yaml
 import subprocess
 from flask import stream_with_context
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
-import os, re, pytz
+import os, re
 import shlex
 from datetime import datetime, UTC, timedelta
 from db import db
@@ -35,9 +35,25 @@ PROCESS_DIRECTORY = 'active-servers'
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 
-# Lightweight in-memory cache to avoid repeated docker status calls during rapid page loads
-PROCESS_STATUS_CACHE = {}
-PROCESS_STATUS_CACHE_TTL = 5  # seconds
+# Lightweight Redis-backed cache to avoid repeated docker status calls during rapid page loads
+# Uses Flask-Caching Redis backend (configured in app.py) for cross-worker consistency
+import json as _json
+import redis as _redis
+
+_PROCESS_CACHE_TTL = 5  # seconds
+_redis_client = None
+
+
+def _get_redis():
+    """Lazy-init a Redis client for the process status cache."""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = _redis.StrictRedis(
+            host=os.getenv('REDIS_HOST', 'localhost'),
+            port=int(os.getenv('REDIS_PORT', 6379)),
+            decode_responses=True
+        )
+    return _redis_client
 
 # Global cache for batch docker status lookups (avoids per-container subprocess calls)
 _DOCKER_PS_CACHE = {}
@@ -165,12 +181,18 @@ def _make_process_cache_key(user_id, role):
 
 
 def invalidate_process_cache(cache_key=None):
-    """Invalidate cached process status results."""
+    """Invalidate cached process status results (stored in Redis)."""
     global _DOCKER_PS_CACHE_TIMESTAMP
-    if cache_key:
-        PROCESS_STATUS_CACHE.pop(cache_key, None)
-    else:
-        PROCESS_STATUS_CACHE.clear()
+    try:
+        r = _get_redis()
+        if cache_key:
+            r.delete(f"process_cache:{cache_key}")
+        else:
+            # Delete all process cache keys
+            for key in r.scan_iter("process_cache:*"):
+                r.delete(key)
+    except Exception:
+        pass  # Redis unavailable — cache will expire naturally
     _DOCKER_PS_CACHE_TIMESTAMP = 0  # Also invalidate the docker ps cache
 
 
@@ -181,11 +203,11 @@ def get_container_id(process_name):
     if process_name in containers:
         return containers[process_name]['id']
 
-    # Slow fallback: docker-compose ps
+    # Slow fallback: docker compose ps
     process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
     try:
         result = subprocess.run(
-            ['docker-compose', 'ps', '-q', process_name],
+            ['docker', 'compose', 'ps', '-q', process_name],
             capture_output=True,
             text=True,
             check=True,
@@ -302,20 +324,24 @@ def format_timestamp(log_line):
 
 
 def calculate_uptime(startup_date):
-    amsterdam_tz = pytz.timezone('Europe/Amsterdam')
+    """Calculate uptime from a Docker container's StartedAt timestamp (UTC ISO 8601)."""
+    from datetime import timezone
 
-    startup_datetime = datetime.fromisoformat(startup_date[:-1])
-    startup_datetime = amsterdam_tz.localize(startup_datetime)
+    # Docker returns StartedAt in UTC (with trailing Z or +00:00)
+    startup_str = startup_date.rstrip('Z')
+    startup_datetime = datetime.fromisoformat(startup_str).replace(tzinfo=timezone.utc)
 
-    current_time = datetime.now(amsterdam_tz)
+    current_time = datetime.now(timezone.utc)
 
     uptime = current_time - startup_datetime
 
     seconds = int(uptime.total_seconds())
+    if seconds < 0:
+        seconds = 0
 
     weeks = seconds // (7 * 24 * 3600)
     days = (seconds % (7 * 24 * 3600)) // 86400
-    hours = (seconds % 86400) // 3600 - 2
+    hours = (seconds % 86400) // 3600
     minutes = (seconds % 3600) // 60
     seconds %= 60
 
@@ -332,11 +358,15 @@ def load_process():
         return process_dict
 
     cache_key = _make_process_cache_key(user_id, session.get("role"))
-    now = time.time()
-    cached_entry = PROCESS_STATUS_CACHE.get(cache_key)
-    if cached_entry and now - cached_entry.get("timestamp", 0) < PROCESS_STATUS_CACHE_TTL:
-        # Return a shallow copy to avoid accidental mutation of cached data
-        return dict(cached_entry.get("data", {}))
+
+    # Check Redis cache
+    try:
+        r = _get_redis()
+        cached_json = r.get(f"process_cache:{cache_key}")
+        if cached_json:
+            return _json.loads(cached_json)
+    except Exception:
+        pass  # Redis unavailable, proceed without cache
     
     user = User.query.filter_by(id=user_id).first()
 
@@ -386,7 +416,12 @@ def load_process():
         if entry is not None:
             process_dict[name] = entry
 
-    PROCESS_STATUS_CACHE[cache_key] = {"timestamp": now, "data": process_dict}
+    # Store in Redis cache with TTL
+    try:
+        r = _get_redis()
+        r.setex(f"process_cache:{cache_key}", _PROCESS_CACHE_TTL, _json.dumps(process_dict))
+    except Exception:
+        pass  # Redis unavailable — will just skip caching
     return process_dict
 
 
@@ -471,8 +506,7 @@ def add_process():
                 pass
             return jsonify({"error": compose_result.message if not compose_result.success else docker_result.message}), 400
 
-        os.chdir(process_dir)
-        subprocess.run(['docker-compose', 'up', '-d'], check=True)
+        subprocess.run(['docker', 'compose', 'up', '-d'], check=True, cwd=process_dir)
 
         update_process_runtime_metadata(new_process)
 
@@ -540,9 +574,8 @@ def settings_delete(name):
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         if os.path.exists(process_dir):
             try:
-                os.chdir(process_dir)
-                subprocess.run(['docker-compose', 'down'], check=True)
-                print(f"Process {name} stopped and removed successfully via docker-compose")
+                subprocess.run(['docker', 'compose', 'down'], check=True, cwd=process_dir)
+                print(f"Process {name} stopped and removed successfully via docker compose")
             except subprocess.CalledProcessError as e:
                 print(f"Error stopping process {name}: {e}")
 
@@ -616,9 +649,7 @@ def start_process_console(name):
                     "ok": False
                 }), 404
             
-            os.chdir(process_dir)
-            
-            subprocess.run(['docker-compose', 'up', '-d'], check=True, capture_output=True, text=True)
+            subprocess.run(['docker', 'compose', 'up', '-d'], check=True, capture_output=True, text=True, cwd=process_dir)
 
             time.sleep(2)
 
@@ -709,8 +740,7 @@ def stop_process_console(name):
                 return jsonify({"error": result["error"]}), 500
         else:
             # Use traditional container-level control
-            os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-            os.system('docker-compose stop')
+            subprocess.run(['docker', 'compose', 'stop'], cwd=os.path.join(ACTIVE_SERVERS_DIR, name))
 
             process.process_pid = None
             try:
@@ -785,9 +815,8 @@ def get_console_uptime(name):
 
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
-        result = subprocess.run(['docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
+        result = subprocess.run(['docker', 'compose', 'ps', '-q'], capture_output=True, text=True, check=True, cwd=process_dir)
         container_id = result.stdout.strip()
 
         if not container_id:
@@ -827,7 +856,7 @@ def console_stream_logs(name):
                 # For always-running containers, stream both container logs and process logs
                 container_id = None
                 try:
-                    result = subprocess.run(['docker-compose', 'ps', '-q', name], 
+                    result = subprocess.run(['docker', 'compose', 'ps', '-q', name], 
                                           capture_output=True, text=True, check=True, cwd=process_dir)
                     container_id = result.stdout.strip()
                 except Exception:
@@ -836,7 +865,7 @@ def console_stream_logs(name):
                 # Stream existing container logs first (last 20 lines)
                 if container_id:
                     try:
-                        container_logs = subprocess.run(['docker-compose', 'logs', '--tail', '150', '--timestamps', '--no-log-prefix'], 
+                        container_logs = subprocess.run(['docker', 'compose', 'logs', '--tail', '150', '--timestamps', '--no-log-prefix'], 
                                                       capture_output=True, text=True, cwd=process_dir)
                         if container_logs.stdout:
                             for line in container_logs.stdout.split('\n'):
@@ -956,7 +985,7 @@ def console_stream_logs(name):
             
             else:
                 # Traditional container log streaming (existing behavior)
-                logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
+                logs_command = ['docker', 'compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
                 docker_logs = subprocess.Popen(
                     logs_command,
                     cwd=process_dir,
@@ -1173,10 +1202,9 @@ def clear_logs(name):
 
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(['docker', 'compose', 'ps', '-q', name], capture_output=True, text=True, check=True, cwd=process_dir)
         container_id = result.stdout.strip()
 
         if not container_id:
@@ -1525,10 +1553,10 @@ def cloudflare_records(name):
 
 def rebuild_process(project_dir, name):
     try:
-        subprocess.run(['docker-compose', 'down'], cwd=project_dir, check=True)
+        subprocess.run(['docker', 'compose', 'down'], cwd=project_dir, check=True)
 
         process = subprocess.Popen(
-            ['docker-compose', 'build'],
+            ['docker', 'compose', 'build'],
             cwd=project_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
