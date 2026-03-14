@@ -115,8 +115,8 @@ def restart_nginx():
 
 
 def write_nginx_config(file_path, content):
-    """Write content to an Nginx configuration file."""
-    subprocess.run(["sudo", "sh", "-c", f"echo '{content}' > {file_path}"], check=True)
+    """Write content to an Nginx configuration file (safe — no shell injection)."""
+    subprocess.run(["sudo", "tee", file_path], input=content, text=True, check=True, stdout=subprocess.DEVNULL)
 
 
 def read_nginx_config(file_path):

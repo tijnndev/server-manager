@@ -3,9 +3,12 @@ from gevent import monkey
 # Patch standard library early for gevent compatibility (must happen before any other imports)
 monkey.patch_all()
 
-import redis, os, time, threading, requests, subprocess, signal, sys, cpuinfo, json, socket, psutil, hmac
+import redis, os, time, threading, subprocess, signal, sys, cpuinfo, json, socket, psutil, hmac, secrets, logging
 from flask import Flask, render_template, request, session, jsonify, g
 from flask_caching import Cache
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from models.user import User
 from models.user_settings import UserSettings
 from routes.file_manager import file_manager_routes
@@ -14,7 +17,6 @@ from routes.process import process_routes
 from routes.email import email_routes
 from routes.settings import settings_routes
 from flask_migrate import Migrate
-from routes.process import process_routes
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
@@ -25,6 +27,13 @@ from routes.git import git_routes
 from hashlib import sha256
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+)
+logger = logging.getLogger('server-manager')
 
 
 app = Flask(__name__)
@@ -55,6 +64,20 @@ app.config['CACHE_KEY_PREFIX'] = 'sm_'
 
 # Initialize cache
 cache = Cache(app)
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
+
+# Initialize rate limiter (uses Redis for shared state across workers)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    storage_uri=f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/2",
+    default_limits=["200 per minute"],
+)
+
+# Cache CPU name at startup since it never changes
+CPU_NAME = cpuinfo.get_cpu_info()["brand_raw"]
 
 ENVIRONMENT = os.getenv("ENVIRONMENT")
 
@@ -93,10 +116,16 @@ def timestamp_to_date_filter(timestamp):
 
 def create_admin_user():
     if User.query.count() == 0:
-        admin = User(username='admin', role="admin", email="test@gmail.com", password_hash=generate_password_hash('tDIg2uDuSOf0b!Uc82'))
+        admin_password = os.getenv('ADMIN_PASSWORD')
+        if not admin_password:
+            admin_password = secrets.token_urlsafe(16)
+            logger.warning(f"No ADMIN_PASSWORD env var set. Generated random password: {admin_password}")
+            logger.warning("Set ADMIN_PASSWORD in .env to use a fixed password.")
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@localhost')
+        admin = User(username='admin', role="admin", email=admin_email, password_hash=generate_password_hash(admin_password))
         db.session.add(admin)
         db.session.commit()
-        print("Admin user created successfully!")
+        logger.info("Admin user created successfully!")
 
 
 processed_events = {}
@@ -133,14 +162,24 @@ def handle_event(event):
 
 def start_listening_for_events():
     while True:
-        result = subprocess.run(["docker", "events", "--format", "{{json .}}"], capture_output=True, text=True, check=False)
-        for line in result.stdout.splitlines():
-            try:
-                event = json.loads(line)
-                handle_event(event)
-            except json.JSONDecodeError:
-                continue
-        time.sleep(1)
+        try:
+            process = subprocess.Popen(
+                ["docker", "events", "--format", "{{json .}}"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+            for line in iter(process.stdout.readline, ''):
+                try:
+                    event = json.loads(line.strip())
+                    handle_event(event)
+                except json.JSONDecodeError:
+                    continue
+            process.wait()
+        except Exception as e:
+            logger.error(f"Event listener error: {e}")
+        time.sleep(5)  # Retry after failure
 
                     
 def run_event_listener():
@@ -197,6 +236,9 @@ app.register_blueprint(file_manager_routes, url_prefix='/files')
 app.register_blueprint(nginx_routes, url_prefix='/nginx')
 app.register_blueprint(git_routes, url_prefix='/git')
 app.register_blueprint(auth_route, url_prefix='/auth')
+
+# Apply rate limiting to auth blueprint (brute-force protection)
+limiter.limit("5/minute")(auth_route)
 app.register_blueprint(email_routes, url_prefix='/email')
 app.register_blueprint(settings_routes, url_prefix='/settings')
 app.register_blueprint(activity_routes, url_prefix='/activity')
@@ -215,7 +257,7 @@ def dashboard():
 @cache.cached(timeout=5, key_prefix='server_stats')  # Cache for 5 seconds
 def get_server_stats():
     stats = {
-        "cpu_name": cpuinfo.get_cpu_info()["brand_raw"],
+        "cpu_name": CPU_NAME,
         "cpu_usage": psutil.cpu_percent(interval=1),
         "memory_allocated": psutil.virtual_memory().total // (1024 * 1024),
         "memory_usage": psutil.virtual_memory().percent,
@@ -278,14 +320,54 @@ def init_process_monitoring():
         from utils.process_monitor import start_process_monitoring
         # Start monitoring with 30 second interval
         start_process_monitoring(interval=30)
-        print("Process monitoring initialized")
+        logger.info("Process monitoring initialized")
     except Exception as e:
-        print(f"Failed to start process monitoring: {e}")
+        logger.error(f"Failed to start process monitoring: {e}")
 
 
 # Start monitoring when app starts (only in production)
 if ENVIRONMENT == "production":
     init_process_monitoring()
+
+
+@app.route('/health')
+@csrf.exempt
+def health_check():
+    """Health check endpoint for monitoring and load balancers."""
+    health = {"status": "ok", "checks": {}}
+
+    # Check database
+    try:
+        with app.app_context():
+            db.session.execute(db.text('SELECT 1'))
+        health["checks"]["database"] = "ok"
+    except Exception as e:
+        health["checks"]["database"] = f"error: {str(e)}"
+        health["status"] = "degraded"
+
+    # Check Redis
+    try:
+        test_redis = redis.StrictRedis(
+            host=os.getenv('REDIS_HOST', 'localhost'),
+            port=int(os.getenv('REDIS_PORT', 6379)),
+            decode_responses=True
+        )
+        test_redis.ping()
+        health["checks"]["redis"] = "ok"
+    except Exception as e:
+        health["checks"]["redis"] = f"error: {str(e)}"
+        health["status"] = "degraded"
+
+    # Check Docker daemon
+    try:
+        result = subprocess.run(['docker', 'info'], capture_output=True, text=True, timeout=5)
+        health["checks"]["docker"] = "ok" if result.returncode == 0 else "error"
+    except Exception as e:
+        health["checks"]["docker"] = f"error: {str(e)}"
+        health["status"] = "degraded"
+
+    status_code = 200 if health["status"] == "ok" else 503
+    return jsonify(health), status_code
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
 from flask import Blueprint, request, render_template, url_for, redirect, session, flash
 from models.user import User
 from werkzeug.security import generate_password_hash
-from utils import generate_random_string, send_email, generate_reset_email_body
+from utils import send_email, generate_reset_email_body
 from db import db
+import secrets
 
 auth_route = Blueprint('auth', __name__)
 
@@ -65,7 +66,7 @@ def reset_password():
         user = User.query.filter_by(email=email).first()
         
         if user:
-            token = generate_random_string(10)
+            token = secrets.token_urlsafe(32)
             user.reset_token = token
             db.session.add(user)
             db.session.commit()
