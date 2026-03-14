@@ -38,13 +38,13 @@ def get_process_status(name):
         if process.type == 'python':
             try:
                 process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-                os.chdir(process_dir)
 
                 result = subprocess.run(
-                    ["docker-compose", "ps", "-q", name],
+                    ["docker", "compose", "ps", "-q", name],
                     capture_output=True,
                     text=True,
                     check=True,
+                    cwd=process_dir,
                 )
                 container_id = result.stdout.strip()
 
@@ -78,13 +78,13 @@ def get_process_status(name):
         # Use traditional container status checking for legacy containers
         try:
             process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-            os.chdir(process_dir)
 
             result = subprocess.run(
-                ["docker-compose", "ps", "-q", name],
+                ["docker", "compose", "ps", "-q", name],
                 capture_output=True,
                 text=True,
                 check=True,
+                cwd=process_dir,
             )
             container_id = result.stdout.strip()
 
@@ -157,9 +157,10 @@ def send_email(
 
 
 def generate_random_string(length: int) -> str:
-    """Generates a random string of a specified length."""
-    characters = string.ascii_letters + string.digits
-    return "".join(random.choice(characters) for _ in range(length))
+    """Generates a cryptographically secure random string of a specified length."""
+    import secrets as _secrets
+    alphabet = string.ascii_letters + string.digits
+    return "".join(_secrets.choice(alphabet) for _ in range(length))
 
 
 def check_process_running_in_container(name):
