@@ -48,8 +48,10 @@ _DOCKER_PS_CACHE_TTL = 3  # seconds
 def _get_all_container_statuses():
     """
     Fetch ALL container statuses in a single 'docker ps -a' call.
-    Returns a dict mapping container name -> {id, status, state}.
-    This replaces N individual 'docker-compose ps' calls with 1 call.
+    Returns a dict mapping process name -> {id, status, state}.
+    Uses Docker Compose labels to correctly map container -> process name,
+    since docker-compose sets com.docker.compose.service=<service_name>
+    and the service name matches the process name in our compose files.
     """
     global _DOCKER_PS_CACHE, _DOCKER_PS_CACHE_TIMESTAMP
     now = time.time()
@@ -57,8 +59,10 @@ def _get_all_container_statuses():
         return _DOCKER_PS_CACHE
 
     try:
+        # Use Labels to extract the compose service name — this is always the process name
         result = subprocess.run(
-            ['docker', 'ps', '-a', '--format', '{{.ID}}|{{.Names}}|{{.State}}|{{.Status}}'],
+            ['docker', 'ps', '-a', '--format',
+             '{{.ID}}|{{.Names}}|{{.State}}|{{.Status}}|{{.Label "com.docker.compose.service"}}'],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode != 0:
@@ -68,15 +72,20 @@ def _get_all_container_statuses():
         for line in result.stdout.strip().splitlines():
             if not line.strip():
                 continue
-            parts = line.split('|', 3)
+            parts = line.split('|', 4)
             if len(parts) >= 3:
                 cid, name, state = parts[0], parts[1], parts[2]
                 status_text = parts[3] if len(parts) > 3 else state
-                # docker-compose names containers as <project>_<service>_1 or <project>-<service>-1
-                # Also store by the raw name for direct lookup
-                base_name = name.split('_')[0] if '_' in name else name.split('-')[0]
-                containers[name] = {'id': cid, 'state': state, 'status': status_text}
-                containers[base_name] = {'id': cid, 'state': state, 'status': status_text}
+                service_name = parts[4].strip() if len(parts) > 4 else ''
+
+                entry = {'id': cid, 'state': state, 'status': status_text}
+
+                # Store by full container name (for direct lookups)
+                containers[name] = entry
+
+                # Store by compose service name (= our process name) — this is the primary key
+                if service_name:
+                    containers[service_name] = entry
 
         _DOCKER_PS_CACHE = containers
         _DOCKER_PS_CACHE_TIMESTAMP = now
@@ -89,10 +98,13 @@ def _get_all_container_statuses():
 def _get_all_container_stats():
     """
     Fetch CPU/memory stats for ALL running containers in a single 'docker stats --no-stream' call.
-    Returns a dict mapping container name -> {cpu_percent, memory_percent, memory_mb}.
+    Returns a dict mapping process name -> {cpu_percent, memory_percent, memory_mb}.
     Replaces N individual 'docker stats' calls with 1 call.
     """
     try:
+        # First get the service name mapping from the status cache
+        container_statuses = _get_all_container_statuses()
+
         result = subprocess.run(
             ['docker', 'stats', '--no-stream', '--format', '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}'],
             capture_output=True, text=True, timeout=15
@@ -106,7 +118,7 @@ def _get_all_container_stats():
                 continue
             parts = line.split('|', 3)
             if len(parts) >= 3:
-                name = parts[0]
+                container_name = parts[0]
                 cpu_str = parts[1].replace('%', '').strip()
                 mem_str = parts[2].replace('%', '').strip()
 
@@ -123,14 +135,24 @@ def _get_all_container_stats():
                     elif 'KiB' in mem_usage:
                         memory_mb = float(mem_usage.replace('KiB', '').strip()) / 1024
 
-                base_name = name.split('_')[0] if '_' in name else name.split('-')[0]
                 entry = {
                     'cpu_percent': round(cpu_percent, 2),
                     'memory_percent': round(memory_percent, 2),
                     'memory_mb': round(memory_mb, 2)
                 }
-                stats[name] = entry
-                stats[base_name] = entry
+
+                # Store by full container name
+                stats[container_name] = entry
+
+                # Also map to process name: look up if this container name exists in
+                # the status cache (which maps it to the same entry as a service name)
+                if container_name in container_statuses:
+                    container_id = container_statuses[container_name]['id']
+                    # Find the service/process name that maps to the same container ID
+                    for key, val in container_statuses.items():
+                        if val['id'] == container_id and key != container_name:
+                            stats[key] = entry
+                            break
 
         return stats
     except (subprocess.TimeoutExpired, Exception) as e:
