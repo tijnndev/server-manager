@@ -20,7 +20,7 @@ from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash
 from db import db
 from dotenv import load_dotenv
-from utils import find_process_by_name
+from utils import find_process_by_name, get_process_status
 from routes.nginx import nginx_routes
 from decorators import auth_check, has_permission
 from routes.git import git_routes
@@ -309,7 +309,8 @@ def inject_static_vars():
     server_ip = socket.gethostbyname(socket.gethostname())
     return {
         'has_permission': has_permission,
-        'server_ip': server_ip
+        'server_ip': server_ip,
+        'get_process_status': get_process_status
     }
 
 

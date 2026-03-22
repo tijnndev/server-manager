@@ -1,6 +1,9 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+{% if process_status is not defined or not process_status %}
+    {% set process_status = get_process_status(process.name).get('status', 'Stopped') %}
+{% endif %}
 <div class="process-header">
     <h3 class="process-title">
         <i class="bi bi-box"></i> {{ process.name }}

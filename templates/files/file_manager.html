@@ -344,6 +344,7 @@
                         <td><span class="text-muted">{{ file.modified_time or '—' }}</span></td>
                         <td>
                             <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
                                 <input type="hidden" name="location" value="{{ current_location }}">
                                 <button type="submit" class="btn btn-outline-danger btn-sm">
@@ -371,6 +372,7 @@
                             <div class="btn-group">
                                 {% if file.name.endswith('.zip') %}
                                 <form action="{{ url_for('files.unzip_file', name=current_location) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="zip_path" value="{{ file.name }}">
                                     <button type="submit" class="btn btn-outline-info btn-sm">
                                         <i class="bi bi-file-zip"></i>
@@ -381,6 +383,7 @@
                                     <i class="bi bi-download"></i> Download
                                 </a>
                                 <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '{{ file.name }}');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
                                     <input type="hidden" name="location" value="{{ current_location }}">
                                     <button type="submit" class="btn btn-outline-danger btn-sm">
@@ -399,6 +402,7 @@
     <div class="card-footer">
         <h6><i class="bi bi-cloud-upload"></i> Upload Files</h6>
         <form action="{{ url_for('files.file_manager', name=process.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="input-group">
                 <input type="file" name="file" class="form-control" required>
                 <button type="submit" class="btn btn-primary w-auto">
@@ -568,7 +572,6 @@ function confirmDelete(form, filename) {
     if (typeof showToastWithUndo !== 'undefined') {
         const formData = new FormData(form);
         const filepath = formData.get('filename');
-        const location = formData.get('location');
         
         showConfirmation(`Delete '${filename}'?`, () => {
             // Perform delete
@@ -588,8 +591,8 @@ function confirmDelete(form, filename) {
                             showWarning('Undo not yet implemented on backend');
                         }
                     );
-                    // Reload after a delay
-                    setTimeout(() => location.reload(), 1500);
+                    // Reload to refresh the directory listing
+                    setTimeout(() => window.location.reload(), 1500);
                 } else {
                     showError('Failed to delete: ' + (data.error || 'Unknown error'));
                 }
@@ -602,7 +605,23 @@ function confirmDelete(form, filename) {
         // Fallback to old confirm
         const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
         if (userConfirmed) {
-            form.submit();
+            // Use fetch for the fallback too so we can refresh properly
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to delete: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error deleting file: ' + error.message);
+            });
         }
     }
     

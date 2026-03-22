@@ -9,6 +9,7 @@
             </div>
             <div class="card-body">
                 <form action="{{ url_for('process.invite_subuser', name=process.name)}}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Email Address</label>
@@ -72,6 +73,7 @@
                             <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'Unknown' }}</td>
                             <td>
                                 <form action="/process/subusers/{{process.name}}/delete/{{user.id}}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this user?')">
                                         <i class="bi bi-person-dash"></i>
                                     </button>
