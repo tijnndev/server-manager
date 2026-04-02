@@ -302,9 +302,6 @@
                 </td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 40px; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
-                            <div style="width: ${cpuUsage}%; height: 100%; background: ${cpuUsage > 80 ? 'var(--accent-red)' : cpuUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};"></div>
-                        </div>
                         <span style="font-size: 12px; color: var(--text-secondary);">${cpuUsage}%</span>
                     </div>
                 </td>
@@ -382,11 +379,8 @@
             const memUsage = process.metrics?.memory_mb || 0;
             
             // Update CPU
-            const cpuBar = row.querySelector('td:nth-child(5) div div');
             const cpuText = row.querySelector('td:nth-child(5) span');
-            if (cpuBar && cpuText) {
-                cpuBar.style.width = `${cpuUsage}%`;
-                cpuBar.style.background = cpuUsage > 80 ? 'var(--accent-red)' : cpuUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+            if (cpuText) {
                 cpuText.textContent = `${cpuUsage}%`;
             }
             
