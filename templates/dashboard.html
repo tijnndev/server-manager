@@ -310,10 +310,7 @@
                 </td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 40px; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
-                            <div style="width: ${memUsage}%; height: 100%; background: ${memUsage > 80 ? 'var(--accent-red)' : memUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};"></div>
-                        </div>
-                        <span style="font-size: 12px; color: var(--text-secondary);">${memUsage}%</span>
+                        <span style="font-size: 12px; color: var(--text-secondary);">${memUsage} MB</span>
                     </div>
                 </td>
                 <td>
@@ -382,7 +379,7 @@
             if (!row) continue;
             
             const cpuUsage = process.metrics?.cpu_percent || 0;
-            const memUsage = process.metrics?.memory_percent || 0;
+            const memUsage = process.metrics?.memory_mb || 0;
             
             // Update CPU
             const cpuBar = row.querySelector('td:nth-child(5) div div');
@@ -394,12 +391,9 @@
             }
             
             // Update Memory
-            const memBar = row.querySelector('td:nth-child(6) div div');
             const memText = row.querySelector('td:nth-child(6) span');
-            if (memBar && memText) {
-                memBar.style.width = `${memUsage}%`;
-                memBar.style.background = memUsage > 80 ? 'var(--accent-red)' : memUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)';
-                memText.textContent = `${memUsage}%`;
+            if (memText) {
+                memText.textContent = `${memUsage} MB`;
             }
         }
     }

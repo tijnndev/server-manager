@@ -111,7 +111,7 @@ def _get_all_container_statuses():
         return _DOCKER_PS_CACHE  # Return stale cache
 
 
-def _get_all_container_stats():
+def get_all_container_stats():
     """
     Fetch CPU/memory stats for ALL running containers in a single 'docker stats --no-stream' call.
     Returns a dict mapping process name -> {cpu_percent, memory_percent, memory_mb}.
@@ -438,7 +438,7 @@ def get_all_process_metrics():
     Returns JSON mapping process name -> {cpu_percent, memory_percent, memory_mb}.
     Replaces N individual /metrics/<name> calls from the dashboard.
     """
-    stats = _get_all_container_stats()
+    stats = get_all_container_stats()
     return jsonify(stats)
 
 
