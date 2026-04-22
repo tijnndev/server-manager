@@ -6,28 +6,54 @@ from utils import find_process_by_name
 email_routes = Blueprint('email', __name__)
 
 
-@email_routes.route('<name>', methods=['GET'])
-@owner_or_subuser_required()
-def email(name):
-    process = find_process_by_name(name)
+def list_email_users():
+    """List configured email users from the mailserver container."""
     users = []
+    try:
+        list_result = subprocess.run(
+            ["docker", "exec", "mailserver", "setup", "email", "list"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=35
+        )
 
-    list_result = subprocess.run(
-        ["docker", "exec", "mailserver", "setup", "email", "list"],
-        capture_output=True,
-        text=True, check=False
-    )
+        if list_result.returncode != 0:
+            return users, list_result.stderr.strip() or "Failed to list email accounts"
 
-    if list_result.returncode == 0:
-        users = []
         for line in list_result.stdout.strip().splitlines():
             parts = line.split()
-            if parts and len(parts) > 0:
+            if len(parts) > 1:
                 email = parts[1]
                 if "@" in email:
                     users.append(email)
 
-    return render_template("email/index.html", process=process, users=users, page_title="Email")
+        return users, None
+    except subprocess.TimeoutExpired:
+        return users, "Timed out while fetching email accounts"
+    except Exception as e:
+        return users, str(e)
+
+
+@email_routes.route('<name>', methods=['GET'])
+@owner_or_subuser_required()
+def email(name):
+    process = find_process_by_name(name)
+    return render_template("email/index.html", process=process, page_title="Email")
+
+
+@email_routes.route('<name>/api/accounts', methods=['GET'])
+@owner_or_subuser_required()
+def list_email_accounts(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    users, error = list_email_users()
+    if error:
+        return jsonify({"success": False, "error": error, "users": users}), 500
+
+    return jsonify({"success": True, "users": users})
 
 
 @email_routes.route('<name>/create', methods=['POST'])
