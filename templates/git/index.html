@@ -214,6 +214,8 @@
 
                 // Actions
                 const actionsTd = document.createElement('td');
+                const actionsWrapper = document.createElement('div');
+                actionsWrapper.className = 'd-flex flex-wrap gap-1';
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
                 
                 const pullForm = document.createElement('form');
@@ -232,7 +234,7 @@
                 pullBtn.className = 'btn btn-sm btn-info me-1';
                 pullBtn.innerHTML = '<i class="bi bi-arrow-down-circle"></i> Pull Latest';
                 pullForm.appendChild(pullBtn);
-                actionsTd.appendChild(pullForm);
+                actionsWrapper.appendChild(pullForm);
 
                 const removeForm = document.createElement('form');
                 removeForm.action = `/git/${processName}/remove_git_integration/${integration.id}`;
@@ -251,7 +253,8 @@
                 removeBtn.className = 'btn btn-sm btn-danger';
                 removeBtn.innerHTML = '<i class="bi bi-trash"></i> Remove';
                 removeForm.appendChild(removeBtn);
-                actionsTd.appendChild(removeForm);
+                actionsWrapper.appendChild(removeForm);
+                actionsTd.appendChild(actionsWrapper);
 
                 tr.appendChild(actionsTd);
                 fragment.appendChild(tr);
