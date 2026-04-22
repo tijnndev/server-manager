@@ -13,6 +13,32 @@ ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 TRASH_DIR = os.path.join(BASE_DIR, '.trash')
 
 
+def get_file_entries(current_location, relative_location):
+    """Return file metadata for the given directory."""
+    files = []
+    with os.scandir(current_location) as entries:
+        for entry in entries:
+            try:
+                is_dir = entry.is_dir(follow_symlinks=False)
+                stat = entry.stat(follow_symlinks=False)
+                file_size = None if is_dir else stat.st_size
+                modified_time = stat.st_mtime
+            except OSError:
+                is_dir = False
+                file_size = None
+                modified_time = None
+
+            files.append({
+                'name': entry.name,
+                'is_directory': is_dir,
+                'path': os.path.join(relative_location, entry.name) if relative_location != '.' else entry.name,
+                'size': file_size,
+                'modified_time': modified_time
+            })
+
+    return sorted(files, key=lambda f: (not f['is_directory'], f['name'].lower()))
+
+
 def sanitize_path(base, target):
     """Ensure target path stays within the base directory."""
     normalized_path = os.path.abspath(os.path.normpath(os.path.join(base, target)))
@@ -42,27 +68,6 @@ def file_manager(name):
         return redirect(url_for('files.file_manager', name=process.name, location=""))
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
-    files = []
-    with os.scandir(current_location) as entries:
-        for entry in entries:
-            try:
-                is_dir = entry.is_dir(follow_symlinks=False)
-                stat = entry.stat(follow_symlinks=False)
-                file_size = None if is_dir else stat.st_size
-                modified_time = stat.st_mtime
-            except OSError:
-                is_dir = False
-                file_size = None
-                modified_time = None
-
-            files.append({
-                'name': entry.name,
-                'is_directory': is_dir,
-                'path': os.path.join(relative_location, entry.name) if relative_location != '.' else entry.name,
-                'size': file_size,
-                'modified_time': modified_time
-            })
-
     if request.method == 'POST':
         uploaded_file = request.files.get('file')
         if uploaded_file:
@@ -81,8 +86,33 @@ def file_manager(name):
                 return redirect(url_for('files.file_manager', name=process.name, location=relative_location))
             except ValueError:
                 flash("Invalid upload path.", "danger")
-    
-    return render_template('files/file_manager.html', files=files, current_location=relative_location, page_title="File Manager", process=process)
+
+    return render_template('files/file_manager.html', current_location=relative_location, page_title="File Manager", process=process)
+
+
+@file_manager_routes.route('/<name>/file-manager/list', methods=['GET'])
+@owner_or_subuser_required()
+def list_files(name):
+    process = find_process_by_name(name)
+    location_param = request.args.get('location', name)
+
+    if not location_param:
+        location_param = name
+
+    try:
+        current_location = sanitize_path(ACTIVE_SERVERS_DIR, location_param)
+    except ValueError:
+        return jsonify({"success": False, "error": "Invalid path"}), 400
+
+    if os.path.join(ACTIVE_SERVERS_DIR, name) not in current_location:
+        return jsonify({"success": False, "error": "Invalid path"}), 400
+
+    if not os.path.exists(current_location):
+        return jsonify({"success": False, "error": "Path does not exist"}), 404
+
+    relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
+    files = get_file_entries(current_location, relative_location)
+    return jsonify({"success": True, "files": files})
 
 
 @file_manager_routes.route('/<name>/file-manager/delete', methods=['POST'])

@@ -12,8 +12,6 @@ nginx_routes = Blueprint('nginx', __name__)
 @nginx_routes.route('/<name>', methods=['GET', 'POST'])
 @owner_or_subuser_required()
 def nginx(name):
-    from utils import get_domain_status
-    
     process = find_process_by_name(name)
     
     # Use process name for nginx files
@@ -24,14 +22,6 @@ def nginx(name):
     domain_name = process.domain or name
     cert_path = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
     
-    # Get domain status if domain is configured
-    domain_status = None
-    if process.domain:
-        try:
-            domain_status = get_domain_status(process.domain, process_name=name)
-        except Exception as e:
-            print(f"Failed to get domain status: {e}")
-
     if request.method == 'POST':
         action = request.form.get("action")
 
@@ -53,7 +43,27 @@ def nginx(name):
                            process=process,
                            nginx_content=read_nginx_config(nginx_file_path),
                            cert_exists=os.path.exists(cert_path),
-                           domain_status=domain_status)
+                           domain_status=None)
+
+
+@nginx_routes.route('/<name>/api/domain-status', methods=['GET'])
+@owner_or_subuser_required()
+def nginx_domain_status(name):
+    from flask import jsonify
+    from utils import get_domain_status
+
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    if not process.domain:
+        return jsonify({"success": True, "domain_status": None})
+
+    try:
+        domain_status = get_domain_status(process.domain, process_name=name)
+        return jsonify({"success": True, "domain_status": domain_status})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 def create_nginx_config(process, domain_name, nginx_file_path, nginx_enabled_path):

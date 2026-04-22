@@ -67,21 +67,9 @@
                                 <div class="fs-5 fw-bold">{{ process.domain }}</div>
                                 <small class="text-muted">Configured in <a href="{{ url_for('process.settings', name=process.name) }}">Process Settings</a></small>
                             </div>
-                            {% if domain_status %}
-                                <div>
-                                    {% if domain_status.overall_status == 'healthy' %}
-                                        <span class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Healthy</span>
-                                    {% elif domain_status.overall_status == 'ssl_expired' %}
-                                        <span class="badge bg-danger fs-6"><i class="bi bi-shield-x"></i> SSL Expired</span>
-                                    {% elif domain_status.overall_status == 'no_ssl' %}
-                                        <span class="badge bg-info fs-6"><i class="bi bi-shield-exclamation"></i> No SSL</span>
-                                    {% elif domain_status.overall_status in ['dns_error', 'dns_warning'] %}
-                                        <span class="badge bg-warning fs-6"><i class="bi bi-exclamation-triangle"></i> DNS Issue</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary fs-6"><i class="bi bi-gear"></i> Needs Config</span>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
+                            <div id="domain-status-badge-wrap">
+                                <div class="skeleton skeleton-text" style="width: 120px; height: 28px;"></div>
+                            </div>
                         </div>
                     </div>
                 {% endif %}
@@ -128,53 +116,17 @@
     </div>
 
     <div class="col-xl-4">
-        {% if domain_status and process.domain %}
-        <div class="card mb-3">
-            <div class="card-header {% if domain_status.overall_status == 'healthy' %}bg-success{% elif domain_status.overall_status in ['ssl_expired', 'dns_error'] %}bg-danger{% elif domain_status.overall_status in ['dns_warning', 'no_ssl'] %}bg-warning{% else %}bg-secondary{% endif %}">
+        {% if process.domain %}
+        <div class="card mb-3" id="domain-health-card">
+            <div class="card-header bg-secondary" id="domain-health-header">
                 <i class="bi bi-speedometer2"></i> Domain Health Check
             </div>
-            <div class="card-body">
-                <h6>DNS Status</h6>
-                {% if domain_status.dns %}
-                    {% if domain_status.dns.status == 'healthy' %}
-                        <div class="alert alert-success py-2 small mb-2">
-                            <i class="bi bi-check-circle"></i> Domain correctly points to server
-                        </div>
-                        {% if domain_status.dns.records.A %}
-                        <small class="text-muted d-block mb-2">A Records: {{ domain_status.dns.records.A|join(', ') }}</small>
-                        {% endif %}
-                    {% elif domain_status.dns.status == 'error' %}
-                        <div class="alert alert-danger py-2 small mb-2">
-                            <i class="bi bi-x-circle"></i> {{ domain_status.dns.errors|join(', ') }}
-                        </div>
-                    {% else %}
-                        <div class="alert alert-warning py-2 small mb-2">
-                            <i class="bi bi-exclamation-triangle"></i> {{ domain_status.dns.warnings|join(', ') }}
-                        </div>
-                    {% endif %}
-                {% endif %}
-
-                <h6 class="mt-3">SSL Certificate</h6>
-                {% if domain_status.ssl %}
-                    {% if domain_status.ssl.exists and domain_status.ssl.valid %}
-                        <div class="alert alert-success py-2 small mb-2">
-                            <i class="bi bi-shield-check"></i> Valid certificate
-                        </div>
-                        <small class="text-muted d-block">Expires: {{ domain_status.ssl.expiration_date }}</small>
-                        <small class="text-muted d-block">Days left: {{ domain_status.ssl.days_until_expiry }}</small>
-                        {% if domain_status.ssl.is_wildcard %}
-                        <span class="badge bg-info mt-1">Wildcard</span>
-                        {% endif %}
-                    {% elif domain_status.ssl.exists %}
-                        <div class="alert alert-danger py-2 small mb-2">
-                            <i class="bi bi-shield-x"></i> {{ domain_status.ssl.errors|join(', ') }}
-                        </div>
-                    {% else %}
-                        <div class="alert alert-info py-2 small mb-2">
-                            <i class="bi bi-shield-exclamation"></i> No SSL certificate installed
-                        </div>
-                    {% endif %}
-                {% endif %}
+            <div class="card-body" id="domain-health-body">
+                <div class="skeleton skeleton-text mb-2" style="width: 160px;"></div>
+                <div class="skeleton skeleton-text mb-2" style="width: 100%; height: 40px;"></div>
+                <div class="skeleton skeleton-text mb-3" style="width: 70%;"></div>
+                <div class="skeleton skeleton-text mb-2" style="width: 140px;"></div>
+                <div class="skeleton skeleton-text" style="width: 100%; height: 40px;"></div>
             </div>
         </div>
         {% endif %}
@@ -213,18 +165,141 @@
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
 <script>
-var editor = ace.edit("editor", {
-    theme: "ace/theme/tomorrow_night_bright",
-});
-editor.session.setMode("ace/mode/nginx");
+let editor = null;
+const editorElement = document.getElementById("editor");
+if (editorElement) {
+    editor = ace.edit("editor", {
+        theme: "ace/theme/tomorrow_night_bright",
+    });
+    editor.session.setMode("ace/mode/nginx");
 
-var fileContent = {{ nginx_content|tojson }};
-if (fileContent) {
-    editor.setValue(fileContent);
+    const fileContent = {{ nginx_content|tojson }};
+    if (fileContent) {
+        editor.setValue(fileContent);
+    }
 }
 
-document.querySelector("form").addEventListener("submit", function() {
-    document.getElementById("nginx_config").value = editor.getValue();
-});
+const nginxForm = document.querySelector("form");
+if (nginxForm) {
+    nginxForm.addEventListener("submit", function() {
+        const hiddenConfig = document.getElementById("nginx_config");
+        if (hiddenConfig && editor) {
+            hiddenConfig.value = editor.getValue();
+        }
+    });
+}
+
+const processName = "{{ process.name }}";
+
+function renderDomainBadge(domainStatus) {
+    const wrap = document.getElementById('domain-status-badge-wrap');
+    if (!wrap) return;
+
+    if (!domainStatus) {
+        wrap.innerHTML = '<span class="badge bg-secondary fs-6"><i class="bi bi-gear"></i> Needs Config</span>';
+        return;
+    }
+
+    let badgeHtml = '<span class="badge bg-secondary fs-6"><i class="bi bi-gear"></i> Needs Config</span>';
+    if (domainStatus.overall_status === 'healthy') {
+        badgeHtml = '<span class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Healthy</span>';
+    } else if (domainStatus.overall_status === 'ssl_expired') {
+        badgeHtml = '<span class="badge bg-danger fs-6"><i class="bi bi-shield-x"></i> SSL Expired</span>';
+    } else if (domainStatus.overall_status === 'no_ssl') {
+        badgeHtml = '<span class="badge bg-info fs-6"><i class="bi bi-shield-exclamation"></i> No SSL</span>';
+    } else if (domainStatus.overall_status === 'dns_error' || domainStatus.overall_status === 'dns_warning') {
+        badgeHtml = '<span class="badge bg-warning fs-6"><i class="bi bi-exclamation-triangle"></i> DNS Issue</span>';
+    }
+
+    wrap.innerHTML = badgeHtml;
+}
+
+function renderDomainHealthCard(domainStatus) {
+    const card = document.getElementById('domain-health-card');
+    if (!card) return;
+
+    const header = document.getElementById('domain-health-header');
+    const body = document.getElementById('domain-health-body');
+
+    if (!domainStatus) {
+        header.className = 'card-header bg-secondary';
+        body.innerHTML = '<div class="alert alert-secondary py-2 small mb-0"><i class="bi bi-info-circle"></i> Domain status not available.</div>';
+        return;
+    }
+
+    if (domainStatus.overall_status === 'healthy') {
+        header.className = 'card-header bg-success';
+    } else if (domainStatus.overall_status === 'ssl_expired' || domainStatus.overall_status === 'dns_error') {
+        header.className = 'card-header bg-danger';
+    } else if (domainStatus.overall_status === 'dns_warning' || domainStatus.overall_status === 'no_ssl') {
+        header.className = 'card-header bg-warning';
+    } else {
+        header.className = 'card-header bg-secondary';
+    }
+
+    let dnsHtml = '<div class="alert alert-secondary py-2 small mb-2"><i class="bi bi-info-circle"></i> DNS data unavailable</div>';
+    if (domainStatus.dns) {
+        if (domainStatus.dns.status === 'healthy') {
+            const aRecords = domainStatus.dns.records && domainStatus.dns.records.A ? domainStatus.dns.records.A.join(', ') : '';
+            dnsHtml = `
+                <div class="alert alert-success py-2 small mb-2">
+                    <i class="bi bi-check-circle"></i> Domain correctly points to server
+                </div>
+                ${aRecords ? `<small class="text-muted d-block mb-2">A Records: ${aRecords}</small>` : ''}
+            `;
+        } else if (domainStatus.dns.status === 'error') {
+            dnsHtml = `<div class="alert alert-danger py-2 small mb-2"><i class="bi bi-x-circle"></i> ${(domainStatus.dns.errors || []).join(', ')}</div>`;
+        } else {
+            dnsHtml = `<div class="alert alert-warning py-2 small mb-2"><i class="bi bi-exclamation-triangle"></i> ${(domainStatus.dns.warnings || []).join(', ')}</div>`;
+        }
+    }
+
+    let sslHtml = '<div class="alert alert-secondary py-2 small mb-0"><i class="bi bi-info-circle"></i> SSL data unavailable</div>';
+    if (domainStatus.ssl) {
+        if (domainStatus.ssl.exists && domainStatus.ssl.valid) {
+            sslHtml = `
+                <div class="alert alert-success py-2 small mb-2">
+                    <i class="bi bi-shield-check"></i> Valid certificate
+                </div>
+                <small class="text-muted d-block">Expires: ${domainStatus.ssl.expiration_date}</small>
+                <small class="text-muted d-block">Days left: ${domainStatus.ssl.days_until_expiry}</small>
+                ${domainStatus.ssl.is_wildcard ? '<span class="badge bg-info mt-1">Wildcard</span>' : ''}
+            `;
+        } else if (domainStatus.ssl.exists) {
+            sslHtml = `<div class="alert alert-danger py-2 small mb-0"><i class="bi bi-shield-x"></i> ${(domainStatus.ssl.errors || []).join(', ')}</div>`;
+        } else {
+            sslHtml = '<div class="alert alert-info py-2 small mb-0"><i class="bi bi-shield-exclamation"></i> No SSL certificate installed</div>';
+        }
+    }
+
+    body.innerHTML = `
+        <h6>DNS Status</h6>
+        ${dnsHtml}
+        <h6 class="mt-3">SSL Certificate</h6>
+        ${sslHtml}
+    `;
+}
+
+async function loadDomainStatus() {
+    try {
+        const response = await fetch(`/nginx/${processName}/api/domain-status`);
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            renderDomainBadge(null);
+            renderDomainHealthCard(null);
+            return;
+        }
+
+        renderDomainBadge(data.domain_status);
+        renderDomainHealthCard(data.domain_status);
+    } catch (error) {
+        console.error('Failed to load domain status:', error);
+        renderDomainBadge(null);
+        renderDomainHealthCard(null);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadDomainStatus);
 </script>
 {% endblock %}
