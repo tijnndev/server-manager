@@ -1,13 +1,13 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+{% if process_status is not defined or not process_status %}
+    {% set process_status = get_process_status(process.name).get('status', 'Stopped') %}
+{% endif %}
 <div class="process-header">
     <h3 class="process-title">
-        <script>
-        console.log("{{ process.status }}");
-        </script>
         <i class="bi bi-box"></i> {{ process.name }}
-        {% if process.status|lower == 'running' %}
+        {% if process_status|lower == 'running' %}
         <span class="badge bg-success">Running</span>
         {% else %}
         <span class="badge bg-secondary">Stopped</span>

@@ -3,7 +3,6 @@
 {% block process_content %}
 <div class="row gap-0">
     <div class="col-xl-8">
-        {% if integrations %}
         <div class="card">
             <div class="card-header">
                 <i class="bi bi-folder-git"></i> Git Repositories
@@ -22,7 +21,6 @@
                     </thead>
                     <tbody id="git-repos-tbody">
                         <!-- Skeleton loader -->
-                        {% for integration in integrations %}
                         <tr class="skeleton-row">
                             <td><div class="skeleton skeleton-text" style="width: 180px;"></div></td>
                             <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
@@ -31,13 +29,27 @@
                             <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
                             <td><div class="skeleton skeleton-button" style="width: 200px;"></div></td>
                         </tr>
-                        {% endfor %}
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 160px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 130px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 110px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 170px;"></div></td>
+                        </tr>
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 90px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 70px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 125px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 95px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 210px;"></div></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
-        {% else %}
-        <div class="card">
+        <div class="card mt-3 d-none" id="git-empty-state">
             <div class="card-header">
                 <i class="bi bi-plus-circle"></i> Add Git Repository
             </div>
@@ -48,7 +60,6 @@
                 </a>
             </div>
         </div>
-        {% endif %}
     </div>
 
     <div class="col-xl-4">
@@ -85,9 +96,19 @@
     </div>
 </div>
 
-{% if integrations %}
 <script>
     const processName = "{{ process.name }}";
+
+    function renderErrorState(message) {
+        const tbody = document.getElementById('git-repos-tbody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-danger py-3">
+                    <i class="bi bi-exclamation-triangle"></i> ${message}
+                </td>
+            </tr>
+        `;
+    }
 
     async function loadGitData() {
         try {
@@ -95,12 +116,29 @@
             const data = await response.json();
 
             if (!data.success) {
+                renderErrorState('Failed to load repository data.');
                 console.error('Failed to load git data:', data.error);
                 return;
             }
 
             const tbody = document.getElementById('git-repos-tbody');
+            const emptyState = document.getElementById('git-empty-state');
             tbody.innerHTML = '';
+
+            if (!data.integrations || data.integrations.length === 0) {
+                emptyState.classList.remove('d-none');
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-muted py-3">
+                            <i class="bi bi-info-circle"></i> No repositories connected yet.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            emptyState.classList.add('d-none');
+            const fragment = document.createDocumentFragment();
 
             data.integrations.forEach(integration => {
                 // Main repository row
@@ -176,11 +214,19 @@
 
                 // Actions
                 const actionsTd = document.createElement('td');
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
                 
                 const pullForm = document.createElement('form');
                 pullForm.action = `/git/${processName}/pull_latest/${integration.id}`;
                 pullForm.method = 'POST';
                 pullForm.className = 'd-inline';
+                if (csrfToken) {
+                    const pullCsrf = document.createElement('input');
+                    pullCsrf.type = 'hidden';
+                    pullCsrf.name = 'csrf_token';
+                    pullCsrf.value = csrfToken;
+                    pullForm.appendChild(pullCsrf);
+                }
                 const pullBtn = document.createElement('button');
                 pullBtn.type = 'submit';
                 pullBtn.className = 'btn btn-sm btn-info me-1';
@@ -193,6 +239,13 @@
                 removeForm.method = 'POST';
                 removeForm.className = 'd-inline';
                 removeForm.onsubmit = () => confirm('Remove this repository?');
+                if (csrfToken) {
+                    const removeCsrf = document.createElement('input');
+                    removeCsrf.type = 'hidden';
+                    removeCsrf.name = 'csrf_token';
+                    removeCsrf.value = csrfToken;
+                    removeForm.appendChild(removeCsrf);
+                }
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'submit';
                 removeBtn.className = 'btn btn-sm btn-danger';
@@ -201,7 +254,7 @@
                 actionsTd.appendChild(removeForm);
 
                 tr.appendChild(actionsTd);
-                tbody.appendChild(tr);
+                fragment.appendChild(tr);
 
                 // Remote changes row
                 if (integration.remote_changes && integration.remote_changes.length > 0) {
@@ -246,7 +299,7 @@
                     
                     remoteTd.appendChild(remoteList);
                     remoteRow.appendChild(remoteTd);
-                    tbody.appendChild(remoteRow);
+                    fragment.appendChild(remoteRow);
                 }
 
                 // Local changes row
@@ -291,10 +344,13 @@
                     
                     localTd.appendChild(localList);
                     localRow.appendChild(localTd);
-                    tbody.appendChild(localRow);
+                    fragment.appendChild(localRow);
                 }
             });
+
+            tbody.appendChild(fragment);
         } catch (error) {
+            renderErrorState('Error while loading repository data.');
             console.error('Error loading git data:', error);
         }
     }
@@ -302,6 +358,5 @@
     // Load data when page loads
     document.addEventListener('DOMContentLoaded', loadGitData);
 </script>
-{% endif %}
 {% endblock %}
 

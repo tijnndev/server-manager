@@ -36,10 +36,12 @@
             </div>
         </div>
 
-        {% if users|length > 0 %}
         <div class="card mt-3">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <i class="bi bi-envelope"></i> Current Email Accounts
+                <button type="button" class="btn btn-sm btn-outline-info" onclick="loadEmailAccounts()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
@@ -49,34 +51,29 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for user in users %}
-                            <tr>
-                                <td>{{ user }}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning me-1" onclick="editPassword('{{ user }}')">
-                                        <i class="bi bi-pencil"></i> Edit Password
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteEmail('{{ user }}')">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        {% endfor %}
+                    <tbody id="email-accounts-tbody">
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 240px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 210px;"></div></td>
+                        </tr>
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 230px;"></div></td>
+                        </tr>
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 260px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 190px;"></div></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-        </div>
-        {% else %}
-        <div class="card mt-3">
-            <div class="card-body">
-                <div class="text-center py-4">
-                    <i class="bi bi-envelope display-4 text-muted"></i>
-                    <p class="text-muted mt-3">No email accounts configured for this process.</p>
+            <div class="card-body d-none" id="email-load-error">
+                <div class="alert alert-danger mb-0">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Failed to load email accounts.
                 </div>
             </div>
         </div>
-        {% endif %}
     </div>
 
     <div class="col-xl-4">
@@ -186,6 +183,77 @@
 </style>
 
 <script>
+const processName = "{{ process.name }}";
+
+function renderEmailAccounts(users) {
+    const tbody = document.getElementById('email-accounts-tbody');
+    const errorBox = document.getElementById('email-load-error');
+    errorBox.classList.add('d-none');
+    tbody.innerHTML = '';
+
+    if (!users || users.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 2;
+        td.className = 'text-center py-4 text-muted';
+        td.innerHTML = '<i class="bi bi-envelope display-6 d-block mb-2"></i>No email accounts configured for this process.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    users.forEach((userEmail) => {
+        const tr = document.createElement('tr');
+
+        const emailTd = document.createElement('td');
+        emailTd.textContent = userEmail;
+
+        const actionsTd = document.createElement('td');
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm btn-warning me-1';
+        editBtn.innerHTML = '<i class="bi bi-pencil"></i> Edit Password';
+        editBtn.addEventListener('click', () => editPassword(userEmail));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-sm btn-danger';
+        deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Delete';
+        deleteBtn.addEventListener('click', () => deleteEmail(userEmail));
+
+        actionsTd.appendChild(editBtn);
+        actionsTd.appendChild(deleteBtn);
+        tr.appendChild(emailTd);
+        tr.appendChild(actionsTd);
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
+}
+
+function renderEmailLoadError(message) {
+    const errorBox = document.getElementById('email-load-error');
+    errorBox.classList.remove('d-none');
+    errorBox.querySelector('.alert').innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${message}`;
+}
+
+async function loadEmailAccounts() {
+    try {
+        const response = await fetch(`/email/${processName}/api/accounts`);
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            renderEmailLoadError(data.error || 'Failed to load email accounts.');
+            return;
+        }
+
+        renderEmailAccounts(data.users || []);
+    } catch (error) {
+        console.error('Error loading email accounts:', error);
+        renderEmailLoadError('Error while loading email accounts.');
+    }
+}
+
 function generatePassword() {
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+";
     let password = "";
@@ -232,6 +300,10 @@ function createEmail() {
     .then(data => {
         if (data.message) {
             alert(data.message);
+            document.getElementById("email").value = "";
+            document.getElementById("password").value = "";
+            document.getElementById("generated-password-container").style.display = "none";
+            loadEmailAccounts();
         } else if (data.error) {
             alert(`Error: ${data.error}`);
         }
@@ -284,7 +356,7 @@ function updatePassword() {
         if (data.message) {
             alert(data.message);
             closeEditPasswordModal();
-            location.reload();
+            loadEmailAccounts();
         } else if (data.error) {
             alert(`Error: ${data.error}`);
         }
@@ -308,7 +380,7 @@ function deleteEmail(email) {
         .then(data => {
             if (data.message) {
                 alert(data.message);
-                location.reload();
+                loadEmailAccounts();
             } else if (data.error) {
                 alert(`Error: ${data.error}`);
             }
@@ -319,5 +391,7 @@ function deleteEmail(email) {
         });
     }
 }
+
+document.addEventListener('DOMContentLoaded', loadEmailAccounts);
 </script>
 {% endblock %}

@@ -2,13 +2,13 @@ from collections import defaultdict
 from queue import Queue
 import shutil
 import threading
-import time, yaml
+import time
+import yaml
 import subprocess
 from flask import stream_with_context
 from flask import Blueprint, jsonify, redirect, request, render_template, Response, url_for, flash, session
-import os, json, re, pytz
+import os, re
 import shlex
-import sys
 from datetime import datetime, UTC, timedelta
 from db import db
 from models.process import Process
@@ -36,28 +36,209 @@ PROCESS_DIRECTORY = 'active-servers'
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
 
-# Lightweight in-memory cache to avoid repeated docker status calls during rapid page loads
-PROCESS_STATUS_CACHE = {}
-PROCESS_STATUS_CACHE_TTL = 5  # seconds
+# Lightweight Redis-backed cache to avoid repeated docker status calls during rapid page loads
+# Uses Flask-Caching Redis backend (configured in app.py) for cross-worker consistency
+import json as _json
+import redis as _redis
+
+_PROCESS_CACHE_TTL = 5  # seconds
+_redis_client = None
+
+
+def _get_redis():
+    """Lazy-init a Redis client for the process status cache."""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = _redis.StrictRedis(
+            host=os.getenv('REDIS_HOST', 'localhost'),
+            port=int(os.getenv('REDIS_PORT', 6379)),
+            decode_responses=True
+        )
+    return _redis_client
+
+# Global cache for batch docker status lookups (avoids per-container subprocess calls)
+_DOCKER_PS_CACHE = {}
+_DOCKER_PS_CACHE_TIMESTAMP = 0
+_DOCKER_PS_CACHE_TTL = 3  # seconds
+
+
+def _get_all_container_statuses():
+    """
+    Fetch ALL container statuses in a single 'docker ps -a' call.
+    Returns a dict mapping process name -> {id, status, state}.
+    Uses Docker Compose labels to correctly map container -> process name,
+    since docker-compose sets com.docker.compose.service=<service_name>
+    and the service name matches the process name in our compose files.
+    """
+    global _DOCKER_PS_CACHE, _DOCKER_PS_CACHE_TIMESTAMP
+    now = time.time()
+    if _DOCKER_PS_CACHE and now - _DOCKER_PS_CACHE_TIMESTAMP < _DOCKER_PS_CACHE_TTL:
+        return _DOCKER_PS_CACHE
+
+    try:
+        # Use Labels to extract the compose service name — this is always the process name
+        result = subprocess.run(
+            ['docker', 'ps', '-a', '--format',
+             '{{.ID}}|{{.Names}}|{{.State}}|{{.Status}}|{{.Label "com.docker.compose.service"}}'],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return _DOCKER_PS_CACHE  # Return stale cache on error
+
+        containers = {}
+        for line in result.stdout.strip().splitlines():
+            if not line.strip():
+                continue
+            parts = line.split('|', 4)
+            if len(parts) >= 3:
+                cid, name, state = parts[0], parts[1], parts[2]
+                status_text = parts[3] if len(parts) > 3 else state
+                service_name = parts[4].strip() if len(parts) > 4 else ''
+
+                entry = {'id': cid, 'state': state, 'status': status_text}
+
+                # Store by full container name (for direct lookups)
+                containers[name] = entry
+
+                # Store by compose service name (= our process name) — this is the primary key
+                if service_name:
+                    containers[service_name] = entry
+
+        _DOCKER_PS_CACHE = containers
+        _DOCKER_PS_CACHE_TIMESTAMP = now
+        return containers
+    except (subprocess.TimeoutExpired, Exception) as e:
+        print(f"[batch_docker] Failed to fetch container statuses: {e}")
+        return _DOCKER_PS_CACHE  # Return stale cache
+
+
+def get_all_container_stats():
+    """
+    Fetch CPU/memory stats for ALL running containers in a single 'docker stats --no-stream' call.
+    Returns a dict mapping process name -> {cpu_percent, memory_percent, memory_mb}.
+    Replaces N individual 'docker stats' calls with 1 call.
+    """
+    try:
+        # First get the service name mapping from the status cache
+        container_statuses = _get_all_container_statuses()
+
+        result = subprocess.run(
+            ['docker', 'stats', '--no-stream', '--format', '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}'],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            return {}
+
+        stats = {}
+        for line in result.stdout.strip().splitlines():
+            if not line.strip():
+                continue
+            parts = line.split('|', 3)
+            if len(parts) >= 3:
+                container_name = parts[0]
+                cpu_str = parts[1].replace('%', '').strip()
+                mem_str = parts[2].replace('%', '').strip()
+
+                cpu_percent = float(cpu_str) if cpu_str else 0.0
+                memory_percent = float(mem_str) if mem_str else 0.0
+
+                memory_mb = 0.0
+                if len(parts) > 3:
+                    mem_usage = parts[3].split('/')[0].strip()
+                    if 'GiB' in mem_usage:
+                        memory_mb = float(mem_usage.replace('GiB', '').strip()) * 1024
+                    elif 'MiB' in mem_usage:
+                        memory_mb = float(mem_usage.replace('MiB', '').strip())
+                    elif 'KiB' in mem_usage:
+                        memory_mb = float(mem_usage.replace('KiB', '').strip()) / 1024
+
+                entry = {
+                    'cpu_percent': round(cpu_percent, 2),
+                    'memory_percent': round(memory_percent, 2),
+                    'memory_mb': round(memory_mb, 2)
+                }
+
+                # Store by full container name
+                stats[container_name] = entry
+
+                # Also map to process name: look up if this container name exists in
+                # the status cache (which maps it to the same entry as a service name)
+                if container_name in container_statuses:
+                    container_id = container_statuses[container_name]['id']
+                    # Find the service/process name that maps to the same container ID
+                    for key, val in container_statuses.items():
+                        if val['id'] == container_id and key != container_name:
+                            stats[key] = entry
+                            break
+
+        return stats
+    except (subprocess.TimeoutExpired, Exception) as e:
+        print(f"[batch_stats] Failed to fetch container stats: {e}")
+        return {}
 
 
 def _make_process_cache_key(user_id, role):
     return f"{role or 'user'}:{user_id or 'anon'}"
 
 
+def send_discord_power_notification(process, action, success=True, details=None):
+    """Send a Discord power-action notification for a process if enabled."""
+    try:
+        discord_settings = get_user_discord_settings(process.owner_id)
+        if not discord_settings or not discord_settings.get('notify_power_actions'):
+            return
+
+        actor_username = session.get('username')
+        if not actor_username:
+            actor_id = session.get('user_id')
+            if actor_id:
+                actor = User.query.get(actor_id)
+                actor_username = actor.username if actor else None
+        if not actor_username:
+            owner = User.query.get(process.owner_id)
+            actor_username = owner.username if owner else 'Unknown'
+
+        DiscordNotifier.notify_power_action(
+            webhook_url=discord_settings['webhook_url'],
+            action=action,
+            process_name=process.name,
+            process_type=process.type,
+            user=actor_username,
+            success=success,
+            details=details
+        )
+    except Exception as discord_error:
+        print(f"Failed to send Discord notification: {discord_error}")
+
+
 def invalidate_process_cache(cache_key=None):
-    """Invalidate cached process status results."""
-    if cache_key:
-        PROCESS_STATUS_CACHE.pop(cache_key, None)
-    else:
-        PROCESS_STATUS_CACHE.clear()
+    """Invalidate cached process status results (stored in Redis)."""
+    global _DOCKER_PS_CACHE_TIMESTAMP
+    try:
+        r = _get_redis()
+        if cache_key:
+            r.delete(f"process_cache:{cache_key}")
+        else:
+            # Delete all process cache keys
+            for key in r.scan_iter("process_cache:*"):
+                r.delete(key)
+    except Exception:
+        pass  # Redis unavailable — cache will expire naturally
+    _DOCKER_PS_CACHE_TIMESTAMP = 0  # Also invalidate the docker ps cache
 
 
 def get_container_id(process_name):
+    """Get container ID - tries batch cache first, falls back to docker-compose."""
+    # Fast path: check batch cache
+    containers = _get_all_container_statuses()
+    if process_name in containers:
+        return containers[process_name]['id']
+
+    # Slow fallback: docker compose ps
     process_dir = os.path.join(ACTIVE_SERVERS_DIR, process_name)
     try:
         result = subprocess.run(
-            ['docker-compose', 'ps', '-q', process_name],
+            ['docker', 'compose', 'ps', '-q', process_name],
             capture_output=True,
             text=True,
             check=True,
@@ -174,20 +355,24 @@ def format_timestamp(log_line):
 
 
 def calculate_uptime(startup_date):
-    amsterdam_tz = pytz.timezone('Europe/Amsterdam')
+    """Calculate uptime from a Docker container's StartedAt timestamp (UTC ISO 8601)."""
+    from datetime import timezone
 
-    startup_datetime = datetime.fromisoformat(startup_date[:-1])
-    startup_datetime = amsterdam_tz.localize(startup_datetime)
+    # Docker returns StartedAt in UTC (with trailing Z or +00:00)
+    startup_str = startup_date.rstrip('Z')
+    startup_datetime = datetime.fromisoformat(startup_str).replace(tzinfo=timezone.utc)
 
-    current_time = datetime.now(amsterdam_tz)
+    current_time = datetime.now(timezone.utc)
 
     uptime = current_time - startup_datetime
 
     seconds = int(uptime.total_seconds())
+    if seconds < 0:
+        seconds = 0
 
     weeks = seconds // (7 * 24 * 3600)
     days = (seconds % (7 * 24 * 3600)) // 86400
-    hours = (seconds % 86400) // 3600 - 2
+    hours = (seconds % 86400) // 3600
     minutes = (seconds % 3600) // 60
     seconds %= 60
 
@@ -204,11 +389,15 @@ def load_process():
         return process_dict
 
     cache_key = _make_process_cache_key(user_id, session.get("role"))
-    now = time.time()
-    cached_entry = PROCESS_STATUS_CACHE.get(cache_key)
-    if cached_entry and now - cached_entry.get("timestamp", 0) < PROCESS_STATUS_CACHE_TTL:
-        # Return a shallow copy to avoid accidental mutation of cached data
-        return dict(cached_entry.get("data", {}))
+
+    # Check Redis cache
+    try:
+        r = _get_redis()
+        cached_json = r.get(f"process_cache:{cache_key}")
+        if cached_json:
+            return _json.loads(cached_json)
+    except Exception:
+        pass  # Redis unavailable, proceed without cache
     
     user = User.query.filter_by(id=user_id).first()
 
@@ -220,31 +409,50 @@ def load_process():
     if session.get("role") == "admin":
         processes = Process.query.all()
 
-    for process in processes:
-        response = get_process_status(process.name)
+    # PERFORMANCE: Fetch ALL container statuses in a single docker call
+    # instead of running 'docker-compose ps' per container (saves ~1-3s per container)
+    container_statuses = _get_all_container_statuses()
 
-        if "error" in response:
-            print(f"Error fetching status for {process.name}: {response['error']}")
-            status = "Unknown"
+    def _fetch_status_fast(process):
+        """Fast status lookup using pre-fetched batch data."""
+        container_info = container_statuses.get(process.name)
+        if container_info:
+            state = container_info['state']
+            if state == 'running':
+                status = 'Running'
+            elif state in ('exited', 'dead', 'created'):
+                status = 'Exited'
+            elif state == 'restarting':
+                status = 'Restarting'
+            elif state == 'paused':
+                status = 'Paused'
+            else:
+                status = 'Unknown'
         else:
-            # Extract status from response
-            status = response.get("status", "Unknown")
-            
-            # Map "Container Not Running" to "Exited" for cleaner display
-            if status == "Container Not Running":
-                status = "Exited"
-                
-            process_dict[process.name] = {
-                "id": process.id,
-                "type": process.type,
-                "command": process.command,
-                "file_location": process.file_location,
-                "name": process.name,
-                "status": status,
-                "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            }
+            status = 'Exited'
 
-    PROCESS_STATUS_CACHE[cache_key] = {"timestamp": now, "data": process_dict}
+        return process.name, {
+            "id": process.id,
+            "type": process.type,
+            "command": process.command,
+            "file_location": process.file_location,
+            "name": process.name,
+            "status": status,
+            "created_at": process.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+    # No threading needed - batch data is already fetched
+    for p in processes:
+        name, entry = _fetch_status_fast(p)
+        if entry is not None:
+            process_dict[name] = entry
+
+    # Store in Redis cache with TTL
+    try:
+        r = _get_redis()
+        r.setex(f"process_cache:{cache_key}", _PROCESS_CACHE_TTL, _json.dumps(process_dict))
+    except Exception:
+        pass  # Redis unavailable — will just skip caching
     return process_dict
 
 
@@ -252,6 +460,17 @@ def load_process():
 def get_process():
     processes = load_process()
     return jsonify(processes)
+
+
+@process_routes.route('/all-metrics', methods=['GET'])
+def get_all_process_metrics():
+    """
+    Fetch CPU/memory metrics for ALL containers in a single docker stats call.
+    Returns JSON mapping process name -> {cpu_percent, memory_percent, memory_mb}.
+    Replaces N individual /metrics/<name> calls from the dashboard.
+    """
+    stats = get_all_container_stats()
+    return jsonify(stats)
 
 
 @process_routes.route('/create', methods=['GET', 'POST'])
@@ -304,10 +523,21 @@ def add_process():
         docker_result = execute_handler(f"create.{process_type}", "create_docker_file", new_process, dockerfile_path)
 
         if not compose_result.success or not docker_result.success:
+            # Cleanup: remove DB entry and process directory
+            try:
+                db.session.delete(new_process)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            try:
+                if os.path.exists(process_dir):
+                    import shutil
+                    shutil.rmtree(process_dir)
+            except Exception:
+                pass
             return jsonify({"error": compose_result.message if not compose_result.success else docker_result.message}), 400
 
-        os.chdir(process_dir)
-        subprocess.run(['docker-compose', 'up', '-d'], check=True)
+        subprocess.run(['docker', 'compose', 'up', '-d'], check=True, cwd=process_dir)
 
         update_process_runtime_metadata(new_process)
 
@@ -327,8 +557,36 @@ def add_process():
         return jsonify({"redirect_url": url_for("process.console", name=new_process.name)})
 
     except OSError as e:
+        # Cleanup: remove DB entry and process directory if created
+        try:
+            process = Process.query.filter_by(name=process_name).first()
+            if process:
+                db.session.delete(process)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+        try:
+            if os.path.exists(process_dir):
+                import shutil
+                shutil.rmtree(process_dir)
+        except Exception:
+            pass
         return jsonify({"error": f"Failed to create process directory: {e}"}), 500
     except subprocess.CalledProcessError as e:
+        # Cleanup: remove DB entry and process directory if created
+        try:
+            process = Process.query.filter_by(name=process_name).first()
+            if process:
+                db.session.delete(process)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+        try:
+            if os.path.exists(process_dir):
+                import shutil
+                shutil.rmtree(process_dir)
+        except Exception:
+            pass
         return jsonify({"error": f"Failed to start docker container: {e}"}), 500
 
 
@@ -347,9 +605,8 @@ def settings_delete(name):
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
         if os.path.exists(process_dir):
             try:
-                os.chdir(process_dir)
-                subprocess.run(['docker-compose', 'down'], check=True)
-                print(f"Process {name} stopped and removed successfully via docker-compose")
+                subprocess.run(['docker', 'compose', 'down'], check=True, cwd=process_dir)
+                print(f"Process {name} stopped and removed successfully via docker compose")
             except subprocess.CalledProcessError as e:
                 print(f"Error stopping process {name}: {e}")
 
@@ -397,6 +654,21 @@ def start_process_console(name):
             if result["success"]:
                 update_process_runtime_metadata(process)
                 invalidate_process_cache()
+
+                try:
+                    ActivityLog.log_activity(
+                        user_id=session.get('user_id'),
+                        username=session.get('username'),
+                        action='started_process',
+                        target=name,
+                        details="Process started successfully",
+                        request_obj=request
+                    )
+                except Exception as log_error:
+                    print(f"Failed to log activity: {log_error}")
+
+                send_discord_power_notification(process, action='started', success=True)
+
                 return jsonify({
                     "message": result["message"], 
                     "status": get_process_status(process.name), 
@@ -423,9 +695,7 @@ def start_process_console(name):
                     "ok": False
                 }), 404
             
-            os.chdir(process_dir)
-            
-            subprocess.run(['docker-compose', 'up', '-d'], check=True, capture_output=True, text=True)
+            subprocess.run(['docker', 'compose', 'up', '-d'], check=True, capture_output=True, text=True, cwd=process_dir)
 
             time.sleep(2)
 
@@ -445,22 +715,7 @@ def start_process_console(name):
             except Exception as log_error:
                 print(f"Failed to log activity: {log_error}")
 
-            # Send Discord notification
-            try:
-                from utils.discord import get_user_discord_settings, DiscordNotifier
-                discord_settings = get_user_discord_settings(process.owner_id)
-                if discord_settings and discord_settings.get('notify_power_actions'):
-                    user = User.query.get(process.owner_id)
-                    DiscordNotifier.notify_power_action(
-                        webhook_url=discord_settings['webhook_url'],
-                        action='started',
-                        process_name=process.name,
-                        process_type=process.type,
-                        user=user.username if user else 'Unknown',
-                        success=True
-                    )
-            except Exception as discord_error:
-                print(f"Failed to send Discord notification: {discord_error}")
+            send_discord_power_notification(process, action='started', success=True)
 
             return jsonify({
                 "message": f"Process '{name}' started successfully.", 
@@ -511,13 +766,28 @@ def stop_process_console(name):
                 except Exception as db_err:
                     db.session.rollback()
                     print(f"[process_metadata] Failed to clear PID for {name}: {db_err}")
+
+                try:
+                    ActivityLog.log_activity(
+                        user_id=session.get('user_id'),
+                        username=session.get('username'),
+                        action='stopped_process',
+                        target=name,
+                        details="Process stopped successfully",
+                        request_obj=request
+                    )
+                except Exception as log_error:
+                    print(f"Failed to log activity: {log_error}")
+
+                invalidate_process_cache()
+                send_discord_power_notification(process, action='stopped', success=True)
+
                 return jsonify({"message": result["message"]})
             else:
                 return jsonify({"error": result["error"]}), 500
         else:
             # Use traditional container-level control
-            os.chdir(os.path.join(ACTIVE_SERVERS_DIR, name))
-            os.system('docker-compose stop')
+            subprocess.run(['docker', 'compose', 'stop'], cwd=os.path.join(ACTIVE_SERVERS_DIR, name))
 
             process.process_pid = None
             try:
@@ -542,27 +812,70 @@ def stop_process_console(name):
 
             invalidate_process_cache()
 
-            # Send Discord notification
-            try:
-                from utils.discord import get_user_discord_settings, DiscordNotifier
-                discord_settings = get_user_discord_settings(process.owner_id)
-                if discord_settings and discord_settings.get('notify_power_actions'):
-                    user = User.query.get(process.owner_id)
-                    DiscordNotifier.notify_power_action(
-                        webhook_url=discord_settings['webhook_url'],
-                        action='stopped',
-                        process_name=process.name,
-                        process_type=process.type,
-                        user=user.username if user else 'Unknown',
-                        success=True
-                    )
-            except Exception as discord_error:
-                print(f"Failed to send Discord notification: {discord_error}")
+            send_discord_power_notification(process, action='stopped', success=True)
 
             return jsonify({"message": f"Process {name} stopped successfully."})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@process_routes.route('/restart/<string:name>', methods=['POST'])
+@owner_or_subuser_required()
+def restart_process_console(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found", "ok": False}), 404
+
+    try:
+        if is_always_running_container(name):
+            stop_result = stop_process_in_container(name)
+            if not stop_result.get("success"):
+                return jsonify({"error": stop_result.get("error", "Failed to stop process"), "ok": False}), 500
+
+            start_result = start_process_in_container(name)
+            if not start_result.get("success"):
+                return jsonify({"error": start_result.get("error", "Failed to start process"), "ok": False}), 500
+        else:
+            process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+            if not os.path.exists(process_dir):
+                return jsonify({"error": f"Process directory not found: {process_dir}", "ok": False}), 404
+
+            subprocess.run(['docker', 'compose', 'restart'], check=True, capture_output=True, text=True, cwd=process_dir)
+
+        update_process_runtime_metadata(process)
+        invalidate_process_cache()
+
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='restarted_process',
+                target=name,
+                details="Process restarted successfully",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+
+        send_discord_power_notification(process, action='restarted', success=True)
+
+        return jsonify({
+            "message": f"Process '{name}' restarted successfully.",
+            "status": get_process_status(process.name),
+            "ok": True
+        })
+    except subprocess.CalledProcessError as e:
+        error_details = e.stderr if e.stderr else str(e)
+        return jsonify({
+            "error": f"Docker error restarting '{name}': {error_details}",
+            "ok": False
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "error": f"Unexpected error restarting '{name}': {str(e)}",
+            "ok": False
+        }), 500
 
 
 @process_routes.route('/console/<string:name>', methods=['GET'])
@@ -592,9 +905,8 @@ def get_console_uptime(name):
 
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
-        result = subprocess.run(['docker-compose', 'ps', '-q'], capture_output=True, text=True, check=True)
+        result = subprocess.run(['docker', 'compose', 'ps', '-q'], capture_output=True, text=True, check=True, cwd=process_dir)
         container_id = result.stdout.strip()
 
         if not container_id:
@@ -634,7 +946,7 @@ def console_stream_logs(name):
                 # For always-running containers, stream both container logs and process logs
                 container_id = None
                 try:
-                    result = subprocess.run(['docker-compose', 'ps', '-q', name], 
+                    result = subprocess.run(['docker', 'compose', 'ps', '-q', name], 
                                           capture_output=True, text=True, check=True, cwd=process_dir)
                     container_id = result.stdout.strip()
                 except Exception:
@@ -643,7 +955,7 @@ def console_stream_logs(name):
                 # Stream existing container logs first (last 20 lines)
                 if container_id:
                     try:
-                        container_logs = subprocess.run(['docker-compose', 'logs', '--tail', '150', '--timestamps', '--no-log-prefix'], 
+                        container_logs = subprocess.run(['docker', 'compose', 'logs', '--tail', '150', '--timestamps', '--no-log-prefix'], 
                                                       capture_output=True, text=True, cwd=process_dir)
                         if container_logs.stdout:
                             for line in container_logs.stdout.split('\n'):
@@ -763,7 +1075,7 @@ def console_stream_logs(name):
             
             else:
                 # Traditional container log streaming (existing behavior)
-                logs_command = ['docker-compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
+                logs_command = ['docker', 'compose', 'logs', '--tail', '50', '--timestamps', '--no-log-prefix']
                 docker_logs = subprocess.Popen(
                     logs_command,
                     cwd=process_dir,
@@ -980,10 +1292,9 @@ def clear_logs(name):
 
     try:
         process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
-        os.chdir(process_dir)
 
         # Get container ID
-        result = subprocess.run(['docker-compose', 'ps', '-q', name], capture_output=True, text=True, check=True)
+        result = subprocess.run(['docker', 'compose', 'ps', '-q', name], capture_output=True, text=True, check=True, cwd=process_dir)
         container_id = result.stdout.strip()
 
         if not container_id:
@@ -1332,10 +1643,10 @@ def cloudflare_records(name):
 
 def rebuild_process(project_dir, name):
     try:
-        subprocess.run(['docker-compose', 'down'], cwd=project_dir, check=True)
+        subprocess.run(['docker', 'compose', 'down'], cwd=project_dir, check=True)
 
         process = subprocess.Popen(
-            ['docker-compose', 'build'],
+            ['docker', 'compose', 'build'],
             cwd=project_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -1385,6 +1696,13 @@ def settings_rebuild(name):
     except Exception as log_error:
         print(f"Failed to log activity: {log_error}")
 
+    send_discord_power_notification(
+        process,
+        action='rebuilt',
+        success=True,
+        details='Rebuild initiated'
+    )
+
     return redirect(url_for('process.console', name=process.name))
 
 
@@ -1392,8 +1710,21 @@ def settings_rebuild(name):
 @owner_or_subuser_required()
 def subusers(name):
     process = find_process_by_name(name)
-    users = SubUser.query.filter_by(process=name).all()
-    return render_template('process/subusers.html', page_title="Sub Users", process=process, users=users)
+    return render_template('process/subusers.html', page_title="Sub Users", process=process)
+
+
+@process_routes.route('/subusers/<string:name>/api/list', methods=['GET'])
+@owner_or_subuser_required()
+def subusers_list(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    users = SubUser.query.filter_by(process=name).order_by(SubUser.created_at.desc()).all()
+    return jsonify({
+        "success": True,
+        "users": [user.as_dict() for user in users]
+    })
 
 
 @process_routes.route('/subusers/<string:name>/invite', methods=['GET', 'POST'])
@@ -1634,8 +1965,6 @@ def schedule(name):
     if not process:
         return jsonify({"error": "Process not found"}), 404
 
-    cron_jobs = []
-
     if request.method == 'POST':
         data = request.form
         if not data or 'action' not in data or 'schedule' not in data:
@@ -1679,8 +2008,23 @@ def schedule(name):
         except subprocess.CalledProcessError as e:
             return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
 
+        return redirect(url_for('process.schedule', name=name))
+
+    return render_template('process/schedule.html', page_title="Schedule", process=process)
+
+
+@process_routes.route('/schedule/<string:name>/api/jobs', methods=['GET'])
+@owner_or_subuser_required()
+def schedule_jobs(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
     cron_jobs = get_current_cron_jobs(name)
-    return render_template('process/schedule.html', page_title="Schedule", process=process, cron_jobs=cron_jobs)
+    if isinstance(cron_jobs, dict):
+        return jsonify({"success": False, "error": cron_jobs.get('error', 'Failed to load cron jobs')}), 500
+
+    return jsonify({"success": True, "jobs": cron_jobs})
 
 
 def get_current_cron_jobs(process_name):

@@ -9,6 +9,7 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Cron Schedule Expression</label>
                         <div class="input-group">
@@ -51,7 +52,6 @@
             <div class="card-header">
                 <i class="bi bi-list-check"></i> Active Scheduled Tasks
             </div>
-            {% if cron_jobs %}
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
                     <thead>
@@ -62,33 +62,22 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for job in cron_jobs %}
-                        <tr>
-                            <td>{{ job.name }}</td>
-                            <td style="white-space: nowrap;"><code>{{ job.schedule }}</code></td>
-                            <td><span class="badge bg-info">{{ job.command }}</span></td>
-                            <td>
-                                <form action="{{ url_for('process.delete_cron_job', name=process.name) }}" method="POST" class="d-inline">
-                                    <input type="hidden" name="line" value="{{ job.line }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
+                    <tbody id="schedule-jobs-tbody">
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 220px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
                         </tr>
-                        {% endfor %}
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 130px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 110px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 200px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-            {% else %}
-            <div class="card-body">
-                <div class="text-center py-4">
-                    <i class="bi bi-calendar-x display-4 text-muted"></i>
-                    <p class="text-muted mt-3">No scheduled tasks configured for this process.</p>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 
@@ -203,4 +192,98 @@
     color: #555;
 }
 </style>
+
+<script>
+const scheduleProcessName = "{{ process.name }}";
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+function renderScheduleJobs(jobs) {
+    const tbody = document.getElementById('schedule-jobs-tbody');
+    tbody.innerHTML = '';
+
+    if (!jobs || jobs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-4">
+                    <i class="bi bi-calendar-x display-6 text-muted"></i>
+                    <p class="text-muted mt-3 mb-0">No scheduled tasks configured for this process.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    jobs.forEach((job) => {
+        const tr = document.createElement('tr');
+
+        const nameTd = document.createElement('td');
+        nameTd.textContent = job.name || scheduleProcessName;
+
+        const scheduleTd = document.createElement('td');
+        scheduleTd.style.whiteSpace = 'nowrap';
+        const scheduleCode = document.createElement('code');
+        scheduleCode.textContent = job.schedule || '';
+        scheduleTd.appendChild(scheduleCode);
+
+        const commandTd = document.createElement('td');
+        commandTd.innerHTML = `<span class="badge bg-info">${escapeHtml(job.command || '')}</span>`;
+
+        const actionTd = document.createElement('td');
+        const form = document.createElement('form');
+        form.action = `/process/schedule/${encodeURIComponent(scheduleProcessName)}/delete`;
+        form.method = 'POST';
+        form.className = 'd-inline';
+
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrf_token';
+        csrf.value = '{{ csrf_token() }}';
+
+        const line = document.createElement('input');
+        line.type = 'hidden';
+        line.name = 'line';
+        line.value = job.line || '';
+
+        const btn = document.createElement('button');
+        btn.type = 'submit';
+        btn.className = 'btn btn-sm btn-outline-danger';
+        btn.innerHTML = '<i class="bi bi-trash"></i>';
+
+        form.appendChild(csrf);
+        form.appendChild(line);
+        form.appendChild(btn);
+        actionTd.appendChild(form);
+
+        tr.appendChild(nameTd);
+        tr.appendChild(scheduleTd);
+        tr.appendChild(commandTd);
+        tr.appendChild(actionTd);
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
+}
+
+async function loadScheduleJobs() {
+    const tbody = document.getElementById('schedule-jobs-tbody');
+    try {
+        const response = await fetch(`/process/schedule/${encodeURIComponent(scheduleProcessName)}/api/jobs`);
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to load scheduled tasks');
+        }
+        renderScheduleJobs(data.jobs || []);
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-danger py-3"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadScheduleJobs);
+</script>
 {% endblock process_content %}

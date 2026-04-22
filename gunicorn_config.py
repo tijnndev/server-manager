@@ -1,6 +1,6 @@
 """
 Gunicorn configuration optimized for AMD Ryzen 9 7950X3D (16 cores/32 threads)
-This configuration maximizes performance for your powerful hardware.
+This configuration balances performance with resource usage.
 """
 import os
 
@@ -9,10 +9,11 @@ bind = "0.0.0.0:7001"
 backlog = 2048
 
 # Worker processes
-# For CPU-bound: (2 * CPU cores) + 1
-# For I/O-bound (like your app): (4 * CPU cores)
-# With 16 cores, we'll use 32 workers for optimal throughput
-workers = int(os.getenv("GUNICORN_WORKERS", "32"))
+# With gevent, each worker handles 1000+ concurrent connections via greenlets.
+# 6 workers × 1000 connections = 6000 concurrent connections — more than enough.
+# 32 workers was excessive: each spawns its own DB connection pool, Redis connection,
+# and memory footprint (~50-100MB each), wasting ~2GB+ RAM for no throughput gain.
+workers = int(os.getenv("GUNICORN_WORKERS", "6"))
 
 # Worker class - gevent for async I/O operations
 # Perfect for handling Docker operations, subprocess calls, and database queries

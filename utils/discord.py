@@ -138,6 +138,8 @@ class DiscordNotifier:
             "stopped": "⏹️",
             "restart": "🔄",
             "restarted": "🔄",
+            "rebuild": "🛠️",
+            "rebuilt": "🛠️",
             "delete": "🗑️",
             "deleted": "🗑️"
         }
@@ -149,6 +151,8 @@ class DiscordNotifier:
             "stopped": 15844367,
             "restart": 3447003, # Blue
             "restarted": 3447003,
+            "rebuild": 10181046, # Purple-gray
+            "rebuilt": 10181046,
             "delete": 10038562, # Dark gray
             "deleted": 10038562
         }

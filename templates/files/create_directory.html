@@ -5,6 +5,7 @@
   action="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}"
   method="POST"
 >
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="mb-3">
     <label for="directory_name" class="form-label">Directory Name</label>
     <input

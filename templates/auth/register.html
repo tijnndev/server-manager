@@ -4,15 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Server Manager</title>
+    <title>Register - Server Manager</title>
     <link rel="icon" href="{{ url_for('static', filename='images/puregarden_fav.svg') }}" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 </head>
 
 <body class="dark-theme">
@@ -37,6 +34,7 @@
                 server</p>
 
             <form method="post" class="login-form" id="registerForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <div class="input-group">
                         <div class="input-icon">
@@ -90,7 +88,7 @@
         </div>
     </div>
     <script>
-        document.getElementById('loginForm').addEventListener('submit', function (e) {
+        document.getElementById('registerForm').addEventListener('submit', function (e) {
             const button = this.querySelector('button[type="submit"]');
             button.classList.add('loading');
             button.disabled = true;

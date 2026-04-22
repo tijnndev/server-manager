@@ -100,6 +100,159 @@ class GitIntegration(db.Model):
             db.session.delete(self)
             db.session.commit()
 
+    def _run_git(self, args, check=True, timeout=8):
+        """Run a git command safely with a timeout."""
+        return subprocess.run(
+            ["git", "-C", self.server_directory, *args],
+            capture_output=True,
+            text=True,
+            check=check,
+            timeout=timeout
+        )
+
+    def _parse_status_changes(self, raw_status):
+        """Parse `git status --porcelain` output into structured changes."""
+        lines = raw_status.strip().split('\n') if raw_status.strip() else []
+        changes = []
+        for line in lines:
+            if not line.strip():
+                continue
+
+            status = line[:2]
+            file_path = line[3:]
+
+            # Keep the legacy behavior: hide untracked files from UI.
+            if status[0] == '?' or status[1] == '?':
+                continue
+
+            change_type = ""
+            if status[0] == 'M' or status[1] == 'M':
+                change_type = "Modified"
+            elif status[0] == 'A' or status[1] == 'A':
+                change_type = "Added"
+            elif status[0] == 'D' or status[1] == 'D':
+                change_type = "Deleted"
+            elif status[0] == 'R' or status[1] == 'R':
+                change_type = "Renamed"
+
+            if change_type:
+                changes.append({
+                    'file': file_path,
+                    'type': change_type,
+                    'status': status
+                })
+        return changes
+
+    def _parse_diff_changes(self, raw_diff):
+        """Parse `git diff --name-status` output into structured changes."""
+        lines = raw_diff.strip().split('\n') if raw_diff.strip() else []
+        changes = []
+
+        for line in lines:
+            if not line.strip():
+                continue
+
+            parts = line.split('\t')
+            if len(parts) < 2:
+                continue
+
+            status = parts[0]
+            file_path = parts[1]
+
+            if status == 'M':
+                change_type = "Modified"
+            elif status == 'A':
+                change_type = "Added"
+            elif status == 'D':
+                change_type = "Deleted"
+            elif status.startswith('R'):
+                change_type = "Renamed"
+            else:
+                change_type = status
+
+            changes.append({
+                'file': file_path,
+                'type': change_type,
+                'status': status
+            })
+
+        return changes
+
+    def get_git_overview(self):
+        """Collect all git UI data with a single remote fetch per repository."""
+        current_commit = "Unknown"
+        ahead_behind = {'ahead': 0, 'behind': 0}
+        local_changes = []
+        remote_changes = []
+
+        try:
+            # One fetch per repo keeps remote checks fresh without duplicate network calls.
+            self._run_git(["fetch", "origin", self.branch], timeout=10)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            # Continue with local data when remote operations fail or time out.
+            pass
+
+        try:
+            current_commit = self._run_git(["rev-parse", "HEAD"]).stdout.strip()[:8]
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            current_commit = "Unknown"
+
+        try:
+            counts_raw = self._run_git(
+                ["rev-list", "--left-right", "--count", f"HEAD...origin/{self.branch}"]
+            ).stdout.strip()
+            parts = counts_raw.split()
+            if len(parts) == 2:
+                ahead_behind = {
+                    'ahead': int(parts[0]),
+                    'behind': int(parts[1])
+                }
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+            ahead_behind = {'ahead': 0, 'behind': 0}
+
+        try:
+            status_raw = self._run_git(["status", "--porcelain"]).stdout
+            local_changes = self._parse_status_changes(status_raw)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            local_changes = []
+
+        try:
+            remote_diff_raw = self._run_git(
+                ["diff", "--name-status", f"HEAD..origin/{self.branch}"]
+            ).stdout
+            remote_changes = self._parse_diff_changes(remote_diff_raw)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            remote_changes = []
+
+        if not remote_changes and ahead_behind.get('behind', 0) > 0:
+            try:
+                commits_raw = self._run_git(
+                    ["log", "--oneline", f"HEAD..origin/{self.branch}"]
+                ).stdout.strip()
+                if commits_raw:
+                    remote_changes = [{
+                        'file': commit,
+                        'type': 'Commit',
+                        'status': 'C'
+                    } for commit in commits_raw.split('\n') if commit.strip()]
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                remote_changes = []
+
+        return {
+            'id': self.id,
+            'repository_url': self.repository_url,
+            'directory': self.directory,
+            'branch': self.branch,
+            'current_commit': current_commit,
+            'status': self.status,
+            'ahead_behind': {
+                'ahead': ahead_behind.get('ahead', 0),
+                'behind': ahead_behind.get('behind', 0)
+            },
+            'local_changes': local_changes,
+            'remote_changes': remote_changes
+        }
+
     def get_git_status(self):
         """Get the git status showing changes."""
         try:

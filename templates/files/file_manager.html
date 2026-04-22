@@ -325,72 +325,28 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {% set directories = files | selectattr('is_directory', 'equalto', true) | sort(attribute='name') %}
-                    {% set regular_files = files | selectattr('is_directory', 'equalto', false) | sort(attribute='name') %}
-
-                    {% for file in directories %}
-                    <tr>
-                        <td>
-                            <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
-                        </td>
-                        <td>
-                            <a href="{{ url_for('files.file_manager', name=process.name, location=file.path) }}" class="text-decoration-none">
-                                <i class="bi bi-folder-fill text-primary"></i>
-                                <span class="ms-2">{{ file.name }}</span>
-                            </a>
-                        </td>
-                        <td><span class="text-muted">—</span></td>
-                        <td><span class="text-muted">{{ file.modified_time or '—' }}</span></td>
-                        <td>
-                            <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '{{ file.name }}');">
-                                <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
-                                <input type="hidden" name="location" value="{{ current_location }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-
-                    {% for file in regular_files %}
-                    <tr>
-                        <td>
-                            <input type="checkbox" class="file-checkbox" data-path="{{ file.path }}">
-                        </td>
-                        <td>
-                            <a href="{{ url_for('files.edit_file', name=process.name, file=file.path) }}" class="text-decoration-none">
-                                <i class="bi bi-file-text text-muted"></i>
-                                <span class="ms-2">{{ file.name }}</span>
-                            </a>
-                        </td>
-                        <td><span class="text-muted">{% if file.size is not none %}{{ (file.size / 1024 / 1024) | round(2) if file.size > 1048576 else (file.size / 1024) | round(1) if file.size > 1024 else file.size }} {{ 'MB' if file.size > 1048576 else 'KB' if file.size > 1024 else 'B' }}{% else %}—{% endif %}</span></td>
-                        <td><span class="text-muted">{% if file.modified_time %}{{ file.modified_time | int | timestamp_to_date }}{% else %}—{% endif %}</span></td>
-                        <td>
-                            <div class="btn-group">
-                                {% if file.name.endswith('.zip') %}
-                                <form action="{{ url_for('files.unzip_file', name=current_location) }}" method="POST" class="d-inline">
-                                    <input type="hidden" name="zip_path" value="{{ file.name }}">
-                                    <button type="submit" class="btn btn-outline-info btn-sm">
-                                        <i class="bi bi-file-zip"></i>
-                                    </button>
-                                </form>
-                                {% endif %}
-                                <a href="{{ url_for('files.download_file', name=process.name, relative_path=file.path | replace(process.name + '/', '')) }}" class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-download"></i> Download
-                                </a>
-                                <form action="{{ url_for('files.delete_file', name=process.name) }}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '{{ file.name }}');">
-                                    <input type="hidden" name="filename" value="{{ current_location + "/" + file.name }}">
-                                    <input type="hidden" name="location" value="{{ current_location }}">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                <tbody id="file-table-body">
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 18px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 180px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 160px;"></div></td>
+                        </tr>
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 18px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 220px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 180px;"></div></td>
+                        </tr>
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 18px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 160px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 70px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 110px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 150px;"></div></td>
+                        </tr>
                 </tbody>
             </table>
         </div>
@@ -399,6 +355,7 @@
     <div class="card-footer">
         <h6><i class="bi bi-cloud-upload"></i> Upload Files</h6>
         <form action="{{ url_for('files.file_manager', name=process.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="input-group">
                 <input type="file" name="file" class="form-control" required>
                 <button type="submit" class="btn btn-primary w-auto">
@@ -450,25 +407,158 @@
 let selectedFiles = [];
 const processName = '{{ process.name }}';
 const currentLocation = '{{ current_location }}';
+const fileTableBody = document.getElementById('file-table-body');
 
-// Individual checkbox handler
-document.querySelectorAll('.file-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', (event) => {
+function formatFileSize(bytes) {
+    if (bytes === null || bytes === undefined) return '—';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatModifiedTime(ts) {
+    if (!ts) return '—';
+    const dt = new Date(ts * 1000);
+    return dt.toLocaleString();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function renderFileRows(files) {
+    selectedFiles = [];
+    toggleActionsOverlay();
+
+    if (!files || files.length === 0) {
+        fileTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted" style="padding: 40px;">
+                    <i class="bi bi-folder2-open" style="font-size: 36px;"></i>
+                    <p class="mt-3 mb-0">This folder is empty</p>
+                </td>
+            </tr>
+        `;
+        updateSelectAllCheckbox();
+        return;
+    }
+
+    const rows = files.map((file) => {
+        const safeName = escapeHtml(file.name);
+        const safePath = escapeHtml(file.path);
+        const deleteAction = `/files/${processName}/file-manager/delete`;
+        const deleteFilename = escapeHtml(`${currentLocation}/${file.name}`);
+
+        if (file.is_directory) {
+            const folderLink = `/files/manage/${processName}?location=${encodeURIComponent(file.path)}`;
+            return `
+                <tr>
+                    <td><input type="checkbox" class="file-checkbox" data-path="${safePath}"></td>
+                    <td>
+                        <a href="${folderLink}" class="text-decoration-none">
+                            <i class="bi bi-folder-fill text-primary"></i>
+                            <span class="ms-2">${safeName}</span>
+                        </a>
+                    </td>
+                    <td><span class="text-muted">—</span></td>
+                    <td><span class="text-muted">${formatModifiedTime(file.modified_time)}</span></td>
+                    <td>
+                        <form action="${deleteAction}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '${safeName}');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="filename" value="${deleteFilename}">
+                            <input type="hidden" name="location" value="${escapeHtml(currentLocation)}">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            `;
+        }
+
+        const editLink = `/files/${processName}/edit?file=${encodeURIComponent(file.path)}`;
+        const relativePath = file.path.startsWith(processName + '/') ? file.path.slice(processName.length + 1) : file.path;
+        const downloadLink = `/files/${processName}/file-manager/download/${encodeURIComponent(relativePath)}`;
+
+        return `
+            <tr>
+                <td><input type="checkbox" class="file-checkbox" data-path="${safePath}"></td>
+                <td>
+                    <a href="${editLink}" class="text-decoration-none">
+                        <i class="bi bi-file-text text-muted"></i>
+                        <span class="ms-2">${safeName}</span>
+                    </a>
+                </td>
+                <td><span class="text-muted">${formatFileSize(file.size)}</span></td>
+                <td><span class="text-muted">${formatModifiedTime(file.modified_time)}</span></td>
+                <td>
+                    <div class="btn-group">
+                        <a href="${downloadLink}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-download"></i> Download
+                        </a>
+                        <form action="${deleteAction}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '${safeName}');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="filename" value="${deleteFilename}">
+                            <input type="hidden" name="location" value="${escapeHtml(currentLocation)}">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    fileTableBody.innerHTML = rows.join('');
+    updateSelectAllCheckbox();
+
+    if (typeof fileManager !== 'undefined' && fileManager && typeof fileManager.enhanceFileRows === 'function') {
+        fileManager.enhanceFileRows();
+    }
+}
+
+async function loadFiles() {
+    try {
+        const response = await fetch(`/files/${processName}/file-manager/list?location=${encodeURIComponent(currentLocation)}`);
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to load files');
+        }
+        renderFileRows(data.files || []);
+    } catch (error) {
+        fileTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-danger py-3">
+                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(error.message)}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Individual checkbox handler (delegated for async rows)
+fileTableBody.addEventListener('change', (event) => {
+    if (event.target.classList.contains('file-checkbox')) {
         const filePath = event.target.getAttribute('data-path');
         if (event.target.checked) {
-            selectedFiles.push(filePath);
+            if (!selectedFiles.includes(filePath)) {
+                selectedFiles.push(filePath);
+            }
         } else {
             selectedFiles = selectedFiles.filter(path => path !== filePath);
         }
 
         updateSelectAllCheckbox();
         toggleActionsOverlay();
-    });
+    }
 });
 
 // Select all checkbox in table header
 document.getElementById('select-all-checkbox').addEventListener('change', (event) => {
-    const allCheckboxes = document.querySelectorAll('.file-checkbox');
+    const allCheckboxes = fileTableBody.querySelectorAll('.file-checkbox');
     const isChecked = event.target.checked;
 
     selectedFiles = [];
@@ -491,7 +581,7 @@ document.getElementById('select-all-btn').addEventListener('click', () => {
 });
 
 function updateSelectAllCheckbox() {
-    const allCheckboxes = document.querySelectorAll('.file-checkbox');
+    const allCheckboxes = fileTableBody.querySelectorAll('.file-checkbox');
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
     const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
     
@@ -508,6 +598,8 @@ function toggleActionsOverlay() {
         overlay.classList.remove('active');
     }
 }
+
+document.addEventListener('DOMContentLoaded', loadFiles);
 
 function deleteSelectedFiles() {
     // Use the new bulk operations with progress
@@ -568,7 +660,6 @@ function confirmDelete(form, filename) {
     if (typeof showToastWithUndo !== 'undefined') {
         const formData = new FormData(form);
         const filepath = formData.get('filename');
-        const location = formData.get('location');
         
         showConfirmation(`Delete '${filename}'?`, () => {
             // Perform delete
@@ -588,8 +679,8 @@ function confirmDelete(form, filename) {
                             showWarning('Undo not yet implemented on backend');
                         }
                     );
-                    // Reload after a delay
-                    setTimeout(() => location.reload(), 1500);
+                    // Reload to refresh the directory listing
+                    setTimeout(() => window.location.reload(), 1500);
                 } else {
                     showError('Failed to delete: ' + (data.error || 'Unknown error'));
                 }
@@ -602,7 +693,23 @@ function confirmDelete(form, filename) {
         // Fallback to old confirm
         const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
         if (userConfirmed) {
-            form.submit();
+            // Use fetch for the fallback too so we can refresh properly
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to delete: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error deleting file: ' + error.message);
+            });
         }
     }
     

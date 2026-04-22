@@ -821,53 +821,37 @@
     addLogMessage("Restarting process...", "system");
 
     try {
-      // Stop the process first
-      const stopResponse = await fetch(
-        `{{ url_for('process.stop_process_console', name="") }}${name}`,
+      const response = await fetch(
+        `{{ url_for('process.restart_process_console', name="") }}${name}`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
-      if (stopResponse.ok) {
-        addLogMessage("Process stopped, starting again...", "system");
+      const result = await response.json();
 
-        // Wait a moment before starting
-        setTimeout(async () => {
-          try {
-            const startResponse = await fetch(
-              `{{ url_for('process.start_process_console', name="") }}${name}`,
-              {
-                method: "POST",
-              }
-            );
+      if (response.ok && result.ok) {
+        addLogMessage("Process restarted successfully", "system");
+        updateProcessStatus("running");
+        showSuccess(`Process "${name}" restarted successfully`);
 
-            if (startResponse.ok) {
-              addLogMessage("Process restarted successfully", "system");
-              updateProcessStatus("running");
-
-              // Refresh logs after restarting
-              setTimeout(() => {
-                refreshLogs();
-              }, 1000);
-            } else {
-              addLogMessage("Failed to start process after stopping", "error");
-              updateProcessStatus("exited");
-            }
-          } catch (error) {
-            addLogMessage(`Error starting process: ${error.message}`, "error");
-            updateProcessStatus("exited");
-          } finally {
-            hideLoading();
-          }
-        }, 2000);
+        setTimeout(() => {
+          refreshLogs();
+        }, 1000);
       } else {
-        addLogMessage("Failed to stop process for restart", "error");
-        hideLoading();
+        const errorMsg = result.error || "Failed to restart process";
+        addLogMessage(`Failed to restart process: ${errorMsg}`, "error");
+        updateProcessStatus("exited");
+        showError(`Failed to restart process: ${errorMsg}`);
       }
     } catch (error) {
       addLogMessage(`Error restarting process: ${error.message}`, "error");
       updateProcessStatus("exited");
+      showError(`Error restarting process: ${error.message}`);
+    } finally {
       hideLoading();
     }
   }

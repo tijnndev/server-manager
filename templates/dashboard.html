@@ -106,6 +106,19 @@
 
 <script>
 
+    // Load saved filters from localStorage immediately (before any async work)
+    // so the input values are ready when fetchProcesses renders.
+    (function loadSavedFiltersSync() {
+        const savedSearch = localStorage.getItem('dashboardSearchQuery');
+        const savedSort = localStorage.getItem('dashboardSortOption');
+        if (savedSearch !== null) {
+            document.getElementById('search-bar').value = savedSearch;
+        }
+        if (savedSort !== null) {
+            document.getElementById('sort-select').value = savedSort;
+        }
+    })();
+
     let userSettings = null;
     let autoRefreshInterval = null;
 
@@ -115,11 +128,6 @@
             const response = await fetch("{{ url_for('settings.get_preferences') }}");
             const data = await response.json();
             userSettings = data;
-            
-            // If remember filters is enabled, load saved filters
-            if (userSettings.remember_filters) {
-                loadSavedFilters();
-            }
 
             // Setup auto-refresh if enabled
             if (userSettings.auto_refresh_enabled) {
@@ -143,52 +151,45 @@
         }, intervalSeconds * 1000);
     }
 
-    function loadSavedFilters() {
-        const savedSearch = localStorage.getItem('dashboardSearchQuery');
-        const savedSort = localStorage.getItem('dashboardSortOption');
-        
-        if (savedSearch !== null) {
-            document.getElementById('search-bar').value = savedSearch;
-        }
-        
-        if (savedSort !== null) {
-            document.getElementById('sort-select').value = savedSort;
-        }
-    }
-
     function saveFilterSettings() {
-        if (userSettings && userSettings.remember_filters) {
-            const searchQuery = document.getElementById('search-bar').value;
-            const sortOption = document.getElementById('sort-select').value;
-            
-            localStorage.setItem('dashboardSearchQuery', searchQuery);
-            localStorage.setItem('dashboardSortOption', sortOption);
-        }
+        // Always save — if user later disables remember_filters, we just won't restore
+        const searchQuery = document.getElementById('search-bar').value;
+        const sortOption = document.getElementById('sort-select').value;
+        
+        localStorage.setItem('dashboardSearchQuery', searchQuery);
+        localStorage.setItem('dashboardSortOption', sortOption);
     }
 
     async function fetchServerStats() {
-        const response = await fetch("{{ url_for('get_server_stats') }}");
-        const stats = await response.json();
+        try {
+            const response = await fetch("{{ url_for('get_server_stats') }}");
+            if (!response.ok) {
+                return;
+            }
+            const stats = await response.json();
         
-        // Update CPU
-        document.getElementById('cpu-name').textContent = stats.cpu_name;
-        document.getElementById('cpu-usage').textContent = stats.cpu_usage;
-        document.getElementById('cpu-progress').style.width = stats.cpu_usage + '%';
+            // Update CPU
+            document.getElementById('cpu-name').textContent = stats.cpu_name;
+            document.getElementById('cpu-usage').textContent = stats.cpu_usage;
+            document.getElementById('cpu-progress').style.width = stats.cpu_usage + '%';
         
-        // Update Memory 
-        const memoryUsedMB = Math.round((stats.memory_usage / 100) * stats.memory_allocated);
-        document.getElementById('memory-used').textContent = memoryUsedMB;
-        document.getElementById('memory-allocated').textContent = stats.memory_allocated;
-        document.getElementById('memory-progress').style.width = stats.memory_usage + '%';
+            // Update Memory 
+            const memoryUsedMB = Math.round((stats.memory_usage / 100) * stats.memory_allocated);
+            document.getElementById('memory-used').textContent = memoryUsedMB;
+            document.getElementById('memory-allocated').textContent = stats.memory_allocated;
+            document.getElementById('memory-progress').style.width = stats.memory_usage + '%';
         
-        // Update Storage
-        const storageUsedGB = Math.round((stats.storage_usage / 100) * stats.storage_allocated * 10) / 10;
-        document.getElementById('storage-used').textContent = storageUsedGB;
-        document.getElementById('storage-allocated').textContent = stats.storage_allocated;
-        document.getElementById('storage-progress').style.width = stats.storage_usage + '%';
+            // Update Storage
+            const storageUsedGB = Math.round((stats.storage_usage / 100) * stats.storage_allocated * 10) / 10;
+            document.getElementById('storage-used').textContent = storageUsedGB;
+            document.getElementById('storage-allocated').textContent = stats.storage_allocated;
+            document.getElementById('storage-progress').style.width = stats.storage_usage + '%';
         
-        // Update Network
-        document.getElementById('network-usage').textContent = stats.network_usage;
+            // Update Network
+            document.getElementById('network-usage').textContent = stats.network_usage;
+        } catch (error) {
+            console.error('Failed to fetch server stats:', error);
+        }
     }
     fetchServerStats();
 
@@ -210,8 +211,17 @@
     let isInitialLoad = true;
 
     async function fetchProcesses() {
-        const response = await fetch("{{ url_for('process.get_process') }}");
-        const newProcesses = await response.json();
+        let newProcesses;
+        try {
+            const response = await fetch("{{ url_for('process.get_process') }}");
+            if (!response.ok) {
+                return;
+            }
+            newProcesses = await response.json();
+        } catch (error) {
+            console.error('Failed to fetch processes:', error);
+            return;
+        }
         
         // Always preserve existing metrics when updating process data
         for (const [name, data] of Object.entries(newProcesses)) {
@@ -233,13 +243,11 @@
             isInitialLoad = false;
         }
         
-        // Apply saved sort if remember filters is enabled
-        if (userSettings && userSettings.remember_filters) {
-            const savedSort = localStorage.getItem('dashboardSortOption');
-            if (savedSort) {
-                sortProcesses();
-                return;
-            }
+        // Apply sort if a sort option is selected (value already restored from localStorage synchronously)
+        const currentSort = document.getElementById('sort-select').value;
+        if (currentSort && currentSort !== 'default') {
+            sortProcesses();
+            return;
         }
         
         renderProcesses(Object.entries(allProcesses));
@@ -275,16 +283,14 @@
             return;
         }
         
-        grid.innerHTML = '';
-
-        processEntries.forEach(([name, process]) => {
+        const rows = processEntries.map(([name, process]) => {
             const statusInfo = getStatusBadgeClass(process.status);
             
             // Fetch real metrics
             const cpuUsage = process.metrics?.cpu_percent || 0;
-            const memUsage = process.metrics?.memory_percent || 0;
+            const memUsage = process.metrics?.memory_mb || 0;
             
-            const row = `
+            return `
             <tr data-process-name="${name}">
                 <td><code>${name.substring(0, 12)}</code></td>
                 <td>${name}</td>
@@ -297,18 +303,12 @@
                 </td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 40px; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
-                            <div style="width: ${cpuUsage}%; height: 100%; background: ${cpuUsage > 80 ? 'var(--accent-red)' : cpuUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};"></div>
-                        </div>
                         <span style="font-size: 12px; color: var(--text-secondary);">${cpuUsage}%</span>
                     </div>
                 </td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="width: 40px; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
-                            <div style="width: ${memUsage}%; height: 100%; background: ${memUsage > 80 ? 'var(--accent-red)' : memUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};"></div>
-                        </div>
-                        <span style="font-size: 12px; color: var(--text-secondary);">${memUsage}%</span>
+                        <span style="font-size: 12px; color: var(--text-secondary);">${memUsage} MB</span>
                     </div>
                 </td>
                 <td>
@@ -318,8 +318,9 @@
                 </td>
             </tr>
             `;
-            grid.innerHTML += row;
         });
+
+        grid.innerHTML = rows.join('');
         filterProcesses();
     }
 
@@ -350,24 +351,25 @@
     // Load user settings when page loads
     loadUserSettings();
 
-    // Fetch real-time metrics for all processes
+    // Fetch real-time metrics for all processes (batch - single API call)
     async function fetchProcessMetrics() {
         if (!allProcesses || Object.keys(allProcesses).length === 0) return;
 
-        for (const [name, process] of Object.entries(allProcesses)) {
-            if (process.status && process.status.toLowerCase() === 'running') {
-                try {
-                    const response = await fetch(`/process/metrics/${name}`);
-                    if (response.ok) {
-                        const metrics = await response.json();
-                        allProcesses[name].metrics = metrics;
-                    } else {
-                        console.warn(`Failed to fetch metrics for ${name}: ${response.status} ${response.statusText}`);
-                    }
-                } catch (error) {
-                    console.error(`Failed to fetch metrics for ${name}:`, error);
+        try {
+            const response = await fetch('/process/all-metrics');
+            if (!response.ok) {
+                console.warn(`Failed to fetch batch metrics: ${response.status}`);
+                return;
+            }
+            const allMetrics = await response.json();
+
+            for (const [name, process] of Object.entries(allProcesses)) {
+                if (allMetrics[name]) {
+                    allProcesses[name].metrics = allMetrics[name];
                 }
             }
+        } catch (error) {
+            console.error('Failed to fetch batch metrics:', error);
         }
 
         // Update metrics in-place without re-rendering the entire table
@@ -376,30 +378,51 @@
             if (!row) continue;
             
             const cpuUsage = process.metrics?.cpu_percent || 0;
-            const memUsage = process.metrics?.memory_percent || 0;
+            const memUsage = process.metrics?.memory_mb || 0;
             
             // Update CPU
-            const cpuBar = row.querySelector('td:nth-child(5) div div');
             const cpuText = row.querySelector('td:nth-child(5) span');
-            if (cpuBar && cpuText) {
-                cpuBar.style.width = `${cpuUsage}%`;
-                cpuBar.style.background = cpuUsage > 80 ? 'var(--accent-red)' : cpuUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+            if (cpuText) {
                 cpuText.textContent = `${cpuUsage}%`;
             }
             
             // Update Memory
-            const memBar = row.querySelector('td:nth-child(6) div div');
             const memText = row.querySelector('td:nth-child(6) span');
-            if (memBar && memText) {
-                memBar.style.width = `${memUsage}%`;
-                memBar.style.background = memUsage > 80 ? 'var(--accent-red)' : memUsage > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)';
-                memText.textContent = `${memUsage}%`;
+            if (memText) {
+                memText.textContent = `${memUsage} MB`;
             }
         }
     }
 
-    // Fetch metrics every 5 seconds
-    setInterval(fetchProcessMetrics, 5000);
+    let metricsInterval = null;
+
+    function startMetricsPolling() {
+        if (metricsInterval) {
+            return;
+        }
+        metricsInterval = setInterval(fetchProcessMetrics, 5000);
+    }
+
+    function stopMetricsPolling() {
+        if (!metricsInterval) {
+            return;
+        }
+        clearInterval(metricsInterval);
+        metricsInterval = null;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopMetricsPolling();
+            return;
+        }
+
+        fetchProcessMetrics();
+        startMetricsPolling();
+    });
+
+    // Fetch metrics every 5 seconds while tab is visible
+    startMetricsPolling();
     // Initial fetch after 1 second
     setTimeout(fetchProcessMetrics, 1000);
 </script>
