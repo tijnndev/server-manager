@@ -151,19 +151,6 @@
         }, intervalSeconds * 1000);
     }
 
-    function loadSavedFilters() {
-        const savedSearch = localStorage.getItem('dashboardSearchQuery');
-        const savedSort = localStorage.getItem('dashboardSortOption');
-        
-        if (savedSearch !== null) {
-            document.getElementById('search-bar').value = savedSearch;
-        }
-        
-        if (savedSort !== null) {
-            document.getElementById('sort-select').value = savedSort;
-        }
-    }
-
     function saveFilterSettings() {
         // Always save — if user later disables remember_filters, we just won't restore
         const searchQuery = document.getElementById('search-bar').value;
@@ -174,28 +161,35 @@
     }
 
     async function fetchServerStats() {
-        const response = await fetch("{{ url_for('get_server_stats') }}");
-        const stats = await response.json();
+        try {
+            const response = await fetch("{{ url_for('get_server_stats') }}");
+            if (!response.ok) {
+                return;
+            }
+            const stats = await response.json();
         
-        // Update CPU
-        document.getElementById('cpu-name').textContent = stats.cpu_name;
-        document.getElementById('cpu-usage').textContent = stats.cpu_usage;
-        document.getElementById('cpu-progress').style.width = stats.cpu_usage + '%';
+            // Update CPU
+            document.getElementById('cpu-name').textContent = stats.cpu_name;
+            document.getElementById('cpu-usage').textContent = stats.cpu_usage;
+            document.getElementById('cpu-progress').style.width = stats.cpu_usage + '%';
         
-        // Update Memory 
-        const memoryUsedMB = Math.round((stats.memory_usage / 100) * stats.memory_allocated);
-        document.getElementById('memory-used').textContent = memoryUsedMB;
-        document.getElementById('memory-allocated').textContent = stats.memory_allocated;
-        document.getElementById('memory-progress').style.width = stats.memory_usage + '%';
+            // Update Memory 
+            const memoryUsedMB = Math.round((stats.memory_usage / 100) * stats.memory_allocated);
+            document.getElementById('memory-used').textContent = memoryUsedMB;
+            document.getElementById('memory-allocated').textContent = stats.memory_allocated;
+            document.getElementById('memory-progress').style.width = stats.memory_usage + '%';
         
-        // Update Storage
-        const storageUsedGB = Math.round((stats.storage_usage / 100) * stats.storage_allocated * 10) / 10;
-        document.getElementById('storage-used').textContent = storageUsedGB;
-        document.getElementById('storage-allocated').textContent = stats.storage_allocated;
-        document.getElementById('storage-progress').style.width = stats.storage_usage + '%';
+            // Update Storage
+            const storageUsedGB = Math.round((stats.storage_usage / 100) * stats.storage_allocated * 10) / 10;
+            document.getElementById('storage-used').textContent = storageUsedGB;
+            document.getElementById('storage-allocated').textContent = stats.storage_allocated;
+            document.getElementById('storage-progress').style.width = stats.storage_usage + '%';
         
-        // Update Network
-        document.getElementById('network-usage').textContent = stats.network_usage;
+            // Update Network
+            document.getElementById('network-usage').textContent = stats.network_usage;
+        } catch (error) {
+            console.error('Failed to fetch server stats:', error);
+        }
     }
     fetchServerStats();
 
@@ -217,8 +211,17 @@
     let isInitialLoad = true;
 
     async function fetchProcesses() {
-        const response = await fetch("{{ url_for('process.get_process') }}");
-        const newProcesses = await response.json();
+        let newProcesses;
+        try {
+            const response = await fetch("{{ url_for('process.get_process') }}");
+            if (!response.ok) {
+                return;
+            }
+            newProcesses = await response.json();
+        } catch (error) {
+            console.error('Failed to fetch processes:', error);
+            return;
+        }
         
         // Always preserve existing metrics when updating process data
         for (const [name, data] of Object.entries(newProcesses)) {
@@ -280,16 +283,14 @@
             return;
         }
         
-        grid.innerHTML = '';
-
-        processEntries.forEach(([name, process]) => {
+        const rows = processEntries.map(([name, process]) => {
             const statusInfo = getStatusBadgeClass(process.status);
             
             // Fetch real metrics
             const cpuUsage = process.metrics?.cpu_percent || 0;
             const memUsage = process.metrics?.memory_mb || 0;
             
-            const row = `
+            return `
             <tr data-process-name="${name}">
                 <td><code>${name.substring(0, 12)}</code></td>
                 <td>${name}</td>
@@ -317,8 +318,9 @@
                 </td>
             </tr>
             `;
-            grid.innerHTML += row;
         });
+
+        grid.innerHTML = rows.join('');
         filterProcesses();
     }
 
@@ -392,8 +394,35 @@
         }
     }
 
-    // Fetch metrics every 5 seconds
-    setInterval(fetchProcessMetrics, 5000);
+    let metricsInterval = null;
+
+    function startMetricsPolling() {
+        if (metricsInterval) {
+            return;
+        }
+        metricsInterval = setInterval(fetchProcessMetrics, 5000);
+    }
+
+    function stopMetricsPolling() {
+        if (!metricsInterval) {
+            return;
+        }
+        clearInterval(metricsInterval);
+        metricsInterval = null;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopMetricsPolling();
+            return;
+        }
+
+        fetchProcessMetrics();
+        startMetricsPolling();
+    });
+
+    // Fetch metrics every 5 seconds while tab is visible
+    startMetricsPolling();
     // Initial fetch after 1 second
     setTimeout(fetchProcessMetrics, 1000);
 </script>

@@ -43,26 +43,25 @@ def file_manager(name):
 
     relative_location = os.path.relpath(current_location, ACTIVE_SERVERS_DIR)
     files = []
-    for file in os.listdir(current_location):
-        file_full_path = os.path.join(current_location, file)
-        is_dir = os.path.isdir(file_full_path)
-        
-        # Get file stats
-        try:
-            stat = os.stat(file_full_path)
-            file_size = None if is_dir else stat.st_size
-            modified_time = stat.st_mtime
-        except OSError:
-            file_size = None
-            modified_time = None
-        
-        files.append({
-            'name': file,
-            'is_directory': is_dir,
-            'path': os.path.join(relative_location, file) if relative_location != '.' else file,
-            'size': file_size,
-            'modified_time': modified_time
-        })
+    with os.scandir(current_location) as entries:
+        for entry in entries:
+            try:
+                is_dir = entry.is_dir(follow_symlinks=False)
+                stat = entry.stat(follow_symlinks=False)
+                file_size = None if is_dir else stat.st_size
+                modified_time = stat.st_mtime
+            except OSError:
+                is_dir = False
+                file_size = None
+                modified_time = None
+
+            files.append({
+                'name': entry.name,
+                'is_directory': is_dir,
+                'path': os.path.join(relative_location, entry.name) if relative_location != '.' else entry.name,
+                'size': file_size,
+                'modified_time': modified_time
+            })
 
     if request.method == 'POST':
         uploaded_file = request.files.get('file')
