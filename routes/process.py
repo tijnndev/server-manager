@@ -1710,8 +1710,21 @@ def settings_rebuild(name):
 @owner_or_subuser_required()
 def subusers(name):
     process = find_process_by_name(name)
-    users = SubUser.query.filter_by(process=name).all()
-    return render_template('process/subusers.html', page_title="Sub Users", process=process, users=users)
+    return render_template('process/subusers.html', page_title="Sub Users", process=process)
+
+
+@process_routes.route('/subusers/<string:name>/api/list', methods=['GET'])
+@owner_or_subuser_required()
+def subusers_list(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
+    users = SubUser.query.filter_by(process=name).order_by(SubUser.created_at.desc()).all()
+    return jsonify({
+        "success": True,
+        "users": [user.as_dict() for user in users]
+    })
 
 
 @process_routes.route('/subusers/<string:name>/invite', methods=['GET', 'POST'])
@@ -1952,8 +1965,6 @@ def schedule(name):
     if not process:
         return jsonify({"error": "Process not found"}), 404
 
-    cron_jobs = []
-
     if request.method == 'POST':
         data = request.form
         if not data or 'action' not in data or 'schedule' not in data:
@@ -1997,8 +2008,23 @@ def schedule(name):
         except subprocess.CalledProcessError as e:
             return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
 
+        return redirect(url_for('process.schedule', name=name))
+
+    return render_template('process/schedule.html', page_title="Schedule", process=process)
+
+
+@process_routes.route('/schedule/<string:name>/api/jobs', methods=['GET'])
+@owner_or_subuser_required()
+def schedule_jobs(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"success": False, "error": "Process not found"}), 404
+
     cron_jobs = get_current_cron_jobs(name)
-    return render_template('process/schedule.html', page_title="Schedule", process=process, cron_jobs=cron_jobs)
+    if isinstance(cron_jobs, dict):
+        return jsonify({"success": False, "error": cron_jobs.get('error', 'Failed to load cron jobs')}), 500
+
+    return jsonify({"success": True, "jobs": cron_jobs})
 
 
 def get_current_cron_jobs(process_name):

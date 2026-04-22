@@ -43,7 +43,6 @@
             <div class="card-header">
                 <i class="bi bi-people"></i> Current Sub Users
             </div>
-            {% if users %}
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
                     <thead>
@@ -55,43 +54,24 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for user in users %}
-                        <tr>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-person-circle me-2"></i>
-                                    {{ user.email }}
-                                </div>
-                            </td>
-                            <td>
-                                {% for perm in perms if perms %}
-                                <span class="badge bg-secondary me-1">{{ perm.strip() }}</span>
-                                {% endfor %}
-                            </td>
-                            <td><span class="badge bg-info">{{ user.sub_role }}</span></td>
-                            <td>{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'Unknown' }}</td>
-                            <td>
-                                <form action="/process/subusers/{{process.name}}/delete/{{user.id}}" method="POST" class="d-inline">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this user?')">
-                                        <i class="bi bi-person-dash"></i>
-                                    </button>
-                                </form>
-                            </td>
+                    <tbody id="subusers-tbody">
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 220px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 180px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 90px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
                         </tr>
-                        {% endfor %}
+                        <tr class="skeleton-row">
+                            <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 200px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 90px;"></div></td>
+                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-            {% else %}
-            <div class="card-body">
-                <div class="text-center py-4">
-                    <i class="bi bi-people display-4 text-muted"></i>
-                    <p class="text-muted mt-3">No sub users have been invited to this process.</p>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 
@@ -130,4 +110,111 @@
         </div>
     </div>
 </div>
+
+<script>
+const subusersProcessName = "{{ process.name }}";
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+function formatCreatedDate(value) {
+    if (!value) return 'Unknown';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown';
+    return date.toISOString().slice(0, 10);
+}
+
+function renderSubusers(users) {
+    const tbody = document.getElementById('subusers-tbody');
+    tbody.innerHTML = '';
+
+    if (!users || users.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4">
+                    <i class="bi bi-people display-6 text-muted"></i>
+                    <p class="text-muted mt-3 mb-0">No sub users have been invited to this process.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    users.forEach((user) => {
+        const tr = document.createElement('tr');
+
+        const userTd = document.createElement('td');
+        userTd.innerHTML = `<div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i>${escapeHtml(user.email)}</div>`;
+
+        const permsTd = document.createElement('td');
+        const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+        if (permissions.length === 0) {
+            permsTd.innerHTML = '<span class="text-muted">None</span>';
+        } else {
+            permissions.forEach((perm) => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-secondary me-1';
+                badge.textContent = (perm || '').toString().trim();
+                permsTd.appendChild(badge);
+            });
+        }
+
+        const roleTd = document.createElement('td');
+        roleTd.innerHTML = `<span class="badge bg-info">${escapeHtml(user.sub_role || 'sub_user')}</span>`;
+
+        const createdTd = document.createElement('td');
+        createdTd.textContent = formatCreatedDate(user.created_at);
+
+        const actionsTd = document.createElement('td');
+        const form = document.createElement('form');
+        form.action = `/process/subusers/${encodeURIComponent(subusersProcessName)}/delete/${user.id}`;
+        form.method = 'POST';
+        form.className = 'd-inline';
+
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrf_token';
+        csrf.value = '{{ csrf_token() }}';
+
+        const btn = document.createElement('button');
+        btn.type = 'submit';
+        btn.className = 'btn btn-sm btn-outline-danger';
+        btn.innerHTML = '<i class="bi bi-person-dash"></i>';
+        btn.onclick = () => confirm('Remove this user?');
+
+        form.appendChild(csrf);
+        form.appendChild(btn);
+        actionsTd.appendChild(form);
+
+        tr.appendChild(userTd);
+        tr.appendChild(permsTd);
+        tr.appendChild(roleTd);
+        tr.appendChild(createdTd);
+        tr.appendChild(actionsTd);
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
+}
+
+async function loadSubusers() {
+    const tbody = document.getElementById('subusers-tbody');
+    try {
+        const response = await fetch(`/process/subusers/${encodeURIComponent(subusersProcessName)}/api/list`);
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Failed to load sub users');
+        }
+        renderSubusers(data.users || []);
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-danger py-3"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadSubusers);
+</script>
 {% endblock %}
