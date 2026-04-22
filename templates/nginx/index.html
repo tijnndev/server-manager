@@ -46,6 +46,44 @@
 .alert-no-domain .alert-link:hover {
     color: #533f00;
 }
+
+.health-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    line-height: 1;
+}
+
+.health-status-chip.success {
+    background: rgba(40, 167, 69, 0.12);
+    color: #7ee2a0;
+    border-color: rgba(40, 167, 69, 0.35);
+}
+
+.health-status-chip.info {
+    background: rgba(23, 162, 184, 0.12);
+    color: #89deea;
+    border-color: rgba(23, 162, 184, 0.35);
+}
+
+.health-meta {
+    margin-top: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.health-meta small {
+    display: block;
+}
 </style>
 <div class="row gap-0">
     <div class="col-xl-8">
@@ -242,10 +280,11 @@ function renderDomainHealthCard(domainStatus) {
         if (domainStatus.dns.status === 'healthy') {
             const aRecords = domainStatus.dns.records && domainStatus.dns.records.A ? domainStatus.dns.records.A.join(', ') : '';
             dnsHtml = `
-                <div class="alert alert-success py-2 small mb-2">
-                    <i class="bi bi-check-circle"></i> Domain correctly points to server
+                <div class="health-status-chip success mb-2">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Domain correctly points to server</span>
                 </div>
-                ${aRecords ? `<small class="text-muted d-block mb-2">A Records: ${aRecords}</small>` : ''}
+                ${aRecords ? `<div class="health-meta mb-2"><small>A Records: ${aRecords}</small></div>` : ''}
             `;
         } else if (domainStatus.dns.status === 'error') {
             dnsHtml = `<div class="alert alert-danger py-2 small mb-2"><i class="bi bi-x-circle"></i> ${(domainStatus.dns.errors || []).join(', ')}</div>`;
@@ -258,12 +297,15 @@ function renderDomainHealthCard(domainStatus) {
     if (domainStatus.ssl) {
         if (domainStatus.ssl.exists && domainStatus.ssl.valid) {
             sslHtml = `
-                <div class="alert alert-success py-2 small mb-2">
-                    <i class="bi bi-shield-check"></i> Valid certificate
+                <div class="health-status-chip success mb-2">
+                    <i class="bi bi-shield-check"></i>
+                    <span>Valid certificate</span>
                 </div>
-                <small class="text-muted d-block">Expires: ${domainStatus.ssl.expiration_date}</small>
-                <small class="text-muted d-block">Days left: ${domainStatus.ssl.days_until_expiry}</small>
-                ${domainStatus.ssl.is_wildcard ? '<span class="badge bg-info mt-1">Wildcard</span>' : ''}
+                <div class="health-meta">
+                    <small>Expires: ${domainStatus.ssl.expiration_date}</small>
+                    <small>Days left: ${domainStatus.ssl.days_until_expiry}</small>
+                </div>
+                ${domainStatus.ssl.is_wildcard ? '<div class="mt-2"><span class="health-status-chip info"><i class="bi bi-asterisk"></i><span>Wildcard</span></span></div>' : ''}
             `;
         } else if (domainStatus.ssl.exists) {
             sslHtml = `<div class="alert alert-danger py-2 small mb-0"><i class="bi bi-shield-x"></i> ${(domainStatus.ssl.errors || []).join(', ')}</div>`;
