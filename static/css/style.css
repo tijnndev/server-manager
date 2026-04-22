@@ -783,6 +783,14 @@ code {
     gap: 0.5rem;
 }
 
+/* Spacing between adjacent buttons/forms in table action cells */
+.table td .btn + .btn,
+.table td .btn + form,
+.table td form + .btn,
+.table td form + form {
+    margin-left: 0.375rem;
+}
+
 /* Modal */
 .modal {
     display: none;

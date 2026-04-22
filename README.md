@@ -22,18 +22,14 @@ A powerful, production-ready server management application optimized for high-pe
 
 ### Optimized Configuration
 - **Workers:** 32 gevent workers (configurable)
-- **Concurrent Connections:** 32,000+ simultaneous connections
 - **Response Time:** < 50ms for cached requests
-- **Throughput:** 1,000+ requests/second
 - **CPU Utilization:** Up to 95% on heavy load
-- **Database Pool:** 60 connections
 - **Caching:** Redis-backed with 5-second TTL
 
 ### Tested Hardware
 - **CPU:** AMD Ryzen 9 7950X3D (16 cores / 32 threads)
 - **RAM:** 8 GB (2-4 GB used by application)
 - **Storage:** 57 GB minimum
-- **Concurrent Users:** 10,000+ supported
 
 ## 📋 Prerequisites
 
