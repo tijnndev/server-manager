@@ -28,6 +28,7 @@ from utils.cloudflare import (
     list_dns_records,
 )
 from models.user_settings import UserSettings
+from utils.discord import DiscordNotifier, get_user_discord_settings
 
 process_routes = Blueprint('process', __name__)
 
@@ -178,6 +179,36 @@ def get_all_container_stats():
 
 def _make_process_cache_key(user_id, role):
     return f"{role or 'user'}:{user_id or 'anon'}"
+
+
+def send_discord_power_notification(process, action, success=True, details=None):
+    """Send a Discord power-action notification for a process if enabled."""
+    try:
+        discord_settings = get_user_discord_settings(process.owner_id)
+        if not discord_settings or not discord_settings.get('notify_power_actions'):
+            return
+
+        actor_username = session.get('username')
+        if not actor_username:
+            actor_id = session.get('user_id')
+            if actor_id:
+                actor = User.query.get(actor_id)
+                actor_username = actor.username if actor else None
+        if not actor_username:
+            owner = User.query.get(process.owner_id)
+            actor_username = owner.username if owner else 'Unknown'
+
+        DiscordNotifier.notify_power_action(
+            webhook_url=discord_settings['webhook_url'],
+            action=action,
+            process_name=process.name,
+            process_type=process.type,
+            user=actor_username,
+            success=success,
+            details=details
+        )
+    except Exception as discord_error:
+        print(f"Failed to send Discord notification: {discord_error}")
 
 
 def invalidate_process_cache(cache_key=None):
@@ -623,6 +654,21 @@ def start_process_console(name):
             if result["success"]:
                 update_process_runtime_metadata(process)
                 invalidate_process_cache()
+
+                try:
+                    ActivityLog.log_activity(
+                        user_id=session.get('user_id'),
+                        username=session.get('username'),
+                        action='started_process',
+                        target=name,
+                        details="Process started successfully",
+                        request_obj=request
+                    )
+                except Exception as log_error:
+                    print(f"Failed to log activity: {log_error}")
+
+                send_discord_power_notification(process, action='started', success=True)
+
                 return jsonify({
                     "message": result["message"], 
                     "status": get_process_status(process.name), 
@@ -669,22 +715,7 @@ def start_process_console(name):
             except Exception as log_error:
                 print(f"Failed to log activity: {log_error}")
 
-            # Send Discord notification
-            try:
-                from utils.discord import get_user_discord_settings, DiscordNotifier
-                discord_settings = get_user_discord_settings(process.owner_id)
-                if discord_settings and discord_settings.get('notify_power_actions'):
-                    user = User.query.get(process.owner_id)
-                    DiscordNotifier.notify_power_action(
-                        webhook_url=discord_settings['webhook_url'],
-                        action='started',
-                        process_name=process.name,
-                        process_type=process.type,
-                        user=user.username if user else 'Unknown',
-                        success=True
-                    )
-            except Exception as discord_error:
-                print(f"Failed to send Discord notification: {discord_error}")
+            send_discord_power_notification(process, action='started', success=True)
 
             return jsonify({
                 "message": f"Process '{name}' started successfully.", 
@@ -735,6 +766,22 @@ def stop_process_console(name):
                 except Exception as db_err:
                     db.session.rollback()
                     print(f"[process_metadata] Failed to clear PID for {name}: {db_err}")
+
+                try:
+                    ActivityLog.log_activity(
+                        user_id=session.get('user_id'),
+                        username=session.get('username'),
+                        action='stopped_process',
+                        target=name,
+                        details="Process stopped successfully",
+                        request_obj=request
+                    )
+                except Exception as log_error:
+                    print(f"Failed to log activity: {log_error}")
+
+                invalidate_process_cache()
+                send_discord_power_notification(process, action='stopped', success=True)
+
                 return jsonify({"message": result["message"]})
             else:
                 return jsonify({"error": result["error"]}), 500
@@ -765,27 +812,70 @@ def stop_process_console(name):
 
             invalidate_process_cache()
 
-            # Send Discord notification
-            try:
-                from utils.discord import get_user_discord_settings, DiscordNotifier
-                discord_settings = get_user_discord_settings(process.owner_id)
-                if discord_settings and discord_settings.get('notify_power_actions'):
-                    user = User.query.get(process.owner_id)
-                    DiscordNotifier.notify_power_action(
-                        webhook_url=discord_settings['webhook_url'],
-                        action='stopped',
-                        process_name=process.name,
-                        process_type=process.type,
-                        user=user.username if user else 'Unknown',
-                        success=True
-                    )
-            except Exception as discord_error:
-                print(f"Failed to send Discord notification: {discord_error}")
+            send_discord_power_notification(process, action='stopped', success=True)
 
             return jsonify({"message": f"Process {name} stopped successfully."})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@process_routes.route('/restart/<string:name>', methods=['POST'])
+@owner_or_subuser_required()
+def restart_process_console(name):
+    process = find_process_by_name(name)
+    if not process:
+        return jsonify({"error": "Process not found", "ok": False}), 404
+
+    try:
+        if is_always_running_container(name):
+            stop_result = stop_process_in_container(name)
+            if not stop_result.get("success"):
+                return jsonify({"error": stop_result.get("error", "Failed to stop process"), "ok": False}), 500
+
+            start_result = start_process_in_container(name)
+            if not start_result.get("success"):
+                return jsonify({"error": start_result.get("error", "Failed to start process"), "ok": False}), 500
+        else:
+            process_dir = os.path.join(ACTIVE_SERVERS_DIR, name)
+            if not os.path.exists(process_dir):
+                return jsonify({"error": f"Process directory not found: {process_dir}", "ok": False}), 404
+
+            subprocess.run(['docker', 'compose', 'restart'], check=True, capture_output=True, text=True, cwd=process_dir)
+
+        update_process_runtime_metadata(process)
+        invalidate_process_cache()
+
+        try:
+            ActivityLog.log_activity(
+                user_id=session.get('user_id'),
+                username=session.get('username'),
+                action='restarted_process',
+                target=name,
+                details="Process restarted successfully",
+                request_obj=request
+            )
+        except Exception as log_error:
+            print(f"Failed to log activity: {log_error}")
+
+        send_discord_power_notification(process, action='restarted', success=True)
+
+        return jsonify({
+            "message": f"Process '{name}' restarted successfully.",
+            "status": get_process_status(process.name),
+            "ok": True
+        })
+    except subprocess.CalledProcessError as e:
+        error_details = e.stderr if e.stderr else str(e)
+        return jsonify({
+            "error": f"Docker error restarting '{name}': {error_details}",
+            "ok": False
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "error": f"Unexpected error restarting '{name}': {str(e)}",
+            "ok": False
+        }), 500
 
 
 @process_routes.route('/console/<string:name>', methods=['GET'])
@@ -1605,6 +1695,13 @@ def settings_rebuild(name):
         )
     except Exception as log_error:
         print(f"Failed to log activity: {log_error}")
+
+    send_discord_power_notification(
+        process,
+        action='rebuilt',
+        success=True,
+        details='Rebuild initiated'
+    )
 
     return redirect(url_for('process.console', name=process.name))
 
