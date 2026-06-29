@@ -225,6 +225,10 @@ class ProcessSupervisor:
 
             if result.get("success"):
                 self.docker.invalidate_cache()
+                if self.info.always_running:
+                    await self.docker.clear_process_log(
+                        self.process_name, self.log_stream.log_file
+                    )
                 await self._set_state(RuntimeState.STOPPED)
                 await self.bus.publish(
                     PowerActionEvent(

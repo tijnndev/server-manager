@@ -60,7 +60,7 @@ class LogStream:
         )
 
     async def fetch_backlog_lines(self, tail: int = 150) -> list[str]:
-        """Read historical log lines for a new console subscriber."""
+        """Read historical log lines for a new console subscriber (running processes only)."""
         lines: list[str] = []
         always_running = await self.docker.is_always_running(self.process_name)
 

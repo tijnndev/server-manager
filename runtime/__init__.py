@@ -318,13 +318,15 @@ class RuntimeManager:
         run_sync(self.register_process(process_name, process_type))
 
     def subscribe_console(self, process_name: str, process_type: Optional[str] = None) -> Generator[str, None, None]:
-        """SSE generator: backlog on connect, then live events from the bus."""
+        """SSE generator: backlog on connect while running, then live events from the bus."""
         self.ensure_process(process_name, process_type)
 
         sup = self.get_supervisor(process_name, process_type, create=False)
         if sup:
-            backlog = run_sync(sup.log_stream.fetch_backlog_lines())
-            yield from backlog_lines_to_sse(backlog)
+            status = run_sync(sup.get_status_dict()).get("status", "Exited")
+            if status.lower() == "running":
+                backlog = run_sync(sup.log_stream.fetch_backlog_lines())
+                yield from backlog_lines_to_sse(backlog)
 
         queue = self.bus.subscribe_sync_queue(process_name, set(CONSOLE_EVENT_TYPES))
         run_sync(queue.register())
