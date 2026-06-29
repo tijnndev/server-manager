@@ -93,28 +93,67 @@ class ProcessSupervisor:
         cid = await self.docker.get_container_id(self.process_name)
         self.info.container_id = cid
         self.info.always_running = await self.docker.is_always_running(self.process_name)
+        self.log_stream.always_running = self.info.always_running
 
-    async def get_status_dict(self) -> Dict[str, Any]:
+    async def sync_state_from_docker(self) -> None:
+        """Align supervisor state with actual Docker / in-container process state."""
+        if self.info.state in (
+            RuntimeState.STARTING,
+            RuntimeState.STOPPING,
+            RuntimeState.RESTARTING,
+            RuntimeState.BUILDING,
+        ):
+            return
+
         await self.refresh_metadata()
+
         if not self.info.container_id:
-            return {"process": self.process_name, "status": "Exited"}
+            await self._set_state(RuntimeState.STOPPED)
+            return
+
+        docker_state = await self.docker.inspect_state(self.info.container_id)
+        if docker_state != "running":
+            await self._set_state(RuntimeState.STOPPED)
+            return
+
+        if self.info.always_running and self.info.process_type != "python":
+            inner = await check_inner_process_running(self.docker, self.process_name)
+            if inner.get("process_running"):
+                await self._set_state(RuntimeState.RUNNING)
+            else:
+                await self._set_state(RuntimeState.STOPPED)
+        else:
+            await self._set_state(RuntimeState.RUNNING)
+
+    async def resolve_display_status(self) -> str:
+        """Return the status string shown in the web UI."""
+        await self.refresh_metadata()
+
+        if not self.info.container_id:
+            return "Exited"
 
         cache = await self.docker.refresh_container_cache()
         entry = cache.get(self.process_name)
         if not entry:
-            return {"process": self.process_name, "status": "Exited"}
+            return "Exited"
 
         state = entry["state"]
         if state == "running":
             if self.info.always_running and self.info.process_type != "python":
                 inner = await check_inner_process_running(self.docker, self.process_name)
-                return {"process": self.process_name, "status": inner.get("status", "Running")}
-            return {"process": self.process_name, "status": "Running"}
+                return inner.get("status", "Running")
+            return "Running"
         if state == "restarting":
-            return {"process": self.process_name, "status": "Restarting"}
-        return {"process": self.process_name, "status": "Exited"}
+            return "Restarting"
+        return "Exited"
+
+    async def get_status_dict(self) -> Dict[str, Any]:
+        status = await self.resolve_display_status()
+        return {"process": self.process_name, "status": status}
 
     async def start(self) -> Dict[str, Any]:
+        await self.refresh_metadata()
+        self.log_stream.always_running = self.info.always_running
         await self.ensure_streams()
         await self._set_state(RuntimeState.STARTING)
         try:
@@ -169,6 +208,8 @@ class ProcessSupervisor:
             return {"success": False, "error": str(exc)}
 
     async def stop(self) -> Dict[str, Any]:
+        await self.refresh_metadata()
+        self.log_stream.always_running = self.info.always_running
         await self.ensure_streams()
         await self._set_state(RuntimeState.STOPPING)
         try:
@@ -183,6 +224,7 @@ class ProcessSupervisor:
                 }
 
             if result.get("success"):
+                self.docker.invalidate_cache()
                 await self._set_state(RuntimeState.STOPPED)
                 await self.bus.publish(
                     PowerActionEvent(
@@ -205,6 +247,8 @@ class ProcessSupervisor:
             return {"success": False, "error": str(exc)}
 
     async def restart(self) -> Dict[str, Any]:
+        await self.refresh_metadata()
+        self.log_stream.always_running = self.info.always_running
         await self._set_state(RuntimeState.RESTARTING)
         if self.info.always_running:
             stop_result = await self.stop()
@@ -378,10 +422,11 @@ class ProcessSupervisor:
         cid = actor.get("ID")
         if action in ("start", "restart"):
             self.info.container_id = cid
-            await self._set_state(RuntimeState.RUNNING)
-            await self.bus.publish(
-                ContainerStartedEvent(process_name=self.process_name, container_id=cid)
-            )
+            await self.sync_state_from_docker()
+            if self.info.state == RuntimeState.RUNNING:
+                await self.bus.publish(
+                    ContainerStartedEvent(process_name=self.process_name, container_id=cid)
+                )
         elif action in ("stop", "pause"):
             await self._set_state(RuntimeState.STOPPED)
             await self.bus.publish(

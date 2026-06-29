@@ -758,7 +758,7 @@
 
       if (response.ok && result.ok) {
         addLogMessage("Process started successfully", "system");
-        updateProcessStatus("running");
+        updateProcessStatus(result.status || "running");
         showSuccess(`Process "${name}" started successfully`);
 
         // Refresh logs after starting
@@ -794,8 +794,9 @@
       );
 
       if (response.ok) {
+        const result = await response.json();
         addLogMessage("Process stopped successfully", "system");
-        updateProcessStatus("exited");
+        updateProcessStatus(result.status || "exited");
         showSuccess(`Process "${name}" stopped successfully`);
 
         // Refresh logs after stopping
@@ -888,8 +889,18 @@
     }
   }
 
+  function mapApiStatusToUi(status) {
+    const normalized = (status || '').toString().toLowerCase().replace(/_/g, ' ');
+    if (normalized === 'running') return 'running';
+    if (normalized === 'process stopped') return 'process stopped';
+    if (normalized === 'restarting') return 'restarting';
+    if (normalized === 'stopping') return 'stopping';
+    if (normalized === 'starting') return 'starting';
+    return 'exited';
+  }
+
   function updateProcessStatus(status) {
-    const normalized = (status || '').toString().toLowerCase();
+    const normalized = mapApiStatusToUi(status);
     currentStatus = normalized;
     updateUIBasedOnStatus(normalized);
     statusLabel.textContent = normalized.charAt(0).toUpperCase() + normalized.slice(1);
@@ -918,7 +929,8 @@
         stopBtn.disabled = true;
         restartBtn.disabled = true;
         break;
-      default: // exited, stopped, etc.
+      case "process stopped":
+      default:
         statusDot.classList.add("stopped");
         startBtn.disabled = false;
         stopBtn.disabled = true;
@@ -943,14 +955,13 @@
       const response = await fetch(`/process/metrics/{{ process.name }}`);
       if (response.ok) {
         const metrics = await response.json();
-
-        const normalizedStatus = (metrics.status || '').toLowerCase();
-        const mappedStatus = normalizedStatus === 'stopped' ? 'exited' : normalizedStatus;
+        const apiStatus = metrics.display_status || metrics.status;
+        const mappedStatus = mapApiStatusToUi(apiStatus);
         if (mappedStatus && mappedStatus !== currentStatus) {
           updateProcessStatus(mappedStatus);
         }
-        
-        if (metrics.status === 'running') {
+
+        if (metrics.status === 'running' || metrics.status === 'process_stopped') {
           // Update CPU
           const cpuPercent = metrics.cpu_percent || 0;
           document.getElementById('process-cpu').textContent = `${cpuPercent}%`;

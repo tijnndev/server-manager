@@ -45,6 +45,17 @@ def run_sync(coro, timeout: float = 300):
     return future.result(timeout=timeout)
 
 
+def _metrics_status_from_display(display_status: str) -> str:
+    normalized = (display_status or "").strip().lower()
+    if normalized == "running":
+        return "running"
+    if normalized == "process stopped":
+        return "process_stopped"
+    if normalized == "restarting":
+        return "restarting"
+    return "stopped"
+
+
 class RuntimeManager:
     """Owns supervisors, event bus, and docker runtime for the whole host."""
 
@@ -130,13 +141,9 @@ class RuntimeManager:
     ) -> ProcessSupervisor:
         sup = self.get_supervisor(process_name, process_type=process_type)
         assert sup is not None
-        await sup.refresh_metadata()
-        if sup.info.container_id:
-            state = await self.docker.inspect_state(sup.info.container_id)
-            if state == "running":
-                from runtime.models import RuntimeState
-
-                await sup._set_state(RuntimeState.RUNNING)
+        if process_type:
+            sup.info.process_type = process_type
+        await sup.sync_state_from_docker()
         await sup.ensure_streams()
         return sup
 
@@ -164,7 +171,12 @@ class RuntimeManager:
         return run_sync(self._stop(process_name, process_type))
 
     async def _stop(self, process_name: str, process_type: Optional[str] = None):
-        sup = await self.register_process(process_name, process_type)
+        sup = self.get_supervisor(process_name, process_type=process_type, create=True)
+        assert sup is not None
+        if process_type:
+            sup.info.process_type = process_type
+        await sup.refresh_metadata()
+        await sup.ensure_streams()
         return await sup.stop()
 
     def restart(self, process_name: str, process_type: Optional[str] = None) -> Dict[str, Any]:
@@ -240,32 +252,43 @@ class RuntimeManager:
         return run_sync(self._get_status(process_name, process_type))
 
     async def _get_status(self, process_name: str, process_type: Optional[str] = None):
-        sup = await self.register_process(process_name, process_type)
+        sup = self.get_supervisor(process_name, process_type=process_type, create=True)
+        assert sup is not None
+        if process_type:
+            sup.info.process_type = process_type
+        await sup.refresh_metadata()
         return await sup.get_status_dict()
 
-    def get_metrics(self, process_name: str) -> Dict[str, Any]:
-        sup = self.supervisors.get(process_name)
-        if sup and sup.stats_stream.latest.status == "running":
-            s = sup.stats_stream.latest
-            return {
-                "cpu_percent": s.cpu_percent,
-                "memory_percent": s.memory_percent,
-                "memory_mb": s.memory_mb,
-                "status": "running",
-            }
-        return run_sync(self._get_metrics_fallback(process_name))
+    def get_metrics(self, process_name: str, process_type: Optional[str] = None) -> Dict[str, Any]:
+        return run_sync(self._get_metrics(process_name, process_type))
 
-    async def _get_metrics_fallback(self, process_name: str):
+    async def _get_metrics(self, process_name: str, process_type: Optional[str] = None):
+        sup = self.supervisors.get(process_name)
+        if sup is None:
+            sup = self.get_supervisor(process_name, process_type=process_type, create=True)
+        if sup and process_type:
+            sup.info.process_type = process_type
+
+        status_dict = await sup.get_status_dict() if sup else {"status": "Exited"}
+        display_status = status_dict.get("status", "Exited")
+        metrics_status = _metrics_status_from_display(display_status)
+
         container_id = await self.docker.get_container_id(process_name)
-        if not container_id:
+        if not container_id or metrics_status == "stopped":
             return {
                 "cpu_percent": 0,
                 "memory_percent": 0,
                 "memory_mb": 0,
-                "status": "stopped",
+                "status": metrics_status,
+                "display_status": display_status,
             }
+
         raw = await self.docker.get_stats(container_id)
-        return {**raw, "status": "running"}
+        return {
+            **raw,
+            "status": metrics_status,
+            "display_status": display_status,
+        }
 
     def get_all_metrics(self) -> Dict[str, Dict[str, float]]:
         if self._all_stats:

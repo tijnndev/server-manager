@@ -165,7 +165,18 @@ async def stop_inner_process(docker: DockerRuntime, process_name: str) -> Dict[s
                     killed += 1
 
     if killed:
+        await asyncio.sleep(1)
+        status = await check_inner_process_running(docker, process_name)
+        if status.get("process_running"):
+            return {
+                "success": False,
+                "error": "Process did not stop cleanly. Try again or check logs.",
+            }
         return {"success": True, "message": f"Stopped {killed} process(es)"}
+
+    status = await check_inner_process_running(docker, process_name)
+    if not status.get("process_running"):
+        return {"success": True, "message": "Process is already stopped"}
     return {"success": True, "message": "No matching processes found to stop"}
 
 

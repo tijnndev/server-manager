@@ -54,11 +54,21 @@ class StatsStream:
                     self.latest = ContainerStats(status="stopped")
                 else:
                     raw = await self.docker.get_stats(container_id)
+                    metrics_status = "running"
+                    always_running = await self.docker.is_always_running(self.process_name)
+                    if always_running:
+                        from runtime.lifecycle import check_inner_process_running
+
+                        inner = await check_inner_process_running(
+                            self.docker, self.process_name
+                        )
+                        if not inner.get("process_running"):
+                            metrics_status = "process_stopped"
                     self.latest = ContainerStats(
                         cpu_percent=raw.get("cpu_percent", 0.0),
                         memory_percent=raw.get("memory_percent", 0.0),
                         memory_mb=raw.get("memory_mb", 0.0),
-                        status="running",
+                        status=metrics_status,
                     )
                 await self.bus.publish(
                     StatsUpdatedEvent(process_name=self.process_name, stats=self.latest)

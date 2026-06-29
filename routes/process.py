@@ -232,27 +232,13 @@ def load_process():
     if session.get("role") == "admin":
         processes = Process.query.all()
 
-    # PERFORMANCE: Fetch ALL container statuses in a single docker call
-    # instead of running 'docker-compose ps' per container (saves ~1-3s per container)
-    container_statuses = _get_all_container_statuses()
+    # Warm Docker container cache once for downstream runtime lookups
+    _get_all_container_statuses()
 
     def _fetch_status_fast(process):
-        """Fast status lookup using pre-fetched batch data."""
-        container_info = container_statuses.get(process.name)
-        if container_info:
-            state = container_info['state']
-            if state == 'running':
-                status = 'Running'
-            elif state in ('exited', 'dead', 'created'):
-                status = 'Exited'
-            elif state == 'restarting':
-                status = 'Restarting'
-            elif state == 'paused':
-                status = 'Paused'
-            else:
-                status = 'Unknown'
-        else:
-            status = 'Exited'
+        """Status lookup via runtime (handles always-running inner processes)."""
+        status_dict = get_runtime().get_status(process.name, process.type)
+        status = status_dict.get("status", "Exited")
 
         return process.name, {
             "id": process.id,
@@ -537,8 +523,13 @@ def stop_process_console(name):
 
             invalidate_process_cache()
             send_discord_power_notification(process, action='stopped', success=True)
-            return jsonify({"message": result.get("message", f"Process {name} stopped successfully.")})
-        return jsonify({"error": result.get("error", "Failed to stop process")}), 500
+            status = get_process_status(process.name).get("status", "Exited")
+            return jsonify({
+                "message": result.get("message", f"Process {name} stopped successfully."),
+                "status": status,
+                "ok": True,
+            })
+        return jsonify({"error": result.get("error", "Failed to stop process"), "ok": False}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1537,7 +1528,7 @@ def get_process_metrics(name):
         return jsonify({"error": "Process not found"}), 404
 
     try:
-        metrics = get_runtime().get_metrics(name)
+        metrics = get_runtime().get_metrics(name, process.type)
         return jsonify(metrics)
     except Exception as e:
         return jsonify({

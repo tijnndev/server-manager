@@ -244,8 +244,6 @@
         
         const rows = processEntries.map(([name, process]) => {
             const statusInfo = getStatusBadgeClass(process.status);
-            
-            // Fetch real metrics
             const cpuUsage = process.metrics?.cpu_percent || 0;
             const memUsage = process.metrics?.memory_mb || 0;
             
