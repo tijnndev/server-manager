@@ -643,12 +643,6 @@
                 // Apply compact mode immediately
                 applyCompactMode(settings.compact_mode);
                 
-                // If remember filters was disabled, clear localStorage
-                if (!settings.remember_filters) {
-                    localStorage.removeItem('dashboardSearchQuery');
-                    localStorage.removeItem('dashboardSortOption');
-                }
-
                 // Store settings in localStorage for immediate application
                 localStorage.setItem('userPreferences', JSON.stringify(settings));
 

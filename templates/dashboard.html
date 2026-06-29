@@ -10,26 +10,18 @@
             <div class="card-body">
                 <div class="search-container mb-3">
                     <input type="text" id="search-bar" class="form-control" placeholder="Search process..." oninput="filterProcesses()">
-                    <select id="sort-select" class="form-select w-auto" onchange="sortProcesses()">
-                        <option value="alpha">Alphabet (A-Z)</option>
-                        <option value="alpha-reverse">Alphabet (Z-A)</option>
-                        <option value="created">Created At (Oldest)</option>
-                        <option value="created-reverse">Created At (Newest)</option>
-                        <option value="status">Status (Ascending)</option>
-                        <option value="status-reverse">Status (Descending)</option>
-                    </select>
                 </div>
             </div>
             <div class="table-responsive">
                 <table class="table table-sticky-header">
                     <thead>
                         <tr>
-                            <th>Process ID</th>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Status</th>
-                            <th>CPU</th>
-                            <th>Memory</th>
+                            <th class="sortable" data-sort="name" onclick="handleSort('name')">Process ID <i class="bi sort-icon"></i></th>
+                            <th class="sortable" data-sort="name" onclick="handleSort('name')">Name <i class="bi sort-icon"></i></th>
+                            <th class="sortable" data-sort="type" onclick="handleSort('type')">Type <i class="bi sort-icon"></i></th>
+                            <th class="sortable" data-sort="status" onclick="handleSort('status')">Status <i class="bi sort-icon"></i></th>
+                            <th class="sortable" data-sort="cpu" onclick="handleSort('cpu')">CPU <i class="bi sort-icon"></i></th>
+                            <th class="sortable" data-sort="memory" onclick="handleSort('memory')">Memory <i class="bi sort-icon"></i></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -106,21 +98,9 @@
 
 <script>
 
-    // Load saved filters from localStorage immediately (before any async work)
-    // so the input values are ready when fetchProcesses renders.
-    (function loadSavedFiltersSync() {
-        const savedSearch = localStorage.getItem('dashboardSearchQuery');
-        const savedSort = localStorage.getItem('dashboardSortOption');
-        if (savedSearch !== null) {
-            document.getElementById('search-bar').value = savedSearch;
-        }
-        if (savedSort !== null) {
-            document.getElementById('sort-select').value = savedSort;
-        }
-    })();
-
     let userSettings = null;
     let autoRefreshInterval = null;
+    let sortState = { column: null, direction: 'asc' };
 
     // Fetch user settings on page load
     async function loadUserSettings() {
@@ -149,15 +129,6 @@
             fetchProcesses();
             fetchServerStats();
         }, intervalSeconds * 1000);
-    }
-
-    function saveFilterSettings() {
-        // Always save — if user later disables remember_filters, we just won't restore
-        const searchQuery = document.getElementById('search-bar').value;
-        const sortOption = document.getElementById('sort-select').value;
-        
-        localStorage.setItem('dashboardSearchQuery', searchQuery);
-        localStorage.setItem('dashboardSortOption', sortOption);
     }
 
     async function fetchServerStats() {
@@ -198,13 +169,8 @@
         const processRows = document.querySelectorAll('[data-process-name]');
         processRows.forEach(row => {
             const processName = row.getAttribute('data-process-name').toLowerCase();
-            if (processName.includes(query)) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+            row.style.display = processName.includes(query) ? '' : 'none';
         });
-        saveFilterSettings();
     }
 
     let allProcesses = {};
@@ -242,15 +208,8 @@
         if (isInitialLoad && Object.keys(allProcesses).length > 0) {
             isInitialLoad = false;
         }
-        
-        // Apply sort if a sort option is selected (value already restored from localStorage synchronously)
-        const currentSort = document.getElementById('sort-select').value;
-        if (currentSort && currentSort !== 'default') {
-            sortProcesses();
-            return;
-        }
-        
-        renderProcesses(Object.entries(allProcesses));
+
+        applySortAndRender();
     }
 
     function getStatusBadgeClass(status) {
@@ -326,26 +285,80 @@
 
     fetchProcesses();
 
-    function sortProcesses() {
-        const sortValue = document.getElementById('sort-select').value;
-        let entries = Object.entries(allProcesses);
+    function handleSort(column) {
+        if (sortState.column === column) {
+            sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortState.column = column;
+            sortState.direction = 'asc';
+        }
+        updateSortHeaders();
+        applySortAndRender();
+    }
 
-        if (sortValue === 'alpha') {
-            entries.sort((a, b) => a[0].localeCompare(b[0]));
-        } else if (sortValue === 'alpha-reverse') {
-            entries.sort((a, b) => b[0].localeCompare(a[0]));
-        } else if (sortValue === 'created') {
-            entries.sort((a, b) => new Date(a[1].created_at) - new Date(b[1].created_at));
-        } else if (sortValue === 'created-reverse') {
-            entries.sort((a, b) => new Date(b[1].created_at) - new Date(a[1].created_at));
-        } else if (sortValue === 'status') {
-            entries.sort((a, b) => a[1].status.localeCompare(b[1].status));
-        } else if (sortValue === 'status-reverse') {
-            entries.sort((a, b) => b[1].status.localeCompare(a[1].status));
+    function updateSortHeaders() {
+        document.querySelectorAll('th.sortable').forEach(th => {
+            const icon = th.querySelector('.sort-icon');
+            const col = th.getAttribute('data-sort');
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (icon) {
+                icon.className = 'bi sort-icon bi-arrow-down-up text-muted';
+            }
+            if (col === sortState.column && icon) {
+                th.classList.add(sortState.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+                icon.className = sortState.direction === 'asc'
+                    ? 'bi sort-icon bi-arrow-up'
+                    : 'bi sort-icon bi-arrow-down';
+            }
+        });
+    }
+
+    function sortEntries(entries) {
+        if (!sortState.column) {
+            return entries;
         }
 
+        const direction = sortState.direction === 'asc' ? 1 : -1;
+
+        return entries.sort((a, b) => {
+            const [nameA, procA] = a;
+            const [nameB, procB] = b;
+
+            let valueA;
+            let valueB;
+
+            switch (sortState.column) {
+                case 'name':
+                    valueA = nameA.toLowerCase();
+                    valueB = nameB.toLowerCase();
+                    break;
+                case 'type':
+                    valueA = (procA.type || '').toLowerCase();
+                    valueB = (procB.type || '').toLowerCase();
+                    break;
+                case 'status':
+                    valueA = (procA.status || '').toLowerCase();
+                    valueB = (procB.status || '').toLowerCase();
+                    break;
+                case 'cpu':
+                    valueA = procA.metrics?.cpu_percent || 0;
+                    valueB = procB.metrics?.cpu_percent || 0;
+                    return (valueA - valueB) * direction;
+                case 'memory':
+                    valueA = procA.metrics?.memory_mb || 0;
+                    valueB = procB.metrics?.memory_mb || 0;
+                    return (valueA - valueB) * direction;
+                default:
+                    return 0;
+            }
+
+            return valueA.localeCompare(valueB) * direction;
+        });
+    }
+
+    function applySortAndRender() {
+        const entries = sortEntries(Object.entries(allProcesses));
         renderProcesses(entries);
-        saveFilterSettings();
     }
 
     // Load user settings when page loads
@@ -370,6 +383,11 @@
             }
         } catch (error) {
             console.error('Failed to fetch batch metrics:', error);
+        }
+
+        if (sortState.column === 'cpu' || sortState.column === 'memory') {
+            applySortAndRender();
+            return;
         }
 
         // Update metrics in-place without re-rendering the entire table
@@ -425,5 +443,6 @@
     startMetricsPolling();
     // Initial fetch after 1 second
     setTimeout(fetchProcessMetrics, 1000);
+    updateSortHeaders();
 </script>
 {% endblock content %}

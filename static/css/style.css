@@ -972,6 +972,27 @@ a:hover {
     gap: 1rem;
 }
 
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+th.sortable .sort-icon {
+    margin-left: 0.35rem;
+    font-size: 0.75rem;
+    opacity: 0.45;
+}
+
+th.sortable:hover {
+    background: var(--bg-hover);
+}
+
+th.sortable.sort-asc .sort-icon,
+th.sortable.sort-desc .sort-icon {
+    opacity: 1;
+}
+
 @media (max-width: 1199px) {
     .gap-0 {
         gap: 2rem !important

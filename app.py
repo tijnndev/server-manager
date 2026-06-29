@@ -133,62 +133,7 @@ processed_events_lock = threading.Lock()
 EVENT_EXPIRATION_TIME = 30
 
 
-def handle_event(event):
-    if 'Actor' in event and 'Attributes' in event['Actor']:
-        container_name_in_event = event['Actor']['Attributes'].get('name', '').split("_")[0]
-        container_id = event['Actor']['ID']
-
-        current_time = time.time()
-        event_key = f"{container_id}_{event['Action']}"
-
-        with processed_events_lock:
-            if event_key in processed_events:
-                last_event_time = processed_events[event_key]
-                if current_time - last_event_time < EVENT_EXPIRATION_TIME:
-                    print(f"Skipping duplicate event: {event_key}")
-                    return
-
-            processed_events[event_key] = current_time
-
-        print(f"Event processed: {event_key}")
-
-        with app.app_context():
-            process = find_process_by_name(container_name_in_event)
-            if process is None or event["Type"] != "container":
-                return
-
-            # Discord integration removed
-
-
-def start_listening_for_events():
-    while True:
-        try:
-            process = subprocess.Popen(
-                ["docker", "events", "--format", "{{json .}}"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-            )
-            for line in iter(process.stdout.readline, ''):
-                try:
-                    event = json.loads(line.strip())
-                    handle_event(event)
-                except json.JSONDecodeError:
-                    continue
-            process.wait()
-        except Exception as e:
-            logger.error(f"Event listener error: {e}")
-        time.sleep(5)  # Retry after failure
-
-                    
-def run_event_listener():
-    print('Listening event')
-    event_listener_thread = threading.Thread(target=start_listening_for_events, daemon=True)
-    event_listener_thread.start()
-
-
-first_worker = None
+first_worker = False
 if ENVIRONMENT == "production":
     redis_client = redis.StrictRedis(
         host=os.getenv('REDIS_HOST', 'localhost'),
@@ -220,10 +165,16 @@ if ENVIRONMENT == "production":
 
 
 with app.app_context():
-    if ENVIRONMENT == "production" and first_worker:
-        run_event_listener()
     db.create_all()
     create_admin_user()
+
+    from runtime import init_runtime
+
+    init_runtime(
+        app,
+        load_processes=True,
+        docker_events=(ENVIRONMENT != "production" or first_worker),
+    )
 
 BASE_DIR = os.path.dirname(__file__)
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')
