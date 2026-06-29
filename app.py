@@ -168,13 +168,14 @@ with app.app_context():
     db.create_all()
     create_admin_user()
 
-    from runtime import init_runtime
+    if os.getenv("SERVER_MANAGER_DEFER_RUNTIME") != "1":
+        from runtime import init_runtime
 
-    init_runtime(
-        app,
-        load_processes=True,
-        docker_events=(ENVIRONMENT != "production" or first_worker),
-    )
+        init_runtime(
+            app,
+            load_processes=True,
+            docker_events=(ENVIRONMENT != "production" or first_worker),
+        )
 
 BASE_DIR = os.path.dirname(__file__)
 ACTIVE_SERVERS_DIR = os.path.join(BASE_DIR, 'active-servers')

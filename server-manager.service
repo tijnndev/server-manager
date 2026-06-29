@@ -1,16 +1,22 @@
 [Unit]
 Description=Server Manager Flask App
-After=network.target
+After=network-online.target docker.service mariadb.service redis.service
+Wants=network-online.target docker.service
 
 [Service]
-WorkingDirectory=/etc/server-manager/
-Environment=\"PATH=/etc/server-manager/venv/\"
-Environment="MAIL_USERNAME=mail@tijnn.dev"
-Environment="MAIL_PASSWORD=fEbye1^^xLeA*cMh"
-Environment="MAIL_SERVER=mail.tijnn.dev"
-Environment="MAIL_PORT=465"
+Type=simple
+WorkingDirectory=/etc/server-manager
+EnvironmentFile=-/etc/server-manager/.env
+# venv first, then system paths so `docker` is found
+Environment=PATH=/etc/server-manager/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/etc/server-manager/venv/bin/gunicorn -c /etc/server-manager/gunicorn_config.py app:app
 Restart=always
+RestartSec=5
+
+# Run as a user that can access the Docker socket (uncomment and adjust if needed)
+# User=server-manager
+# Group=docker
+# SupplementaryGroups=docker
 
 [Install]
 WantedBy=multi-user.target

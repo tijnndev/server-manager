@@ -4,6 +4,9 @@ This configuration balances performance with resource usage.
 """
 import os
 
+# Runtime init is deferred to post_fork when preload_app is enabled.
+os.environ.setdefault("SERVER_MANAGER_DEFER_RUNTIME", "1")
+
 # Server socket
 bind = "0.0.0.0:7001"
 backlog = 2048
@@ -81,6 +84,27 @@ def pre_fork(server, worker):
 def post_fork(server, worker):
     """Called just after a worker has been forked."""
     print(f"Worker spawned (pid: {worker.pid})")
+
+    from app import app
+    from runtime import (
+        claim_docker_events_listener,
+        init_runtime,
+        reset_runtime_after_fork,
+    )
+
+    reset_runtime_after_fork()
+
+    preload_processes = os.getenv("GUNICORN_PRELOAD_PROCESSES", "0") == "1"
+    docker_events = claim_docker_events_listener(worker.pid)
+
+    with app.app_context():
+        init_runtime(
+            app,
+            load_processes=preload_processes,
+            docker_events=docker_events,
+        )
+        if docker_events:
+            print(f"Worker {worker.pid} listening for docker events")
 
 def pre_exec(server):
     """Called just before a new master process is forked."""

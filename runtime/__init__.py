@@ -45,6 +45,58 @@ def run_sync(coro, timeout: float = 300):
     return future.result(timeout=timeout)
 
 
+def reset_runtime_after_fork() -> None:
+    """Reset asyncio runtime state after gunicorn worker fork (preload_app safe)."""
+    global _runtime, _loop, _loop_thread
+    _runtime = None
+    if _loop is not None:
+        try:
+            _loop.call_soon_threadsafe(_loop.stop)
+        except Exception:
+            pass
+    _loop = None
+    _loop_thread = None
+
+
+def claim_docker_events_listener(worker_pid: int) -> bool:
+    """Only one gunicorn worker should subscribe to docker events in production."""
+    if os.getenv("ENVIRONMENT") != "production":
+        return True
+    try:
+        import redis
+
+        client = redis.StrictRedis(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            decode_responses=True,
+        )
+        return bool(
+            client.set(
+                "runtime_docker_events_lock",
+                str(worker_pid),
+                nx=True,
+                ex=3600,
+            )
+        )
+    except Exception as exc:
+        logger.warning("Could not claim docker events lock: %s", exc)
+        return False
+
+
+def _verify_docker(runtime: "RuntimeManager") -> None:
+    result = run_sync(
+        runtime.docker.run(["docker", "info", "--format", "{{.ServerVersion}}"], timeout=15)
+    )
+    if result.success:
+        logger.info("Docker available (server %s)", result.stdout.strip())
+    else:
+        logger.error(
+            "Docker is not reachable from this process (PATH=%s): %s",
+            os.getenv("PATH", ""),
+            (result.stderr or result.stdout or "unknown error").strip(),
+        )
+
+
 def _metrics_status_from_display(display_status: str) -> str:
     normalized = (display_status or "").strip().lower()
     if normalized == "running":
@@ -355,6 +407,7 @@ def get_runtime() -> RuntimeManager:
 def init_runtime(app=None, load_processes: bool = True, docker_events: bool = True) -> RuntimeManager:
     """Initialize runtime on application startup."""
     runtime = get_runtime()
+    _verify_docker(runtime)
     run_sync(runtime.start_runtime(docker_events=docker_events))
 
     if load_processes and app is not None:
@@ -362,12 +415,14 @@ def init_runtime(app=None, load_processes: bool = True, docker_events: bool = Tr
             try:
                 from models.process import Process
 
-                for process in Process.query.all():
+                processes = Process.query.all()
+                logger.info("Preloading %d process supervisor(s)", len(processes))
+                for process in processes:
                     run_sync(
                         runtime.register_process(process.name, process.type),
                         timeout=60,
                     )
             except Exception as exc:
-                logger.warning("Could not preload process supervisors: %s", exc)
+                logger.exception("Could not preload process supervisors: %s", exc)
 
     return runtime
