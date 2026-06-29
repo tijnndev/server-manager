@@ -12,6 +12,17 @@ from runtime.events import ConsoleOutputEvent
 
 logger = logging.getLogger("server-manager.runtime.log_stream")
 
+_TAIL_NOISE_PREFIXES = (
+    "tail: cannot open",
+    "tail: no files remaining",
+    "tail: ",
+)
+
+
+def _is_tail_noise(line: str) -> bool:
+    stripped = line.strip()
+    return any(stripped.startswith(prefix) for prefix in _TAIL_NOISE_PREFIXES)
+
 
 class LogStream:
     """Attach to container/process output and publish ConsoleOutputEvent."""
@@ -51,6 +62,8 @@ class LogStream:
             self._task = None
 
     async def publish_line(self, line: str, source: str = "stdout") -> None:
+        if _is_tail_noise(line):
+            return
         await self.bus.publish(
             ConsoleOutputEvent(
                 process_name=self.process_name,
@@ -131,11 +144,20 @@ class LogStream:
                     proc.kill()
 
     async def _stream_always_running(self) -> None:
+        from runtime.lifecycle import check_inner_process_running
+
         while self._running:
             container_id = await self.docker.get_container_id(self.process_name)
             if not container_id:
                 await asyncio.sleep(2)
                 continue
+
+            status = await check_inner_process_running(self.docker, self.process_name)
+            if not status.get("process_running"):
+                await asyncio.sleep(2)
+                continue
+
+            await self.docker.ensure_process_log_file(container_id, self.log_file)
 
             proc = await asyncio.create_subprocess_exec(
                 "docker",
@@ -147,7 +169,7 @@ class LogStream:
                 "-f",
                 self.log_file,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+                stderr=asyncio.subprocess.DEVNULL,
             )
             try:
                 while self._running and proc.stdout:

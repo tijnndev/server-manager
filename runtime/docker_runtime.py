@@ -311,11 +311,23 @@ class DockerRuntime:
             return []
         return [ln for ln in result.stdout.splitlines() if ln.strip()]
 
+    async def ensure_process_log_file(self, container_id: str, log_file: str) -> CommandResult:
+        return await self.exec_in_container(
+            container_id,
+            f"touch {shlex.quote(log_file)}",
+            timeout=10,
+        )
+
     async def clear_process_log(self, process_name: str, log_file: str) -> CommandResult:
         container_id = await self.get_container_id(process_name)
         if not container_id:
             return CommandResult(1, "", "Container is not running")
-        return await self.exec_in_container(container_id, f"> {shlex.quote(log_file)}")
+        quoted = shlex.quote(log_file)
+        return await self.exec_in_container(
+            container_id,
+            f"touch {quoted} && : > {quoted}",
+            timeout=10,
+        )
 
     async def get_stats(self, container_id: str) -> Dict[str, float]:
         result = await self.run(

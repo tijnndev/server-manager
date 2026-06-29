@@ -98,7 +98,8 @@ async def start_inner_process(docker: DockerRuntime, process_name: str) -> Dict[
     await stop_inner_process(docker, process_name)
 
     log_file = f"/tmp/{process_name}_process.log"
-    await docker.exec_in_container(container_id, f"> {log_file}")
+    await docker.ensure_process_log_file(container_id, log_file)
+    await docker.exec_in_container(container_id, f": > {shlex.quote(log_file)}")
 
     wrapper_script = textwrap.dedent(
         f"""#!/bin/bash
