@@ -20,6 +20,7 @@ logger = logging.getLogger("server-manager.runtime")
 _runtime: Optional["RuntimeManager"] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
 _loop_thread: Optional[threading.Thread] = None
+_loop_ready = threading.Event()
 
 
 def _ensure_loop() -> asyncio.AbstractEventLoop:
@@ -27,14 +28,18 @@ def _ensure_loop() -> asyncio.AbstractEventLoop:
     if _loop is not None and _loop.is_running():
         return _loop
 
+    _loop_ready.clear()
     _loop = asyncio.new_event_loop()
 
     def _run_loop() -> None:
         asyncio.set_event_loop(_loop)
+        _loop_ready.set()
         _loop.run_forever()
 
     _loop_thread = threading.Thread(target=_run_loop, name="runtime-async", daemon=True)
     _loop_thread.start()
+    if not _loop_ready.wait(timeout=10):
+        raise RuntimeError("Runtime asyncio loop failed to start within 10s")
     return _loop
 
 
@@ -56,6 +61,7 @@ def reset_runtime_after_fork() -> None:
             pass
     _loop = None
     _loop_thread = None
+    _loop_ready.clear()
 
 
 def claim_docker_events_listener(worker_pid: int) -> bool:

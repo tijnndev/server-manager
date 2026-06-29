@@ -44,7 +44,9 @@ class DockerRuntime:
         timeout: int = 120,
         check: bool = False,
     ) -> CommandResult:
-        return await asyncio.to_thread(self._run_sync, cmd, cwd, timeout, check)
+        # Runs on the dedicated runtime asyncio thread; blocking is intentional
+        # (asyncio.to_thread breaks under gevent workers).
+        return self._run_sync(cmd, cwd, timeout, check)
 
     def _run_sync(
         self,
@@ -104,7 +106,7 @@ class DockerRuntime:
                     except subprocess.TimeoutExpired:
                         proc.kill()
 
-        for line in await asyncio.to_thread(lambda: list(_iter_lines())):
+        for line in _iter_lines():
             yield line
 
     async def refresh_container_cache(self, force: bool = False) -> Dict[str, Dict[str, Any]]:

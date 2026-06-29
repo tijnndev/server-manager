@@ -299,7 +299,7 @@ async def execute_interactive(
         )
         return proc
 
-    proc = await asyncio.to_thread(_start)
+    proc = _start()
     return {
         "success": True,
         "process": proc,
