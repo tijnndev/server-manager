@@ -13,7 +13,7 @@ from runtime.event_bus import EventBus, SyncEventQueue
 from runtime.events import CONSOLE_EVENT_TYPES
 from runtime.models import ContainerStats
 from runtime.supervisor import ProcessSupervisor
-from runtime.websocket import sse_generator
+from runtime.websocket import backlog_lines_to_sse, sse_generator
 
 logger = logging.getLogger("server-manager.runtime")
 
@@ -318,8 +318,14 @@ class RuntimeManager:
         run_sync(self.register_process(process_name, process_type))
 
     def subscribe_console(self, process_name: str, process_type: Optional[str] = None) -> Generator[str, None, None]:
-        """SSE generator: subscribes to event bus only."""
+        """SSE generator: backlog on connect, then live events from the bus."""
         self.ensure_process(process_name, process_type)
+
+        sup = self.get_supervisor(process_name, process_type, create=False)
+        if sup:
+            backlog = run_sync(sup.log_stream.fetch_backlog_lines())
+            yield from backlog_lines_to_sse(backlog)
+
         queue = self.bus.subscribe_sync_queue(process_name, set(CONSOLE_EVENT_TYPES))
         run_sync(queue.register())
         try:

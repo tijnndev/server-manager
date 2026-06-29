@@ -65,6 +65,17 @@ def format_console_event(event: ConsoleOutputEvent | BuildOutputEvent) -> str:
     return colorize_log(format_timestamp(line) if "T" in line[:30] else line)
 
 
+def format_backlog_line(line: str) -> str:
+    return colorize_log(format_timestamp(line))
+
+
+def backlog_lines_to_sse(lines: Iterable[str]) -> Generator[str, None, None]:
+    """Yield SSE frames for historical log lines."""
+    for line in lines:
+        if line.strip():
+            yield f"data: {format_backlog_line(line)}\n\n"
+
+
 def sse_generator(
     queue: SyncEventQueue,
     event_types: Optional[Set[Type]] = None,

@@ -59,9 +59,34 @@ class LogStream:
             )
         )
 
+    async def fetch_backlog_lines(self, tail: int = 150) -> list[str]:
+        """Read historical log lines for a new console subscriber."""
+        lines: list[str] = []
+        always_running = await self.docker.is_always_running(self.process_name)
+
+        if always_running:
+            container_id = await self.docker.get_container_id(self.process_name)
+            if container_id:
+                for line in await self.docker.compose_logs_backlog(
+                    self.process_name, tail=tail
+                ):
+                    if line.strip():
+                        lines.append(line)
+                for line in await self.docker.exec_read_file(
+                    container_id, self.log_file, tail=tail
+                ):
+                    if line.strip():
+                        lines.append(line)
+        else:
+            for line in await self.docker.compose_logs_backlog(
+                self.process_name, tail=tail
+            ):
+                if line.strip():
+                    lines.append(line)
+        return lines
+
     async def _run(self) -> None:
         try:
-            await self._emit_backlog()
             if self.always_running:
                 await self._stream_always_running()
             else:
@@ -70,18 +95,6 @@ class LogStream:
             raise
         except Exception as exc:
             logger.exception("LogStream error for %s: %s", self.process_name, exc)
-
-    async def _emit_backlog(self) -> None:
-        for line in await self.docker.compose_logs_backlog(self.process_name, tail=150):
-            await self.publish_line(line, source="backlog")
-
-        if self.always_running:
-            container_id = await self.docker.get_container_id(self.process_name)
-            if container_id:
-                for line in await self.docker.exec_read_file(
-                    container_id, self.log_file, tail=150
-                ):
-                    await self.publish_line(line, source="backlog")
 
     async def _stream_compose_logs(self) -> None:
         process_dir = self.docker.process_dir(self.process_name)
