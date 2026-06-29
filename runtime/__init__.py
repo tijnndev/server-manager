@@ -60,7 +60,7 @@ class RuntimeManager:
         self._all_stats: Dict[str, Dict[str, float]] = {}
         self._started = False
 
-    async def start(self, docker_events: bool = True) -> None:
+    async def start_runtime(self, docker_events: bool = True) -> None:
         if self._started:
             return
         self._started = True
@@ -71,7 +71,7 @@ class RuntimeManager:
             )
         logger.info("Runtime manager started")
 
-    async def stop(self) -> None:
+    async def stop_runtime(self) -> None:
         if self._docker_events_task:
             self._docker_events_task.cancel()
             try:
@@ -324,7 +324,7 @@ def get_runtime() -> RuntimeManager:
 def init_runtime(app=None, load_processes: bool = True, docker_events: bool = True) -> RuntimeManager:
     """Initialize runtime on application startup."""
     runtime = get_runtime()
-    run_sync(runtime.start(docker_events=docker_events))
+    run_sync(runtime.start_runtime(docker_events=docker_events))
 
     if load_processes and app is not None:
         with app.app_context():
