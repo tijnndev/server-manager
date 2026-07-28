@@ -97,47 +97,45 @@ class NotificationManager {
     showToast(message, type = 'info', duration = 3000, undoCallback = null) {
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        
-        // Truncate message if too long (max 200 characters for toast)
-        const maxLength = 200;
-        const displayMessage = message.length > maxLength 
-            ? message.substring(0, maxLength) + '...' 
+
+        const maxLength = 140;
+        const displayMessage = message.length > maxLength
+            ? message.substring(0, maxLength) + '…'
             : message;
-        
-        const icon = this.getIcon(type);
+
         toast.innerHTML = `
-            <div class="toast-content">
-                <i class="${icon}"></i>
+            <div class="toast-body">
+                <span class="toast-kind">${this.escapeHtml(type || 'info')}</span>
                 <span class="toast-message" title="${this.escapeHtml(message)}">${this.escapeHtml(displayMessage)}</span>
             </div>
-            ${undoCallback ? '<button class="toast-undo" onclick="this.parentElement.undoAction()">Undo</button>' : ''}
-            <button class="toast-close" onclick="this.parentElement.remove()">
-                <i class="bi bi-x"></i>
-            </button>
+            <div class="toast-actions">
+                ${undoCallback ? '<button type="button" class="toast-undo">Undo</button>' : ''}
+                <button type="button" class="toast-close" aria-label="Dismiss">×</button>
+            </div>
         `;
 
+        const closeBtn = toast.querySelector('.toast-close');
+        closeBtn.addEventListener('click', () => toast.remove());
+
         if (undoCallback) {
-            toast.undoAction = () => {
+            toast.querySelector('.toast-undo').addEventListener('click', () => {
                 undoCallback();
                 toast.remove();
-            };
+            });
         }
 
         const container = document.getElementById('toast-container');
         container.appendChild(toast);
 
-        // Animate in
         setTimeout(() => toast.classList.add('show'), 10);
 
-        // Auto remove
         if (duration > 0) {
             setTimeout(() => {
                 toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
+                setTimeout(() => toast.remove(), 200);
             }, duration);
         }
 
-        // Add to notification center (with full message)
         this.addNotification({
             message,
             type,

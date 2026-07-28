@@ -1864,7 +1864,7 @@ th.sortable.sort-desc .sort-icon {
     display: none;
 }
 
-/* Toast Notifications — bottom right */
+/* Toast Notifications — bottom right, minimal */
 .toast-container {
     position: fixed;
     bottom: 1.25rem;
@@ -1874,31 +1874,26 @@ th.sortable.sort-desc .sort-icon {
     z-index: 100000;
     display: flex;
     flex-direction: column-reverse;
-    gap: 0.5rem;
-    max-width: min(380px, calc(100vw - 2rem));
+    gap: 0.4rem;
+    max-width: min(320px, calc(100vw - 2rem));
     width: auto;
     pointer-events: none;
 }
 
 .toast {
     background: var(--bg-secondary);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     border: 1px solid var(--border-color);
-    border-left: 3px solid;
     border-radius: 6px;
-    padding: 0.75rem 0.85rem;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    padding: 0.55rem 0.65rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
     display: flex;
     align-items: flex-start;
-    gap: 0.65rem;
+    gap: 0.5rem;
     opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    max-width: 380px;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    max-height: fit-content;
+    transform: translateY(6px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    max-width: 320px;
+    width: 100%;
     pointer-events: auto;
 }
 
@@ -1908,85 +1903,75 @@ th.sortable.sort-desc .sort-icon {
     transform: translateY(0);
 }
 
-.toast-content {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
+.toast-body {
     flex: 1;
     min-width: 0;
-    max-width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
 }
 
-.toast-content i {
-    font-size: 20px;
-    flex-shrink: 0;
-    margin-top: 2px;
+.toast-kind {
+    font-size: 10px;
+    font-weight: 550;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
 }
 
 .toast-message {
-    flex: 1;
-    font-size: 14px;
+    font-size: 13px;
+    line-height: 1.35;
     color: var(--text-primary);
     word-wrap: break-word;
     overflow-wrap: break-word;
-    white-space: normal;
-    line-height: 1.5;
-    max-width: 100%;
-    word-wrap: break-word;
 }
 
-.toast-close, .toast-undo {
+.toast-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    flex-shrink: 0;
+}
+
+.toast-close,
+.toast-undo {
+    appearance: none;
     background: transparent;
     border: none;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 0.15rem 0.3rem;
     border-radius: 4px;
-    transition: all 0.2s;
-    flex-shrink: 0;
-    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1;
 }
 
-.toast-close:hover, .toast-undo:hover {
-    background: var(--bg-hover);
+.toast-close {
+    font-size: 15px;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+}
+
+.toast-close:hover,
+.toast-undo:hover {
     color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .toast-undo {
-    color: var(--accent-blue);
-    font-weight: 600;
+    font-weight: 500;
 }
 
-.toast-success {
-    border-left-color: var(--accent-green);
-}
+.toast-success .toast-kind { color: var(--accent-green); }
+.toast-error .toast-kind { color: var(--accent-red); }
+.toast-warning .toast-kind { color: var(--accent-yellow); }
+.toast-info .toast-kind { color: var(--text-muted); }
 
-.toast-success .toast-content i {
-    color: var(--accent-green);
-}
-
-.toast-error {
-    border-left-color: var(--accent-red);
-}
-
-.toast-error .toast-content i {
-    color: var(--accent-red);
-}
-
-.toast-warning {
-    border-left-color: var(--accent-yellow);
-}
-
-.toast-warning .toast-content i {
-    color: var(--accent-yellow);
-}
-
-.toast-info {
-    border-left-color: var(--accent-blue);
-}
-
-.toast-info .toast-content i {
-    color: var(--accent-blue);
+.toast-content,
+.toast-content i {
+    display: none;
 }
 
 /* Notification Center — minimal dropdown */
@@ -2417,20 +2402,9 @@ th.sortable.sort-desc .sort-icon {
         max-width: calc(100vw - 2rem);
         width: auto;
     }
-    
+
     .toast {
         max-width: 100%;
-        padding: 12px;
-        font-size: 13px;
-    }
-    
-    .toast-message {
-        font-size: 13px;
-        line-height: 1.4;
-    }
-    
-    .toast-content i {
-        font-size: 18px;
     }
 
     .notification-center {
