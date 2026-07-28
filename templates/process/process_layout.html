@@ -7,7 +7,11 @@
 <div class="page process-page">
     <div class="process-bar">
         <div class="process-bar-main">
-            <a href="/" class="back-link" title="All processes">←</a>
+            <a href="/" class="back-link" title="All processes" aria-label="All processes">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M10 3.5 5.5 8 10 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
             <h1 class="process-name">{{ process.name }}</h1>
             {% if process_status|lower == 'running' %}
             <span id="process-header-badge" class="badge bg-success">Running</span>

@@ -816,16 +816,25 @@ body > .alert {
 }
 
 .back-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
     color: var(--text-muted);
     text-decoration: none;
-    font-size: 14px;
-    padding: 0.15rem 0.35rem;
+    padding: 0;
     border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.back-link svg {
+    display: block;
 }
 
 .back-link:hover {
     color: var(--text-primary) !important;
-    background: var(--bg-hover);
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .process-name {
