@@ -4,9 +4,9 @@
 <div class="console-layout">
     <div class="console-main">
         <section class="panel panel-flush">
-            <div class="panel-toolbar">
+            <div class="panel-toolbar console-toolbar">
                 <span class="panel-label">Console</span>
-                <div class="btn-group">
+                <div class="console-actions">
                     <button class="btn btn-success btn-sm" id="start-btn" onclick="startProcess('{{ process.name }}')">Start</button>
                     <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopProcess('{{ process.name }}')">Stop</button>
                     <button class="btn btn-warning btn-sm" id="restart-btn" onclick="restartProcess('{{ process.name }}')">Restart</button>
@@ -22,19 +22,16 @@
                 <span class="panel-label">Command</span>
             </div>
             <div class="panel-body">
-                <div class="input-group command-input-group" style="position: relative;">
-                    <span class="input-group-text">$</span>
+                <div class="command-input-group">
+                    <span class="input-group-text command-prompt">$</span>
                     <input
                         type="text"
                         class="form-control"
                         id="command-input"
                         placeholder="Run in /app…"
-                        style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
                         autocomplete="off"
                     />
-                    <button class="btn btn-primary" type="button" onclick="executeCommand()" id="execute-btn">
-                        Run
-                    </button>
+                    <button class="btn btn-primary btn-sm" type="button" onclick="executeCommand()" id="execute-btn">Run</button>
                     <div id="command-autocomplete" class="command-autocomplete" style="display: none;"></div>
                 </div>
             </div>
@@ -65,8 +62,8 @@
                 {% if process.domain %}
                 <div class="detail-row">
                     <span class="stat-key">Domain</span>
-                    <span>
-                        {{ process.domain }}
+                    <span class="detail-value">
+                        <span class="detail-truncate">{{ process.domain }}</span>
                         <a href="https://{{process.domain}}" target="_blank" rel="noopener" class="detail-ext">↗</a>
                     </span>
                 </div>
@@ -111,75 +108,23 @@
 </div>
 
 <style>
-.console-output {
-    background-color: var(--bg-darker);
-    color: var(--text-primary);
-    font-family: ui-monospace, "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Courier New", monospace;
-    padding: 20px;
-    height: 400px;
-    overflow-y: auto;
-    font-size: 13px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-}
-
-.console-output::-webkit-scrollbar {
-    width: 8px;
-}
-
-.console-output::-webkit-scrollbar-track {
-    background: var(--bg-tertiary);
-}
-
-.console-output::-webkit-scrollbar-thumb {
-    background: var(--border-accent);
-    border-radius: 4px;
-}
-
-.console-output::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
-}
-
 .status-indicator {
     display: inline-flex;
     align-items: center;
     gap: 8px;
 }
-
 .status-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    animation: status-pulse 2s infinite;
 }
-
-.status-dot.running {
-    background-color: var(--accent-green);
-}
-
-.status-dot.stopped {
-    background-color: var(--accent-red);
-}
-
-.status-dot.restarting {
-    background-color: var(--accent-yellow);
-}
-
-@keyframes status-pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
-
+.status-dot.running { background-color: var(--accent-green); }
+.status-dot.stopped { background-color: var(--accent-red); }
+.status-dot.restarting { background-color: var(--accent-yellow); }
 .loading-overlay {
     display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(0, 0, 0, 0.65);
     color: var(--text-primary);
     justify-content: center;
