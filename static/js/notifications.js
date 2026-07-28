@@ -13,12 +13,13 @@ class NotificationManager {
 
     initializeDOM() {
         // Create toast container
-        if (!document.getElementById('toast-container')) {
-            const toastContainer = document.createElement('div');
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
             toastContainer.id = 'toast-container';
-            toastContainer.className = 'toast-container';
             document.body.appendChild(toastContainer);
         }
+        toastContainer.className = 'app-toast-stack';
 
         // Create notification center
         if (!document.getElementById('notification-center')) {
