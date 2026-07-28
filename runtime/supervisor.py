@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from runtime.docker_runtime import DockerRuntime
+from runtime.control_mode import resolve_always_running
 from runtime.event_bus import EventBus
 from runtime.events import (
     BuildFinishedEvent,
@@ -57,6 +58,7 @@ class ProcessSupervisor:
             process_name, docker, bus, interval=stats_interval
         )
         self._streams_started = False
+        self._mode_resolved = False
 
     @property
     def state(self) -> RuntimeState:
@@ -75,11 +77,31 @@ class ProcessSupervisor:
             )
         )
 
+    async def _apply_control_mode(self) -> None:
+        previous = self.info.always_running if self._mode_resolved else None
+        self.info.always_running = await resolve_always_running(
+            self.docker,
+            self.process_name,
+            self.info.process_type,
+        )
+        self.log_stream.always_running = self.info.always_running
+        self.stats_stream.always_running = self.info.always_running
+        self._mode_resolved = True
+        if (
+            self._streams_started
+            and previous is not None
+            and previous != self.info.always_running
+        ):
+            await self.log_stream.stop()
+            await self.stats_stream.stop()
+            await self.log_stream.start()
+            await self.stats_stream.start()
+
     async def ensure_streams(self) -> None:
+        if not self._mode_resolved:
+            await self._apply_control_mode()
         if self._streams_started:
             return
-        self.info.always_running = await self.docker.is_always_running(self.process_name)
-        self.log_stream.always_running = self.info.always_running
         await self.log_stream.start()
         await self.stats_stream.start()
         self._streams_started = True
@@ -92,8 +114,7 @@ class ProcessSupervisor:
     async def refresh_metadata(self) -> None:
         cid = await self.docker.get_container_id(self.process_name)
         self.info.container_id = cid
-        self.info.always_running = await self.docker.is_always_running(self.process_name)
-        self.log_stream.always_running = self.info.always_running
+        await self._apply_control_mode()
 
     async def sync_state_from_docker(self) -> None:
         """Align supervisor state with actual Docker / in-container process state."""
@@ -116,7 +137,7 @@ class ProcessSupervisor:
             await self._set_state(RuntimeState.STOPPED)
             return
 
-        if self.info.always_running and self.info.process_type != "python":
+        if self.info.always_running:
             inner = await check_inner_process_running(self.docker, self.process_name)
             if inner.get("process_running"):
                 await self._set_state(RuntimeState.RUNNING)
@@ -139,7 +160,7 @@ class ProcessSupervisor:
 
         state = entry["state"]
         if state == "running":
-            if self.info.always_running and self.info.process_type != "python":
+            if self.info.always_running:
                 inner = await check_inner_process_running(self.docker, self.process_name)
                 return inner.get("status", "Running")
             return "Running"
@@ -153,7 +174,6 @@ class ProcessSupervisor:
 
     async def start(self) -> Dict[str, Any]:
         await self.refresh_metadata()
-        self.log_stream.always_running = self.info.always_running
         await self.ensure_streams()
         await self._set_state(RuntimeState.STARTING)
         try:
@@ -209,7 +229,6 @@ class ProcessSupervisor:
 
     async def stop(self) -> Dict[str, Any]:
         await self.refresh_metadata()
-        self.log_stream.always_running = self.info.always_running
         await self.ensure_streams()
         await self._set_state(RuntimeState.STOPPING)
         try:
@@ -252,7 +271,6 @@ class ProcessSupervisor:
 
     async def restart(self) -> Dict[str, Any]:
         await self.refresh_metadata()
-        self.log_stream.always_running = self.info.always_running
         await self._set_state(RuntimeState.RESTARTING)
         if self.info.always_running:
             stop_result = await self.stop()

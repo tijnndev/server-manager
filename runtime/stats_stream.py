@@ -21,11 +21,13 @@ class StatsStream:
         docker: DockerRuntime,
         bus: EventBus,
         interval: float = 3.0,
+        always_running: bool = False,
     ) -> None:
         self.process_name = process_name
         self.docker = docker
         self.bus = bus
         self.interval = interval
+        self.always_running = always_running
         self._task: Optional[asyncio.Task] = None
         self._running = False
         self.latest = ContainerStats()
@@ -55,8 +57,7 @@ class StatsStream:
                 else:
                     raw = await self.docker.get_stats(container_id)
                     metrics_status = "running"
-                    always_running = await self.docker.is_always_running(self.process_name)
-                    if always_running:
+                    if self.always_running:
                         from runtime.lifecycle import check_inner_process_running
 
                         inner = await check_inner_process_running(

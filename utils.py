@@ -36,7 +36,9 @@ def get_process_status(name):
 
 
 def is_always_running_container(name):
-    return _runtime().is_always_running(name)
+    process = find_process_by_name(name)
+    ptype = process.type if process else None
+    return _runtime().is_always_running(name, ptype)
 
 
 def check_process_running_in_container(name):

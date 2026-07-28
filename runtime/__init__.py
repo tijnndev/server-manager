@@ -393,8 +393,24 @@ class RuntimeManager:
         finally:
             run_sync(queue.unregister())
 
-    def is_always_running(self, process_name: str) -> bool:
-        return run_sync(self.docker.is_always_running(process_name))
+    def is_always_running(
+        self, process_name: str, process_type: Optional[str] = None
+    ) -> bool:
+        sup = self.supervisors.get(process_name)
+        if process_type and sup:
+            if process_type != sup.info.process_type:
+                sup.info.process_type = process_type
+                # Force re-resolve next refresh when type changes
+                if hasattr(sup, "_mode_resolved"):
+                    sup._mode_resolved = False
+        if (
+            sup
+            and getattr(sup, "_mode_resolved", False)
+            and process_type is None
+        ):
+            return bool(sup.info.always_running)
+        ptype = process_type or (sup.info.process_type if sup else None)
+        return run_sync(self.docker.is_always_running(process_name, ptype))
 
     def get_uptime_started_at(self, process_name: str) -> Optional[str]:
         cid = run_sync(self.docker.get_container_id(process_name))

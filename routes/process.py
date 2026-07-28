@@ -1392,6 +1392,8 @@ def schedule(name):
         return jsonify({"error": "Process not found"}), 404
 
     if request.method == 'POST':
+        import sys
+
         data = request.form
         if not data or 'action' not in data or 'schedule' not in data:
             return jsonify({"error": "Invalid request data"}), 400
@@ -1406,25 +1408,13 @@ def schedule(name):
         if not process:
             return jsonify({"error": "Process not found"}), 404
 
-        command = process.command
-        if action == "stop":
-            container_id = get_container_id(name)
-            if not container_id:
-                return jsonify({"error": "Cannot determine container"}), 400
-
-            command_pattern = f"[{command[0]}]{command[1:]}" if command else ""
-            cron_line = (
-                f"{schedule} root docker exec {container_id} "
-                f"sh -c \"pkill -9 -P \\$(pgrep -f '{command_pattern}'); kill -9 \\$(pgrep -f '{command_pattern}')\""
-            )
-        elif action == "start":
-
-            container_id = get_container_id(name)
-            if not container_id:
-                return jsonify({"error": "Cannot determine container"}), 400
-            cron_line = f"{schedule} root docker exec {container_id} {command}"
-        else:
-            return jsonify({"error": "Invalid action"}), 400
+        # Invoke supervisor via CLI — no baked-in container ID or process.command.
+        cron_line = (
+            f"{schedule} root "
+            f"cd {shlex.quote(BASE_DIR)} && "
+            f"{shlex.quote(sys.executable)} -m runtime.power_cli "
+            f"{action} {shlex.quote(name)}"
+        )
 
         cron_file = f"/etc/cron.d/{name.replace('.', '_')}_power_event"
         cron_command = f"echo {shlex.quote(cron_line)} | sudo tee -a {cron_file} > /dev/null"

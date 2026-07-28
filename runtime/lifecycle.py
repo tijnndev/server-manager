@@ -189,6 +189,12 @@ async def execute_command(
     timeout: int = 30,
     process_type: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """Run a one-shot side command in the container (Azure App Service style).
+
+    Does not send input to MAIN_COMMAND stdin. Requires the container to be
+    running; the inner app may be stopped. Minecraft remains a special-case
+    stdin forwarder; Node/Python/etc. use docker exec in working_dir.
+    """
     container_id = await docker.get_container_id(process_name)
     if not container_id:
         return {"success": False, "error": "Container is not running"}

@@ -212,6 +212,11 @@ class DockerRuntime:
                 text = line.decode("utf-8", errors="replace").rstrip("\n")
                 if text:
                     yield text
+            await proc.wait()
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"docker compose build failed with exit code {proc.returncode}"
+                )
         finally:
             if proc.returncode is None:
                 proc.terminate()
@@ -280,12 +285,14 @@ class DockerRuntime:
             return int(pid) if pid.isdigit() else None
         return None
 
-    async def is_always_running(self, process_name: str) -> bool:
-        container_id = await self.get_container_id(process_name)
-        if not container_id:
-            return False
-        main_cmd = await self.inspect_main_command(container_id)
-        return main_cmd is not None
+    async def is_always_running(
+        self,
+        process_name: str,
+        process_type: Optional[str] = None,
+    ) -> bool:
+        from runtime.control_mode import resolve_always_running
+
+        return await resolve_always_running(self, process_name, process_type)
 
     async def exec_in_container(
         self,
