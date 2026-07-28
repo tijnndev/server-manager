@@ -255,19 +255,48 @@ form > .btn-primary:only-child {
 }
 
 .alert {
-    padding: 0.875rem 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
     border: 1px solid;
-    position: absolute;
-    top: 10px;
-    left: 0;
+    position: relative;
+    top: auto;
+    left: auto;
 }
 
 .alert-danger {
     background: rgba(239, 68, 68, 0.1);
     border-color: var(--accent-red);
     color: #fca5a5;
+}
+
+.alert-success {
+    background: rgba(62, 207, 142, 0.1);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
+.alert-warning {
+    background: rgba(230, 192, 123, 0.1);
+    border-color: var(--accent-yellow);
+    color: var(--accent-yellow);
+}
+
+.alert-info {
+    background: var(--accent-blue-wash);
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+}
+
+.login-container > .alert,
+body > .alert {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100000;
+    max-width: min(420px, calc(100vw - 2rem));
+    margin: 0;
 }
 
 .text-info {
@@ -1834,9 +1863,9 @@ th.sortable.sort-desc .sort-icon {
 /* Toast Notifications */
 .toast-container {
     position: fixed;
-    top: 80px;
+    top: 60px;
     right: 20px;
-    z-index: 10000;
+    z-index: 100000;
     display: flex;
     flex-direction: column;
     gap: 10px;
