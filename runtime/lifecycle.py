@@ -7,12 +7,87 @@ import base64
 import logging
 import shlex
 import textwrap
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from runtime.docker_runtime import CommandResult, DockerRuntime
+from runtime.docker_runtime import DockerRuntime
 
 logger = logging.getLogger("server-manager.runtime.lifecycle")
+
+# Map MAIN_COMMAND tokens → substrings to look for in `ps aux`.
+PROCESS_NAME_MAPPINGS = {
+    "apache2-foreground": ["apache2", "httpd"],
+    "php-fpm": ["php-fpm"],
+    "nginx": ["nginx"],
+    "vite": ["node", "vite"],
+    "npm": ["node", "npm"],
+    "node": ["node"],
+    "nodejs": ["node", "npm"],
+    "minecraft": ["java"],
+    "java": ["java"],
+    # python app.py often spawns gunicorn in production — detect both.
+    "python": ["python", "python3", "gunicorn"],
+    "python3": ["python", "python3", "gunicorn"],
+    "gunicorn": ["gunicorn"],
+}
+
+_IGNORE_PS_NEEDLES = (
+    "tail -f /dev/null",
+    "/tmp/start_process.sh",
+    "ps aux",
+)
+
+
+def normalize_main_command(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    cmd = raw.strip()
+    if (cmd.startswith('"') and cmd.endswith('"')) or (
+        cmd.startswith("'") and cmd.endswith("'")
+    ):
+        cmd = cmd[1:-1].strip()
+    return cmd or None
+
+
+def search_terms_for_command(main_command: str) -> List[str]:
+    command_parts = main_command.split()
+    search_terms: list[str] = []
+    for part in command_parts:
+        bare = part.strip("\"'")
+        if bare in PROCESS_NAME_MAPPINGS:
+            search_terms.extend(PROCESS_NAME_MAPPINGS[bare])
+        elif len(bare) > 2:
+            search_terms.append(bare)
+    if not search_terms:
+        search_terms = [
+            p.strip("\"'") for p in command_parts if len(p.strip("\"'")) > 2
+        ]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for term in search_terms:
+        if term not in seen:
+            seen.add(term)
+            ordered.append(term)
+    return ordered
+
+
+def _ps_line_is_noise(line: str) -> bool:
+    if not line.strip():
+        return True
+    if "ps aux" in line or "grep" in line:
+        return True
+    if "<defunct>" in line or " Z " in line:
+        return True
+    if any(needle in line for needle in _IGNORE_PS_NEEDLES):
+        return True
+    if line.rstrip().endswith("tail -f /dev/null") or "/usr/bin/tail" in line:
+        return True
+    return False
+
+
+def _line_matches_app(line: str, search_terms: List[str]) -> bool:
+    if _ps_line_is_noise(line):
+        return False
+    return any(term in line for term in search_terms)
 
 
 async def check_inner_process_running(
@@ -26,7 +101,9 @@ async def check_inner_process_running(
     if state != "running":
         return {"status": "Container Not Running", "container_running": False}
 
-    main_command = await docker.inspect_main_command(container_id)
+    main_command = normalize_main_command(
+        await docker.inspect_main_command(container_id)
+    )
     if not main_command:
         return {"status": "Running", "container_running": True, "process_running": True}
 
@@ -38,47 +115,22 @@ async def check_inner_process_running(
             "process_running": False,
         }
 
-    process_name_mappings = {
-        "apache2-foreground": ["apache2", "httpd"],
-        "php-fpm": ["php-fpm"],
-        "nginx": ["nginx"],
-        "vite": ["node", "vite"],
-        "npm": ["node", "npm"],
-        "node": ["node"],
-        "nodejs": ["node", "npm"],
-        "minecraft": ["java"],
-        "java": ["java"],
-        "python": ["python", "python3"],
-        "python3": ["python3"],
-    }
-
-    command_parts = main_command.split()
-    search_terms: list[str] = []
-    for part in command_parts:
-        if part in process_name_mappings:
-            search_terms.extend(process_name_mappings[part])
-        elif len(part) > 2:
-            search_terms.append(part)
-    if not search_terms:
-        search_terms = [p for p in command_parts if len(p) > 2]
-
-    process_running = False
+    search_terms = search_terms_for_command(main_command)
     for line in result.stdout.split("\n")[1:]:
-        if not line.strip() or "ps aux" in line or "grep" in line:
-            continue
-        if "<defunct>" in line or " Z " in line:
-            continue
-        if any(term in line for term in search_terms):
-            process_running = True
-            break
-
-    if process_running:
-        return {"status": "Running", "container_running": True, "process_running": True}
-    return {"status": "Process Stopped", "container_running": True, "process_running": False}
+        if _line_matches_app(line, search_terms):
+            return {
+                "status": "Running",
+                "container_running": True,
+                "process_running": True,
+            }
+    return {
+        "status": "Process Stopped",
+        "container_running": True,
+        "process_running": False,
+    }
 
 
 async def start_inner_process(docker: DockerRuntime, process_name: str) -> Dict[str, Any]:
-    process_dir = docker.process_dir(process_name)
     container_id = await docker.get_container_id(process_name)
 
     if not container_id:
@@ -91,20 +143,29 @@ async def start_inner_process(docker: DockerRuntime, process_name: str) -> Dict[
     if not container_id:
         return {"success": False, "error": "Container not found after compose up"}
 
-    main_command = await docker.inspect_main_command(container_id)
+    main_command = normalize_main_command(
+        await docker.inspect_main_command(container_id)
+    )
     if not main_command:
-        return {"success": False, "error": "No MAIN_COMMAND found in container environment"}
+        return {
+            "success": False,
+            "error": "No MAIN_COMMAND found in container environment",
+        }
 
+    # Clear previous app processes (including orphaned gunicorn workers).
     await stop_inner_process(docker, process_name)
 
     log_file = f"/tmp/{process_name}_process.log"
     await docker.ensure_process_log_file(container_id, log_file)
     await docker.exec_in_container(container_id, f": > {shlex.quote(log_file)}")
 
+    # Avoid `exec … | tee` (pipeline breaks process tracking). Append logs instead.
+    quoted_log = shlex.quote(log_file)
     wrapper_script = textwrap.dedent(
         f"""#!/bin/bash
+set -e
 cd /app
-exec {main_command} 2>&1 | tee -a {log_file}
+{main_command} >> {quoted_log} 2>&1
 """
     )
 
@@ -113,25 +174,37 @@ exec {main_command} 2>&1 | tee -a {log_file}
 EOF
 chmod +x /tmp/start_process.sh"""
 
-    script_result = await docker.exec_in_container(container_id, script_creation, timeout=30)
+    script_result = await docker.exec_in_container(
+        container_id, script_creation, timeout=30
+    )
     if not script_result.success:
-        return {"success": False, "error": f"Failed to create wrapper script: {script_result.stderr}"}
+        return {
+            "success": False,
+            "error": f"Failed to create wrapper script: {script_result.stderr}",
+        }
 
     start_result = await docker.run(
         ["docker", "exec", "-d", container_id, "/tmp/start_process.sh"],
         timeout=30,
     )
     if not start_result.success:
-        return {"success": False, "error": start_result.stderr or "Failed to start process"}
+        return {
+            "success": False,
+            "error": start_result.stderr or "Failed to start process",
+        }
 
-    await asyncio.sleep(2)
-    status = await check_inner_process_running(docker, process_name)
-    if status.get("process_running"):
-        return {"success": True, "message": "Process started successfully"}
-    return {
-        "success": False,
-        "error": "Process started but crashed immediately. Check logs for details.",
-    }
+    # Heavy apps (Flask imports, gunicorn spawn) may take a few seconds.
+    for _ in range(5):
+        await asyncio.sleep(2)
+        status = await check_inner_process_running(docker, process_name)
+        if status.get("process_running"):
+            return {"success": True, "message": "Process started successfully"}
+
+    tail = await docker.exec_read_file(container_id, log_file, tail=30)
+    detail = "Process started but crashed immediately. Check logs for details."
+    if tail:
+        detail = f"{detail}\n" + "\n".join(tail[-15:])
+    return {"success": False, "error": detail}
 
 
 async def stop_inner_process(docker: DockerRuntime, process_name: str) -> Dict[str, Any]:
@@ -139,34 +212,48 @@ async def stop_inner_process(docker: DockerRuntime, process_name: str) -> Dict[s
     if not container_id:
         return {"success": True, "message": "Container not running"}
 
-    main_command = await docker.inspect_main_command(container_id)
+    main_command = normalize_main_command(
+        await docker.inspect_main_command(container_id)
+    )
     if not main_command:
-        return {"success": False, "error": "No MAIN_COMMAND found in container environment"}
+        return {
+            "success": False,
+            "error": "No MAIN_COMMAND found in container environment",
+        }
 
-    command_parts = main_command.split()
+    search_terms = search_terms_for_command(main_command)
     result = await docker.exec_in_container(container_id, "ps aux", timeout=15)
     if not result.success:
         return {"success": False, "error": "Failed to get process list"}
 
     killed = 0
     for line in result.stdout.split("\n")[1:]:
-        if not line.strip():
+        if not _line_matches_app(line, search_terms):
             continue
         parts = line.split()
-        if len(parts) < 2:
+        if len(parts) < 2 or not parts[1].isdigit():
             continue
-        pid = parts[1]
-        if any(part in line for part in command_parts if len(part) > 2):
-            if "<defunct>" not in line and " Z " not in line:
-                kill_res = await docker.run(
-                    ["docker", "exec", container_id, "kill", "-TERM", pid],
-                    timeout=10,
-                )
-                if kill_res.success:
-                    killed += 1
+        kill_res = await docker.run(
+            ["docker", "exec", container_id, "kill", "-TERM", parts[1]],
+            timeout=10,
+        )
+        if kill_res.success:
+            killed += 1
 
     if killed:
         await asyncio.sleep(1)
+        result = await docker.exec_in_container(container_id, "ps aux", timeout=15)
+        if result.success:
+            for line in result.stdout.split("\n")[1:]:
+                if not _line_matches_app(line, search_terms):
+                    continue
+                parts = line.split()
+                if len(parts) < 2 or not parts[1].isdigit():
+                    continue
+                await docker.run(
+                    ["docker", "exec", container_id, "kill", "-KILL", parts[1]],
+                    timeout=10,
+                )
         status = await check_inner_process_running(docker, process_name)
         if status.get("process_running"):
             return {
@@ -204,7 +291,9 @@ async def execute_command(
         return {"success": False, "error": "Container is not in running state"}
 
     if process_type == "minecraft":
-        return await _minecraft_command(docker, container_id, process_name, command, timeout)
+        return await _minecraft_command(
+            docker, container_id, process_name, command, timeout
+        )
 
     log_file = f"/tmp/{process_name}_process.log"
     full_command = (
@@ -265,7 +354,8 @@ async def _minecraft_command(
         }
     return {
         "success": False,
-        "error": result.stderr.strip() or "Failed to forward command to Minecraft server",
+        "error": result.stderr.strip()
+        or "Failed to forward command to Minecraft server",
         "stdout": result.stdout,
         "stderr": result.stderr,
         "return_code": result.returncode,

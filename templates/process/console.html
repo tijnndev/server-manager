@@ -237,6 +237,145 @@
   let lastLogTimestamp = Date.now();
   let userSettings = null;
   let currentStatus = "{{ process_status|lower }}";
+  let powerActionInFlight = false;
+
+  function extractStatus(payload, fallback) {
+    if (!payload) return fallback;
+    if (typeof payload === "string") return payload;
+    if (typeof payload.status === "string") return payload.status;
+    if (payload.status && typeof payload.status.status === "string") {
+      return payload.status.status;
+    }
+    return fallback;
+  }
+
+  async function startProcess(name) {
+    showLoading("Starting process...");
+    powerActionInFlight = true;
+    updateProcessStatus("starting");
+    addLogMessage("Process start command received", "system");
+
+    try {
+      const response = await fetch(
+        `{{ url_for('process.start_process_console', name="") }}${name}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const result = await response.json();
+      const nextStatus = extractStatus(result, response.ok && result.ok ? "running" : "exited");
+
+      if (response.ok && result.ok) {
+        addLogMessage("Process started successfully", "system");
+        updateProcessStatus(nextStatus);
+        showSuccess(`Process "${name}" started successfully`);
+
+        setTimeout(() => {
+          refreshLogs();
+        }, 1000);
+      } else {
+        const errorMsg = result.error || "Unknown error occurred";
+        addLogMessage(`Failed to start process: ${errorMsg}`, "error");
+        updateProcessStatus(nextStatus);
+        showError(`Failed to start process: ${errorMsg}`);
+      }
+    } catch (error) {
+      addLogMessage(`Error starting process: ${error.message}`, "error");
+      updateProcessStatus("exited");
+      showError(`Error starting process: ${error.message}`);
+    } finally {
+      powerActionInFlight = false;
+      hideLoading();
+    }
+  }
+
+  async function stopProcess(name) {
+    showLoading("Stopping process...");
+    powerActionInFlight = true;
+    updateProcessStatus("stopping");
+    addLogMessage("Process stop command received", "system");
+
+    try {
+      const response = await fetch(
+        `{{ url_for('process.stop_process_console', name="") }}${name}`,
+        {
+          method: "POST",
+        }
+      );
+
+      const result = await response.json().catch(() => ({}));
+      const nextStatus = extractStatus(result, response.ok && result.ok !== false ? "exited" : currentStatus);
+
+      if (response.ok && result.ok !== false) {
+        addLogMessage("Process stopped successfully", "system");
+        updateProcessStatus(nextStatus);
+        showSuccess(`Process "${name}" stopped successfully`);
+
+        setTimeout(() => {
+          refreshLogs();
+        }, 1000);
+      } else {
+        const errorMessage = result.error || "Failed to stop process";
+        addLogMessage(`Failed to stop process: ${errorMessage}`, "error");
+        updateProcessStatus(nextStatus);
+        showError(`Failed to stop process: ${errorMessage}`);
+      }
+    } catch (error) {
+      addLogMessage(`Error stopping process: ${error.message}`, "error");
+      showError(`Error stopping process: ${error.message}`);
+    } finally {
+      powerActionInFlight = false;
+      hideLoading();
+    }
+  }
+
+  async function restartProcess(name) {
+    showLoading("Restarting process...");
+    powerActionInFlight = true;
+    updateProcessStatus("restarting");
+    addLogMessage("Restarting process...", "system");
+
+    try {
+      const response = await fetch(
+        `{{ url_for('process.restart_process_console', name="") }}${name}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const result = await response.json();
+      const nextStatus = extractStatus(result, response.ok && result.ok ? "running" : "exited");
+
+      if (response.ok && result.ok) {
+        addLogMessage("Process restarted successfully", "system");
+        updateProcessStatus(nextStatus);
+        showSuccess(`Process "${name}" restarted successfully`);
+
+        setTimeout(() => {
+          refreshLogs();
+        }, 1000);
+      } else {
+        const errorMsg = result.error || "Failed to restart process";
+        addLogMessage(`Failed to restart process: ${errorMsg}`, "error");
+        updateProcessStatus(nextStatus);
+        showError(`Failed to restart process: ${errorMsg}`);
+      }
+    } catch (error) {
+      addLogMessage(`Error restarting process: ${error.message}`, "error");
+      updateProcessStatus("exited");
+      showError(`Error restarting process: ${error.message}`);
+    } finally {
+      powerActionInFlight = false;
+      hideLoading();
+    }
+  }
 
   // Command autocomplete state
   let commandHistory = [];
@@ -737,126 +876,6 @@
     }
   }
 
-  async function startProcess(name) {
-    showLoading("Starting process...");
-    updateProcessStatus("starting");
-    addLogMessage("Process start command received", "system");
-
-    try {
-      console.log(name)
-      const response = await fetch(
-        `{{ url_for('process.start_process_console', name="") }}${name}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok && result.ok) {
-        addLogMessage("Process started successfully", "system");
-        updateProcessStatus(result.status || "running");
-        showSuccess(`Process "${name}" started successfully`);
-
-        // Refresh logs after starting
-        setTimeout(() => {
-          refreshLogs();
-        }, 1000);
-      } else {
-        const errorMsg = result.error || "Unknown error occurred";
-        addLogMessage(`Failed to start process: ${errorMsg}`, "error");
-        updateProcessStatus("exited");
-        showError(`Failed to start process: ${errorMsg}`);
-      }
-    } catch (error) {
-      addLogMessage(`Error starting process: ${error.message}`, "error");
-      updateProcessStatus("exited");
-      showError(`Error starting process: ${error.message}`);
-    } finally {
-      hideLoading();
-    }
-  }
-
-  async function stopProcess(name) {
-    showLoading("Stopping process...");
-    updateProcessStatus("stopping");
-    addLogMessage("Process stop command received", "system");
-
-    try {
-      const response = await fetch(
-        `{{ url_for('process.stop_process_console', name="") }}${name}`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        addLogMessage("Process stopped successfully", "system");
-        updateProcessStatus(result.status || "exited");
-        showSuccess(`Process "${name}" stopped successfully`);
-
-        // Refresh logs after stopping
-        setTimeout(() => {
-          refreshLogs();
-        }, 1000);
-      } else {
-        const errorMessage = await response.text();
-        addLogMessage(`Failed to stop process: ${errorMessage}`, "error");
-        showError(`Failed to stop process: ${errorMessage}`);
-      }
-    } catch (error) {
-      addLogMessage(`Error stopping process: ${error.message}`, "error");
-      showError(`Error stopping process: ${error.message}`);
-    } finally {
-      hideLoading();
-    }
-  }
-
-  async function restartProcess(name) {
-    showLoading("Restarting process...");
-    updateProcessStatus("restarting");
-    addLogMessage("Restarting process...", "system");
-
-    try {
-      const response = await fetch(
-        `{{ url_for('process.restart_process_console', name="") }}${name}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok && result.ok) {
-        addLogMessage("Process restarted successfully", "system");
-        updateProcessStatus("running");
-        showSuccess(`Process "${name}" restarted successfully`);
-
-        setTimeout(() => {
-          refreshLogs();
-        }, 1000);
-      } else {
-        const errorMsg = result.error || "Failed to restart process";
-        addLogMessage(`Failed to restart process: ${errorMsg}`, "error");
-        updateProcessStatus("exited");
-        showError(`Failed to restart process: ${errorMsg}`);
-      }
-    } catch (error) {
-      addLogMessage(`Error restarting process: ${error.message}`, "error");
-      updateProcessStatus("exited");
-      showError(`Error restarting process: ${error.message}`);
-    } finally {
-      hideLoading();
-    }
-  }
-
   async function clearLogs(name) {
     if (!confirm("Are you sure you want to clear all logs?")) {
       return;
@@ -957,7 +976,8 @@
         const metrics = await response.json();
         const apiStatus = metrics.display_status || metrics.status;
         const mappedStatus = mapApiStatusToUi(apiStatus);
-        if (mappedStatus && mappedStatus !== currentStatus) {
+        // Don't clobber transitional UI state during start/stop/restart.
+        if (!powerActionInFlight && mappedStatus && mappedStatus !== currentStatus) {
           updateProcessStatus(mappedStatus);
         }
 

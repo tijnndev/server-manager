@@ -477,16 +477,18 @@ def start_process_console(name):
             send_discord_power_notification(process, action='started', success=True)
             return jsonify({
                 "message": result.get("message", f"Process '{name}' started successfully."),
-                "status": get_process_status(process.name),
+                "status": get_process_status(process.name).get("status", "Running"),
                 "ok": True
             })
         return jsonify({
             "error": result.get("error", "Failed to start process"),
+            "status": get_process_status(process.name).get("status", "Exited"),
             "ok": False
         }), 500
     except Exception as e:
         return jsonify({
             "error": f"Unexpected error starting '{name}': {str(e)}",
+            "status": get_process_status(name).get("status", "Exited") if find_process_by_name(name) else "Exited",
             "ok": False
         }), 500
 
@@ -529,9 +531,17 @@ def stop_process_console(name):
                 "status": status,
                 "ok": True,
             })
-        return jsonify({"error": result.get("error", "Failed to stop process"), "ok": False}), 500
+        return jsonify({
+            "error": result.get("error", "Failed to stop process"),
+            "status": get_process_status(process.name).get("status", "Exited"),
+            "ok": False,
+        }), 500
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": str(e),
+            "status": get_process_status(name).get("status", "Exited") if find_process_by_name(name) else "Exited",
+            "ok": False,
+        }), 500
 
 
 @process_routes.route('/restart/<string:name>', methods=['POST'])
@@ -546,6 +556,7 @@ def restart_process_console(name):
         if not result.get("success"):
             return jsonify({
                 "error": result.get("error", "Failed to restart process"),
+                "status": get_process_status(process.name).get("status", "Exited"),
                 "ok": False
             }), 500
 
@@ -568,12 +579,13 @@ def restart_process_console(name):
 
         return jsonify({
             "message": f"Process '{name}' restarted successfully.",
-            "status": get_process_status(process.name),
+            "status": get_process_status(process.name).get("status", "Running"),
             "ok": True
         })
     except Exception as e:
         return jsonify({
             "error": f"Unexpected error restarting '{name}': {str(e)}",
+            "status": get_process_status(name).get("status", "Exited") if find_process_by_name(name) else "Exited",
             "ok": False
         }), 500
 

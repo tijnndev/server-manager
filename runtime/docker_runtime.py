@@ -268,7 +268,7 @@ class DockerRuntime:
             return None
         for line in result.stdout.splitlines():
             if line.startswith("MAIN_COMMAND="):
-                return line.split("=", 1)[1].strip('"')
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
         return None
 
     async def get_process_pid(self, container_id: str, command: str) -> Optional[int]:
