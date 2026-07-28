@@ -202,8 +202,10 @@ function addSwipeIndicators() {
         .swipe-hint {
             position: fixed;
             bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 12px;
+            right: 12px;
+            transform: none;
+            max-width: none;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             padding: 12px 20px;
@@ -214,6 +216,8 @@ function addSwipeIndicators() {
             transition: opacity 0.3s;
             pointer-events: none;
             z-index: 10000;
+            box-sizing: border-box;
+            text-align: center;
         }
 
         .swipe-hint.show {

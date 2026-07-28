@@ -107,12 +107,20 @@ body.compact-mode .settings-section {
     box-sizing: border-box;
 }
 
+html {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
     font-size: 14px;
+    overflow-x: hidden;
+    max-width: 100%;
+    position: relative;
 }
 
 button:focus {
@@ -299,7 +307,9 @@ body > .alert {
     left: 50%;
     transform: translateX(-50%);
     z-index: 100000;
-    max-width: min(420px, calc(100vw - 2rem));
+    max-width: min(420px, calc(100% - 2rem));
+    width: calc(100% - 2rem);
+    box-sizing: border-box;
     margin: 0;
 }
 
@@ -344,6 +354,8 @@ body > .alert {
 .dashboard-wrapper {
     min-height: 100vh;
     background: var(--bg-primary);
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .navbar {
@@ -444,11 +456,24 @@ body > .alert {
     max-width: 1280px;
     margin: 0 auto;
     padding: 1.25rem;
+    width: 100%;
+    min-width: 0;
 }
 
 /* Page / panels */
 .page {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.process-page,
+.process-body,
+.stack {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .page-head {
@@ -481,7 +506,8 @@ body > .alert {
 
 .search-input {
     width: 200px;
-    min-width: 140px;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .layout-split {
@@ -687,22 +713,29 @@ body > .alert {
 
 .col-lg-8, .col-lg-4, .col-md-6, .col-md-5, .col-md-3, .col-md-2, .col-12, .col-xl-4 {
     min-width: 0;
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .col-lg-8 {
     flex: 0 0 calc(66.666% - 0.5rem);
+    max-width: calc(66.666% - 0.5rem);
 }
 
 .col-lg-4, .col-xl-4 {
     flex: 0 0 calc(33.333% - 0.5rem);
+    max-width: calc(33.333% - 0.5rem);
 }
 
 .col-md-6 {
     flex: 0 0 calc(50% - 0.5rem);
+    max-width: calc(50% - 0.5rem);
 }
 
 .col-12 {
     flex: 0 0 100%;
+    max-width: 100%;
 }
 
 /* Dense tables */
@@ -857,6 +890,9 @@ body > .alert {
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 1rem;
     overflow-x: auto;
+    max-width: 100%;
+    min-width: 0;
+    -webkit-overflow-scrolling: touch;
 }
 
 .subnav-link {
@@ -1731,8 +1767,9 @@ select.form-select {
 
 /* Responsive */
 @media (max-width: 1024px) {
-    .col-lg-8, .col-lg-4 {
+    .col-lg-8, .col-lg-4, .col-xl-4 {
         flex: 0 0 100%;
+        max-width: 100%;
     }
 }
 
@@ -1743,6 +1780,7 @@ select.form-select {
 
     .col-md-6, .col-md-5, .col-md-3, .col-md-2 {
         flex: 0 0 100%;
+        max-width: 100%;
     }
 
     .btn-group {
@@ -1751,6 +1789,7 @@ select.form-select {
 
     .table-responsive {
         overflow-x: auto;
+        max-width: 100%;
     }
 }
 
@@ -1964,13 +2003,14 @@ th.sortable.sort-desc .sort-icon {
     display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
-    width: min(320px, calc(100vw - 32px)) !important;
-    max-width: 320px !important;
+    width: min(320px, calc(100% - 32px)) !important;
+    max-width: min(320px, calc(100% - 32px)) !important;
     height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     pointer-events: none !important;
     transform: none !important;
+    box-sizing: border-box !important;
 }
 
 .app-toast {
@@ -2093,7 +2133,7 @@ th.sortable.sort-desc .sort-icon {
     top: 52px;
     right: 1.25rem;
     width: 340px;
-    max-width: calc(100vw - 1.5rem);
+    max-width: calc(100% - 1.5rem);
     max-height: min(420px, calc(100vh - 72px));
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -2103,6 +2143,7 @@ th.sortable.sort-desc .sort-icon {
     flex-direction: column;
     overflow: hidden;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    box-sizing: border-box;
 }
 
 .notification-center.show {
@@ -2344,8 +2385,11 @@ th.sortable.sort-desc .sort-icon {
     background: var(--bg-secondary);
     border-radius: 12px;
     padding: 30px;
-    min-width: 400px;
+    min-width: 0;
+    width: min(400px, calc(100% - 2rem));
+    max-width: calc(100% - 2rem);
     border: 1px solid var(--border-color);
+    box-sizing: border-box;
 }
 
 .progress-title {
@@ -2595,7 +2639,6 @@ th.sortable.sort-desc .sort-icon {
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
         gap: 0;
-        margin: 0 -0.85rem;
         padding: 0 0.85rem;
         border-bottom: 1px solid var(--border-color);
     }
@@ -2681,13 +2724,13 @@ th.sortable.sort-desc .sort-icon {
         width: 100%;
     }
 
-    /* Dashboard denser table */
-    .table-dense th:nth-child(1),
-    .table-dense td:nth-child(1),
-    .table-dense th:nth-child(5),
-    .table-dense td:nth-child(5),
-    .table-dense th:nth-child(6),
-    .table-dense td:nth-child(6) {
+    /* Dashboard only — do not affect .fm-table (actions are col 5) */
+    .layout-split .table-dense th:nth-child(1),
+    .layout-split .table-dense td:nth-child(1),
+    .layout-split .table-dense th:nth-child(5),
+    .layout-split .table-dense td:nth-child(5),
+    .layout-split .table-dense th:nth-child(6),
+    .layout-split .table-dense td:nth-child(6) {
         display: none;
     }
 
@@ -2736,15 +2779,18 @@ th.sortable.sort-desc .sort-icon {
 
     .progress-content {
         min-width: 0;
-        width: calc(100vw - 2rem);
+        width: calc(100% - 2rem);
+        max-width: calc(100% - 2rem);
         padding: 1.25rem;
     }
 
     #app-toast-root {
         bottom: 12px !important;
         right: 12px !important;
-        width: calc(100vw - 24px) !important;
-        max-width: none !important;
+        left: 12px !important;
+        width: auto !important;
+        max-width: 320px !important;
+        margin-left: auto !important;
     }
 
     .notification-center {
@@ -2786,11 +2832,13 @@ th.sortable.sort-desc .sort-icon {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 30px;
-    min-width: 400px;
-    max-width: 90%;
+    min-width: 0;
+    width: min(400px, calc(100% - 2rem));
+    max-width: calc(100% - 2rem);
     text-align: center;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     animation: scaleIn 0.3s ease;
+    box-sizing: border-box;
 }
 
 .progress-title {
@@ -2852,7 +2900,9 @@ th.sortable.sort-desc .sort-icon {
 
 @media (max-width: 768px) {
     .progress-content {
-        min-width: 300px;
+        min-width: 0;
+        width: calc(100% - 2rem);
+        max-width: calc(100% - 2rem);
         padding: 20px;
     }
 
@@ -2894,9 +2944,11 @@ th.sortable.sort-desc .sort-icon {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1.25rem;
-    min-width: min(320px, calc(100vw - 2rem));
-    max-width: 90%;
+    min-width: 0;
+    width: min(320px, calc(100% - 2rem));
+    max-width: calc(100% - 2rem);
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    box-sizing: border-box;
 }
 
 .confirmation-message {
