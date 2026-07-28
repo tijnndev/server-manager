@@ -4,14 +4,16 @@
 <style>
 /* File Manager Styling */
 .file-manager-card {
-    background: var(--bg-secondary);
+    background: var(--bg-secondary-glass);
+    backdrop-filter: blur(var(--surface-blur));
+    -webkit-backdrop-filter: blur(var(--surface-blur));
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     overflow: hidden;
 }
 
 .file-manager-header {
-    background: var(--bg-tertiary);
+    background: var(--bg-glass);
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;

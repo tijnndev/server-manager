@@ -34,14 +34,14 @@
                 <i class="bi bi-terminal-plus"></i> Execute Commands
             </div>
             <div class="card-body">
-                <div class="input-group" style="position: relative;">
-                    <span class="input-group-text bg-dark text-success">$</span>
+                <div class="input-group command-input-group" style="position: relative;">
+                    <span class="input-group-text">$</span>
                     <input
                         type="text"
                         class="form-control"
                         id="command-input"
                         placeholder="Enter command to execute..."
-                        style="font-family: monospace"
+                        style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
                         autocomplete="off"
                     />
                     <button class="btn btn-primary" type="button" onclick="executeCommand()" id="execute-btn">
@@ -52,7 +52,7 @@
                 </div>
                 <small class="text-muted mt-2 d-block">
                     Commands execute in /app directory. 
-                    <span class="text-info">↑↓ to navigate history, Tab to autocomplete, Esc to close</span>
+                    <span style="color: var(--accent-blue);">↑↓ to navigate history, Tab to autocomplete, Esc to close</span>
                 </small>
             </div>
         </div>

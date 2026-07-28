@@ -5,6 +5,18 @@ from utils import find_process_by_name
 
 email_routes = Blueprint('email', __name__)
 
+_MAILSERVER_MISSING = (
+    "Mail server container is not running. "
+    "Start the `mailserver` container to manage email accounts."
+)
+
+
+def _mailserver_error(stderr: str = "", stdout: str = "") -> str:
+    combined = f"{stderr or ''}\n{stdout or ''}"
+    if "No such container" in combined:
+        return _MAILSERVER_MISSING
+    return (stderr or stdout or "Mail server command failed").strip()
+
 
 def list_email_users():
     """List configured email users from the mailserver container."""
@@ -19,7 +31,7 @@ def list_email_users():
         )
 
         if list_result.returncode != 0:
-            return users, list_result.stderr.strip() or "Failed to list email accounts"
+            return users, _mailserver_error(list_result.stderr, list_result.stdout)
 
         for line in list_result.stdout.strip().splitlines():
             parts = line.split()
@@ -32,7 +44,7 @@ def list_email_users():
     except subprocess.TimeoutExpired:
         return users, "Timed out while fetching email accounts"
     except Exception as e:
-        return users, str(e)
+        return users, _mailserver_error(str(e))
 
 
 @email_routes.route('<name>', methods=['GET'])
