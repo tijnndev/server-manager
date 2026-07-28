@@ -240,7 +240,7 @@
       if (response.ok && result.ok) {
         addLogMessage("Process started successfully", "system");
         updateProcessStatus(nextStatus);
-        showSuccess(`Process "${name}" started successfully`);
+        showSuccess(`Started ${name}`);
 
         setTimeout(() => {
           refreshLogs();
@@ -281,7 +281,7 @@
       if (response.ok && result.ok !== false) {
         addLogMessage("Process stopped successfully", "system");
         updateProcessStatus(nextStatus);
-        showSuccess(`Process "${name}" stopped successfully`);
+        showSuccess(`Stopped ${name}`);
 
         setTimeout(() => {
           refreshLogs();
@@ -324,7 +324,7 @@
       if (response.ok && result.ok) {
         addLogMessage("Process restarted successfully", "system");
         updateProcessStatus(nextStatus);
-        showSuccess(`Process "${name}" restarted successfully`);
+        showSuccess(`Restarted ${name}`);
 
         setTimeout(() => {
           refreshLogs();
@@ -865,12 +865,15 @@
         consoleOutput.innerHTML = "";
         seenMessages.clear();
         addLogMessage("Logs cleared successfully", "system");
+        showSuccess("Logs cleared");
         refreshLogs();
       } else {
         addLogMessage(`Failed to clear logs: ${result.error}`, "error");
+        showError(result.error || "Failed to clear logs");
       }
     } catch (error) {
       addLogMessage(`Error clearing logs: ${error.message}`, "error");
+      showError(error.message || "Failed to clear logs");
     } finally {
       hideLoading();
     }

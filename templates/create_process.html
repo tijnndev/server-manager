@@ -73,10 +73,11 @@
 
         if (response.ok) {
             const responseData = await response.json();
+            showSuccess('Process created');
             window.location.href = responseData.redirect_url;
         } else {
             const responseData = await response.json();
-            alert('Failed to add process: ' + responseData);
+            showError('Failed to add process: ' + (responseData.error || responseData));
         }
     }
 </script>

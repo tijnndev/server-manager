@@ -1,43 +1,21 @@
 {% extends 'process/process_layout.html' %}
 {% block process_content %}
-<script src="https://tijnn.dev/assets/notify-library/index.js"></script>
-<link rel="stylesheet" href="https://tijnn.dev/assets/notify-library/index.css" />
-<style>
-  .file-editor-container {
-    border: 1px solid #ccc;
-    padding: 20px;
-  }
-  .file-editor-header {
-    background-color: #f0f0f0;
-    padding: 10px;
-    margin-bottom: 10px;
-  }
-</style>
-
-<h1>Edit file: {{ file_name }}</h1>
-
-<div class="mb-3">
-  <label for="file_name" class="form-label">File Name (with extension)</label>
-  <input
-    type="text"
-    class="form-control"
-    id="file_name"
-    name="file_name"
-    value="{{ file_name }}"
-    required
-  />
-</div>
-
-<div class="mb-3">
-  <label for="file_code" class="form-label">Code</label>
-  <div id="editor" style="height: 500px"></div>
-</div>
-
-<button id="save-button" class="btn btn-primary">Save File</button>
-
-{% if error %}
-<div class="alert alert-danger mt-3">{{ error }}</div>
-{% endif %}
+<section class="panel">
+    <div class="panel-toolbar">
+        <span class="panel-label">Edit · {{ file_name }}</span>
+        <button id="save-button" class="btn btn-primary btn-sm">Save</button>
+    </div>
+    <div class="panel-body">
+        <div class="mb-3">
+            <label for="file_name" class="form-label">File name</label>
+            <input type="text" class="form-control" id="file_name" name="file_name" value="{{ file_name }}" required>
+        </div>
+        <div id="editor" class="code-editor" style="height: 560px;"></div>
+        {% if error %}
+        <div class="alert alert-danger mt-3 mb-0">{{ error }}</div>
+        {% endif %}
+    </div>
+</section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-modelist.min.js"></script>
@@ -57,29 +35,38 @@
   }
 
   document.getElementById("save-button").addEventListener("click", function() {
-      let content = editor.getValue();
-      content = content.replace(/\r\n|\r/g, "\n");
+      const btn = this;
+      btn.disabled = true;
+      let content = editor.getValue().replace(/\r\n|\r/g, "\n");
 
       fetch("{{ url_for('files.edit_file', name=process.name, file=file_path) }}", {
           method: "POST",
-          headers: {
-              "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
               file_name: document.getElementById("file_name").value,
               file_code: content,
           })
       }).then(response => response.json())
         .then(data => {
-            const notify = new Notify();
             if (data.success) {
-                notify.show("File successfully saved!", 'success', 3000);
+                showSuccess("File saved");
             } else {
-                console.error("Error saving file", data.error);
-                notify.show("Error while saving file!", 'error', 3000);
+                showError(data.error || "Failed to save file");
             }
         })
-        .catch(error => console.error("Fetch error:", error));
+        .catch(error => {
+            console.error("Fetch error:", error);
+            showError("Failed to save file");
+        })
+        .finally(() => { btn.disabled = false; });
+  });
+
+  // Ctrl/Cmd+S
+  document.addEventListener("keydown", function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+          e.preventDefault();
+          document.getElementById("save-button").click();
+      }
   });
 </script>
 {% endblock process_content %}

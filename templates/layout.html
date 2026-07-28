@@ -88,6 +88,30 @@
         </div>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const flashes = {{ messages|tojson }};
+            flashes.forEach(([category, message]) => {
+                const type = ({
+                    success: 'success',
+                    danger: 'error',
+                    error: 'error',
+                    warning: 'warning',
+                    info: 'info',
+                    message: 'info'
+                })[category] || 'info';
+                if (type === 'success') showSuccess(message);
+                else if (type === 'error') showError(message);
+                else if (type === 'warning') showWarning(message);
+                else showInfo(message);
+            });
+        });
+    </script>
+    {% endif %}
+    {% endwith %}
+
     <script>
         let dragOverTimeout;
 

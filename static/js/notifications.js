@@ -27,14 +27,10 @@ class NotificationManager {
             notificationCenter.className = 'notification-center';
             notificationCenter.innerHTML = `
                 <div class="notification-header">
-                    <h3><i class="bi bi-bell"></i> Notifications</h3>
+                    <span class="notification-title">Activity</span>
                     <div class="notification-actions">
-                        <button onclick="notificationManager.clearAll()" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-trash"></i> Clear All
-                        </button>
-                        <button onclick="notificationManager.toggleCenter()" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-x"></i>
-                        </button>
+                        <button type="button" class="notification-action" onclick="notificationManager.clearAll()">Clear</button>
+                        <button type="button" class="notification-action" onclick="notificationManager.toggleCenter()" aria-label="Close">Close</button>
                     </div>
                 </div>
                 <div class="notification-list" id="notification-list"></div>
@@ -47,8 +43,8 @@ class NotificationManager {
             const bell = document.createElement('li');
             bell.innerHTML = `
                 <a class="nav-link notification-bell" href="#" onclick="notificationManager.toggleCenter(); return false;">
-                    <i class="bi bi-bell"></i>
-                    <span class="notification-badge" id="notification-badge">0</span>
+                    Alerts
+                    <span class="notification-badge" id="notification-badge" hidden>0</span>
                 </a>
             `;
             const navbar = document.querySelector('.navbar-nav');
@@ -192,22 +188,21 @@ class NotificationManager {
         }
 
         list.innerHTML = this.notifications.map((notif, index) => {
-            // Truncate long messages in notification center (max 300 characters)
-            const maxLength = 300;
-            const displayMessage = notif.message.length > maxLength 
-                ? notif.message.substring(0, maxLength) + '...' 
+            const maxLength = 160;
+            const displayMessage = notif.message.length > maxLength
+                ? notif.message.substring(0, maxLength) + '…'
                 : notif.message;
-            
+
             return `
                 <div class="notification-item notification-${notif.type} ${notif.read ? 'notification-read' : ''}">
-                    <i class="${this.getIcon(notif.type)}"></i>
                     <div class="notification-content">
                         <div class="notification-message" title="${this.escapeHtml(notif.message)}">${this.escapeHtml(displayMessage)}</div>
-                        <div class="notification-time">${this.formatTime(notif.timestamp)}</div>
+                        <div class="notification-meta">
+                            <span class="notification-kind">${notif.type || 'info'}</span>
+                            <span class="notification-time">${this.formatTime(notif.timestamp)}</span>
+                        </div>
                     </div>
-                    <button class="notification-delete" onclick="notificationManager.deleteNotification(${index}, event)" title="Delete notification">
-                        <i class="bi bi-x"></i>
-                    </button>
+                    <button type="button" class="notification-delete" onclick="notificationManager.deleteNotification(${index}, event)" aria-label="Dismiss">×</button>
                 </div>
             `;
         }).join('');
@@ -222,16 +217,18 @@ class NotificationManager {
         const hours = Math.floor(minutes / 60);
         const days = Math.floor(hours / 24);
 
-        if (seconds < 60) return 'Just now';
-        if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-        if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-        if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+        if (seconds < 60) return 'now';
+        if (minutes < 60) return `${minutes}m`;
+        if (hours < 24) return `${hours}h`;
+        if (days < 7) return `${days}d`;
         return date.toLocaleDateString();
     }
 
     toggleCenter() {
         const center = document.getElementById('notification-center');
+        const opening = !center.classList.contains('show');
         center.classList.toggle('show');
+        if (opening) this.markAllRead();
     }
 
     deleteNotification(index, event = null) {
@@ -253,21 +250,24 @@ class NotificationManager {
     }
 
     clearAll() {
-        if (confirm('Clear all notifications?')) {
-            this.notifications = [];
-            this.saveNotifications();
-            this.renderNotifications();
-            this.updateBadge();
-        }
+        this.notifications = [];
+        this.saveNotifications();
+        this.renderNotifications();
+        this.updateBadge();
     }
 
     updateBadge() {
         const badge = document.getElementById('notification-badge');
         if (badge) {
             const unreadCount = this.notifications.filter(n => !n.read).length;
-            const count = unreadCount;
-            badge.textContent = count > 99 ? '99+' : count;
-            badge.style.display = count > 0 ? 'block' : 'none';
+            badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+            if (unreadCount > 0) {
+                badge.hidden = false;
+                badge.style.display = '';
+            } else {
+                badge.hidden = true;
+                badge.style.display = 'none';
+            }
         }
     }
 }
@@ -286,52 +286,45 @@ if (document.readyState === 'loading') {
 }
 
 // Helper functions for easy access
-function showToast(message, type = 'info', duration = 3000) {
-    if (!notificationManager) {
-        console.error('NotificationManager not initialized yet');
-        return;
+function ensureNotificationManager(callback) {
+    if (notificationManager) {
+        return callback(notificationManager);
     }
-    return notificationManager.showToast(message, type, duration);
+    // Manager not ready yet (defer script) — wait briefly
+    const start = Date.now();
+    const wait = setInterval(() => {
+        if (notificationManager) {
+            clearInterval(wait);
+            callback(notificationManager);
+        } else if (Date.now() - start > 3000) {
+            clearInterval(wait);
+            console.error('NotificationManager not initialized');
+        }
+    }, 50);
+}
+
+function showToast(message, type = 'info', duration = 3000) {
+    return ensureNotificationManager((nm) => nm.showToast(message, type, duration));
 }
 
 function showToastWithUndo(message, undoCallback, type = 'info', duration = 5000) {
-    if (!notificationManager) {
-        console.error('NotificationManager not initialized yet');
-        return;
-    }
-    return notificationManager.showToast(message, type, duration, undoCallback);
+    return ensureNotificationManager((nm) => nm.showToast(message, type, duration, undoCallback));
 }
 
 function showSuccess(message, duration = 3000) {
-    if (!notificationManager) {
-        console.error('NotificationManager not initialized yet');
-        return;
-    }
-    return notificationManager.showToast(message, 'success', duration);
+    return ensureNotificationManager((nm) => nm.showToast(message, 'success', duration));
 }
 
 function showError(message, duration = 5000) {
-    if (!notificationManager) {
-        console.error('NotificationManager not initialized yet');
-        return;
-    }
-    return notificationManager.showToast(message, 'error', duration);
+    return ensureNotificationManager((nm) => nm.showToast(message, 'error', duration));
 }
 
 function showWarning(message, duration = 4000) {
-    if (!notificationManager) {
-        console.error('NotificationManager not initialized yet');
-        return;
-    }
-    return notificationManager.showToast(message, 'warning', duration);
+    return ensureNotificationManager((nm) => nm.showToast(message, 'warning', duration));
 }
 
 function showInfo(message, duration = 3000) {
-    if (!notificationManager) {
-        console.error('NotificationManager not initialized yet');
-        return;
-    }
-    return notificationManager.showToast(message, 'info', duration);
+    return ensureNotificationManager((nm) => nm.showToast(message, 'info', duration));
 }
 
 function showConfirmation(message, onConfirm, onCancel = null) {

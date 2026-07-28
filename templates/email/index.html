@@ -181,14 +181,14 @@ function copyGeneratedPassword() {
     tempInput.select();
     document.execCommand("copy");
     document.body.removeChild(tempInput);
-    alert("Password copied to clipboard!");
+    showSuccess("Password copied");
 }
 
 function createEmail() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
     if (!email || !password) {
-        alert("Email and password are required.");
+        showWarning("Email and password are required");
         return;
     }
     fetch(`/email/{{ process.name }}/create`, {
@@ -199,18 +199,18 @@ function createEmail() {
     .then(res => res.json())
     .then(data => {
         if (data.message) {
-            alert(data.message);
+            showSuccess(data.message);
             document.getElementById("email").value = "";
             document.getElementById("password").value = "";
             document.getElementById("generated-password-container").style.display = "none";
             loadEmailAccounts();
         } else if (data.error) {
-            alert(`Error: ${data.error}`);
+            showError(data.error);
         }
     })
     .catch(err => {
         console.error(err);
-        alert("An error occurred while creating the email.");
+        showError("Failed to create email");
     });
 }
 
@@ -232,11 +232,11 @@ function updatePassword() {
     const newPassword = document.getElementById('new-password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
     if (!newPassword || !confirmPassword) {
-        alert("Both new password and confirmation are required.");
+        showWarning("Both password fields are required");
         return;
     }
     if (newPassword !== confirmPassword) {
-        alert("Passwords do not match.");
+        showWarning("Passwords do not match");
         return;
     }
     fetch(`/email/{{ process.name }}/update-password`, {
@@ -247,16 +247,16 @@ function updatePassword() {
     .then(res => res.json())
     .then(data => {
         if (data.message) {
-            alert(data.message);
+            showSuccess(data.message);
             closeEditPasswordModal();
             loadEmailAccounts();
         } else if (data.error) {
-            alert(`Error: ${data.error}`);
+            showError(data.error);
         }
     })
     .catch(err => {
         console.error(err);
-        alert("An error occurred while updating the password.");
+        showError("Failed to update password");
     });
 }
 
@@ -270,15 +270,15 @@ function deleteEmail(email) {
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                alert(data.message);
+                showSuccess(data.message);
                 loadEmailAccounts();
             } else if (data.error) {
-                alert(`Error: ${data.error}`);
+                showError(data.error);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert("An error occurred while deleting the email.");
+            showError("Failed to delete email");
         });
     }
 }

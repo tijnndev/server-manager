@@ -1434,8 +1434,10 @@ def schedule(name):
         try:
             subprocess.run(cron_command, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            return jsonify({"error": f"Failed to schedule event: {str(e)}"}), 500
+            flash(f"Failed to schedule event: {str(e)}", "danger")
+            return redirect(url_for('process.schedule', name=name))
 
+        flash(f"Scheduled {action}", "success")
         return redirect(url_for('process.schedule', name=name))
 
     return render_template('process/schedule.html', page_title="Schedule", process=process)
@@ -1511,11 +1513,14 @@ def delete_cron_job(name):
                 if line.strip() != schedule_to_remove:
                     cron_file.write(line)
 
+        flash("Schedule deleted", "success")
         return redirect(url_for('process.schedule', name=process.name))
     except FileNotFoundError as e:
-        return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
+        flash(f"Failed to remove schedule: {str(e)}", "danger")
+        return redirect(url_for('process.schedule', name=process.name))
     except PermissionError as e:
-        return jsonify({"error": f"Failed to remove cron job: {str(e)}"}), 500
+        flash(f"Failed to remove schedule: {str(e)}", "danger")
+        return redirect(url_for('process.schedule', name=process.name))
 
 
 @process_routes.route('/metrics/<string:name>', methods=['GET'])

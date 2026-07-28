@@ -632,7 +632,8 @@
             const data = await response.json();
 
             if (data.success) {
-                successAlert.style.display = 'flex';
+                if (typeof showSuccess === 'function') showSuccess('Preferences saved');
+                successAlert.style.display = 'none';
                 
                 // Apply theme immediately
                 applyTheme(settings.theme);
@@ -642,23 +643,13 @@
                 
                 // Store settings in localStorage for immediate application
                 localStorage.setItem('userPreferences', JSON.stringify(settings));
-
-                // Scroll to top to show alert
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-
-                // Hide success message after 3 seconds
-                setTimeout(() => {
-                    successAlert.style.display = 'none';
-                }, 3000);
             } else {
-                errorAlert.style.display = 'flex';
-                document.getElementById('error-message').textContent = data.error || 'Failed to save settings.';
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (typeof showError === 'function') showError(data.error || 'Failed to save settings');
+                errorAlert.style.display = 'none';
             }
         } catch (error) {
-            errorAlert.style.display = 'flex';
-            document.getElementById('error-message').textContent = 'Network error: ' + error.message;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (typeof showError === 'function') showError('Network error: ' + error.message);
+            errorAlert.style.display = 'none';
         }
     }
 

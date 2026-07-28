@@ -276,6 +276,7 @@ def create_file(name):
                 file_path = sanitize_path(location, file_name)
                 with open(file_path, 'w') as f:
                     f.write(file_code)
+                flash("File created", "success")
                 return redirect(url_for('files.file_manager', name=process.name, location=os.path.relpath(location, ACTIVE_SERVERS_DIR)))
             except ValueError:
                 return redirect(url_for('files.file_manager', name=process.name, location=location))
@@ -300,6 +301,7 @@ def create_directory_file(name):
             try:
                 new_dir_path = sanitize_path(location, new_dir_name)
                 os.makedirs(new_dir_path, exist_ok=True)
+                flash("Folder created", "success")
                 return redirect(url_for('files.file_manager', name=process.name, location=current_location))
             except Exception:
                 return redirect(url_for('files.file_manager', name=process.name, location=current_location))

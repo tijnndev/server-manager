@@ -580,7 +580,7 @@ function deleteSelectedFiles() {
 
 function downloadSelectedFiles() {
     if (selectedFiles.length === 0) return;
-    alert('Downloading files: ' + selectedFiles.join(', '));
+    showInfo('Downloading: ' + selectedFiles.join(', '));
     selectedFiles.forEach(filePath => {
         const relativePath = filePath.replace("{{ process.name }}/", "");
         const downloadUrl = "{{ url_for('files.download_file', name=process.name, relative_path='__REL_PATH__') }}".replace('__REL_PATH__', encodeURIComponent(relativePath));
@@ -638,13 +638,14 @@ function confirmDelete(form, filename) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    showSuccess('Deleted');
                     window.location.reload();
                 } else {
-                    alert('Failed to delete: ' + (data.error || 'Unknown error'));
+                    showError('Failed to delete: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                alert('Error deleting file: ' + error.message);
+                showError('Error deleting file: ' + error.message);
             });
         }
     }
@@ -666,7 +667,7 @@ function moveSelectedFiles() {
 function submitMove() {
     const destination = document.getElementById('destination').value;
     if (!destination) {
-        alert('Please enter a destination path.');
+        showWarning('Please enter a destination path.');
         return;
     }
 
@@ -683,15 +684,15 @@ function submitMove() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Files moved successfully');
+            showSuccess('Files moved');
             location.reload();
         } else {
-            alert('Error: ' + data.error);
+            showError(data.error || 'Failed to move files');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error moving files');
+        showError('Error moving files');
     });
 
     $('#moveFilesModal').modal('hide');
