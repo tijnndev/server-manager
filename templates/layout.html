@@ -24,7 +24,6 @@
     <script defer src="{{ url_for('static', filename='js/console-enhanced.js') }}"></script>
     {% endif %}
     {% if page_title == "File Manager" %}
-    <script defer src="{{ url_for('static', filename='js/file-manager-enhanced.js') }}"></script>
     <script defer src="{{ url_for('static', filename='js/bulk-operations.js') }}"></script>
     {% endif %}
     <script>
@@ -67,7 +66,11 @@
                 <ul class="navbar-nav" id="navbar-nav">
                     {% if session["role"] == "admin" %}
                     <li>
-                        <a class="nav-link" href="/process/create">New</a>
+                        <a class="nav-link nav-icon-link" href="/process/create" title="New" aria-label="New process">
+                            <svg class="nav-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </a>
                     </li>
                     <li>
                         <a class="nav-link" href="/settings">Settings</a>

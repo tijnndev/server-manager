@@ -42,9 +42,12 @@ class NotificationManager {
         if (!document.querySelector('.notification-bell')) {
             const bell = document.createElement('li');
             bell.innerHTML = `
-                <a class="nav-link notification-bell" href="#" onclick="notificationManager.toggleCenter(); return false;">
-                    Alerts
-                    <span class="notification-badge" id="notification-badge" hidden>0</span>
+                <a class="nav-link nav-icon-link notification-bell" href="#" onclick="notificationManager.toggleCenter(); return false;" title="Alerts" aria-label="Alerts">
+                    <svg class="nav-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M8 1.75a3.25 3.25 0 0 0-3.25 3.25v1.3c0 .55-.18 1.09-.5 1.54L3.2 9.3A1 1 0 0 0 4.04 10.9h7.92a1 1 0 0 0 .84-1.6l-1.05-1.46a2.75 2.75 0 0 1-.5-1.54V5A3.25 3.25 0 0 0 8 1.75Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                        <path d="M6.4 12.25a1.75 1.75 0 0 0 3.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                    </svg>
+                    <span class="notification-dot" id="notification-badge" hidden></span>
                 </a>
             `;
             const navbar = document.querySelector('.navbar-nav');
@@ -256,16 +259,15 @@ class NotificationManager {
 
     updateBadge() {
         const badge = document.getElementById('notification-badge');
-        if (badge) {
-            const unreadCount = this.notifications.filter(n => !n.read).length;
-            badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
-            if (unreadCount > 0) {
-                badge.hidden = false;
-                badge.style.display = '';
-            } else {
-                badge.hidden = true;
-                badge.style.display = 'none';
-            }
+        if (!badge) return;
+        const unreadCount = this.notifications.filter(n => !n.read).length;
+        // Red indicator when there is at least one unread notification
+        if (unreadCount > 0) {
+            badge.hidden = false;
+            badge.removeAttribute('hidden');
+        } else {
+            badge.hidden = true;
+            badge.setAttribute('hidden', '');
         }
     }
 }

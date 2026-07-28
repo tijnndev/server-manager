@@ -2,348 +2,220 @@
 
 {% block process_content %}
 <style>
-/* File Manager */
-.breadcrumb {
-    background: transparent;
-    padding: 0.5rem 0 0.75rem;
-    margin: 0;
-    font-size: 13px;
+.fm-path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 0.5rem 0.85rem;
+    border-bottom: 1px solid var(--border-color);
 }
-
-.breadcrumb-item a {
-    color: var(--accent-blue);
+.fm-path a {
+    color: var(--text-secondary);
     text-decoration: none;
 }
+.fm-path a:hover { color: var(--text-primary); }
+.fm-path .sep { color: var(--text-muted); opacity: 0.5; }
+.fm-path .current { color: var(--text-primary); }
 
-.breadcrumb-item.active {
-    color: var(--text-secondary);
+.fm-name {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13px;
 }
+.fm-name:hover { color: var(--accent-blue); }
+.fm-name.is-dir { font-weight: 500; }
 
-.breadcrumb-item + .breadcrumb-item::before {
+.fm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    opacity: 0;
+}
+tr:hover .fm-actions { opacity: 1; }
+.fm-actions a,
+.fm-actions button {
+    appearance: none;
+    background: none;
+    border: none;
     color: var(--text-muted);
+    font-size: 12px;
+    padding: 0.15rem 0.35rem;
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 4px;
 }
+.fm-actions a:hover,
+.fm-actions button:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.04);
+}
+.fm-actions .danger:hover { color: var(--accent-red); }
+
+.fm-upload {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+.fm-upload .form-control {
+    flex: 1;
+    font-size: 12px;
+}
+
+.fm-bar {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.4rem 0.55rem;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.fm-bar.active {
+    display: flex;
+    transform: translateX(-50%) translateY(0);
+}
+.fm-bar-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 0 0.35rem;
+}
+.fm-bar button {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.fm-bar button:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.04);
+}
+.fm-bar button.danger:hover { color: var(--accent-red); }
 
 .file-checkbox,
 #select-all-checkbox {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
+    width: 14px;
+    height: 14px;
     accent-color: var(--accent-blue);
 }
 
-/* File Links */
-.table a {
-    color: var(--text-primary);
-    text-decoration: none;
-    transition: color 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.table a:hover {
-    color: var(--accent-blue);
-}
-
-.table a i {
-    font-size: 1.1rem;
-}
-
-/* Button Styling */
-.btn-group {
-    display: flex;
-    gap: 0.375rem;
-}
-
-.btn-sm {
-    padding: 0.5rem 0.875rem;
-    font-size: 0.875rem;
-}
-
-/* Actions Overlay */
-.actions-overlay {
-    position: fixed;
-    bottom: -100px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--bg-secondary);
-    backdrop-filter: blur(var(--surface-blur));
-    -webkit-backdrop-filter: blur(var(--surface-blur));
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 1rem 1.5rem;
-    z-index: 9999;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease-in-out;
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-}
-
-.actions-overlay.active {
-    bottom: 20px;
-    opacity: 1;
-    visibility: visible;
-}
-
-.actions-overlay::before {
-    content: attr(data-count);
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    margin-right: 0.5rem;
-}
-
-/* Upload Section */
-.card-footer {
-    background: var(--bg-tertiary);
-    border-top: 1px solid var(--border-color);
-    padding: 1.25rem 1.5rem;
-}
-
-.card-footer h6 {
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.card-footer .input-group {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.card-footer .form-control {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-}
-
-.card-footer .form-control:focus {
-    background: var(--bg-secondary);
-    border-color: var(--accent-blue);
-    color: var(--text-primary);
-    box-shadow: 0 0 0 1px var(--accent-blue-border);
-}
-
-/* Modal Styling */
-.modal-content {
-    background: var(--bg-secondary);
-    backdrop-filter: blur(var(--surface-blur));
-    -webkit-backdrop-filter: blur(var(--surface-blur));
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-}
-
-.modal-header {
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.modal-title {
-    color: var(--text-primary);
-}
-
-.modal-body {
-    background: var(--bg-secondary);
-    padding: 1.5rem;
-}
-
-.modal-body .form-control {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-}
-
-.modal-body .form-control:focus {
-    background: var(--bg-tertiary);
-    border-color: var(--accent-blue);
-    color: var(--text-primary);
-}
-
-.modal-footer {
-    background: var(--bg-tertiary);
-    border-top: 1px solid var(--border-color);
-}
-
-.modal-backdrop.show {
-    background-color: rgba(0, 0, 0, 0.7);
-}
-
-/* Alert Styling */
-.alert-success {
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid var(--accent-green);
-    color: var(--accent-green);
-}
-
-.alert-danger {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid var(--accent-red);
-    color: var(--accent-red);
-}
-
-/* Responsive */
 @media (max-width: 768px) {
-    .file-manager-header {
-        flex-direction: column;
-        gap: 1rem;
-        align-items: stretch;
-    }
-
-    .btn-group {
-        flex-direction: column;
-    }
-
-    .actions-overlay {
-        left: 10px;
-        right: 10px;
+    .fm-actions { opacity: 1; }
+    .fm-bar {
+        left: 0.75rem;
+        right: 0.75rem;
         transform: none;
-        flex-direction: column;
+        width: auto;
     }
-
-    .table {
-        font-size: 0.875rem;
-    }
-
-    .table td, .table th {
-        padding: 0.625rem 0.5rem;
-    }
+    .fm-bar.active { transform: none; }
 }
 </style>
 
-
-<div class="card">
-    <div class="panel-toolbar">
-        <span class="panel-label">Files</span>
-        <div class="btn-group">
-            <a href="{{ url_for('files.create_file', name=process.name, location=current_location) }}" class="btn btn-outline-secondary btn-sm">New file</a>
-            <a href="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}" class="btn btn-outline-secondary btn-sm">New folder</a>
-            <button type="button" class="btn btn-outline-secondary btn-sm w-auto" id="select-all-btn">Select all</button>
+<div class="stack">
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">Files</span>
+            <div class="btn-row">
+                <input type="text" id="file-search" class="form-control form-control-sm search-input" placeholder="Filter…" oninput="filterFiles()">
+                <a href="{{ url_for('files.create_file', name=process.name, location=current_location) }}" class="btn btn-outline-secondary btn-sm">New file</a>
+                <a href="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}" class="btn btn-outline-secondary btn-sm">New folder</a>
+            </div>
         </div>
-    </div>
-    <div class="card-body p-0">
-        <nav aria-label="breadcrumb" class="px-3 pt-3">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item">
-                    <a href="{{ url_for('files.file_manager', name=process.name) }}">home</a>
-                </li>
-                {% set path_parts = current_location.replace('\\', '/').split('/') %}
-                {% for i in range(path_parts|length) %}
-                    {% set part = path_parts[i] %}
-                    {% if part != "." %}
-                        <li class="breadcrumb-item{% if loop.last %} active{% endif %}">
-                            {% if not loop.last %}
-                            <a href="{{ url_for('files.file_manager', name=process.name, location='/'.join(path_parts[:i+1])) }}">
-                                {{ part }}
-                            </a>
-                            {% else %}
-                            {{ part }}
-                            {% endif %}
-                        </li>
+
+        <nav class="fm-path" aria-label="Path">
+            <a href="{{ url_for('files.file_manager', name=process.name) }}">home</a>
+            {% set path_parts = current_location.replace('\\', '/').split('/') %}
+            {% for i in range(path_parts|length) %}
+                {% set part = path_parts[i] %}
+                {% if part and part != "." %}
+                    <span class="sep">/</span>
+                    {% if not loop.last %}
+                    <a href="{{ url_for('files.file_manager', name=process.name, location='/'.join(path_parts[:i+1])) }}">{{ part }}</a>
+                    {% else %}
+                    <span class="current">{{ part }}</span>
                     {% endif %}
-                {% endfor %}
-            </ol>
+                {% endif %}
+            {% endfor %}
         </nav>
 
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-dense mb-0">
                 <thead>
                     <tr>
-                        <th width="30">
-                            <input type="checkbox" id="select-all-checkbox">
-                        </th>
+                        <th style="width: 32px;"><input type="checkbox" id="select-all-checkbox"></th>
                         <th>Name</th>
-                        <th>Size</th>
-                        <th>Modified</th>
-                        <th>Actions</th>
+                        <th style="width: 90px;">Size</th>
+                        <th style="width: 160px;">Modified</th>
+                        <th style="width: 140px;"></th>
                     </tr>
                 </thead>
                 <tbody id="file-table-body">
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 18px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 180px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 160px;"></div></td>
-                        </tr>
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 18px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 220px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 180px;"></div></td>
-                        </tr>
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 18px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 160px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 70px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 110px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 150px;"></div></td>
-                        </tr>
+                    <tr class="skeleton-row">
+                        <td><div class="skeleton skeleton-text" style="width: 14px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 180px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 48px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 110px;"></div></td>
+                        <td></td>
+                    </tr>
                 </tbody>
             </table>
         </div>
-    </div>
 
-    <div class="card-footer">
-        <h6 class="panel-label" style="padding: 0;">Upload</h6>
-        <form action="{{ url_for('files.file_manager', name=process.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
+        <form class="fm-upload" action="{{ url_for('files.file_manager', name=process.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="input-group">
-                <input type="file" name="file" class="form-control" required>
-                <button type="submit" class="btn btn-primary w-auto">
-                    <i class="bi bi-upload"></i> Upload
-                </button>
-            </div>
+            <span class="panel-label" style="padding: 0;">Upload</span>
+            <input type="file" name="file" class="form-control form-control-sm" required>
+            <button type="submit" class="btn btn-primary btn-sm">Upload</button>
         </form>
-        
-        {% if success %}
-        <div class="alert alert-success mt-3 mb-0">{{ success }}</div>
-        {% endif %}
-        
-        {% if error %}
-        <div class="alert alert-danger mt-3 mb-0">{{ error }}</div>
-        {% endif %}
-    </div>
+    </section>
 </div>
 
-
-
-<div id="actions-overlay" class="actions-overlay">
-    <button class="btn btn-danger" onclick="deleteSelectedFiles()">Delete Selected</button>
-    <button class="btn btn-info" onclick="downloadSelectedFiles()">Download Selected</button>
-    <button class="btn btn-warning" onclick="moveSelectedFiles()">Move Selected</button>
+<div id="actions-overlay" class="fm-bar">
+    <span class="fm-bar-count" id="fm-bar-count">0 selected</span>
+    <button type="button" onclick="downloadSelectedFiles()">Download</button>
+    <button type="button" onclick="moveSelectedFiles()">Move</button>
+    <button type="button" class="danger" onclick="deleteSelectedFiles()">Delete</button>
 </div>
 
-<!-- Move Files Modal -->
-<div class="modal" id="moveFilesModal" tabindex="-1" aria-labelledby="moveFilesModalLabel" aria-hidden="true">
+<div class="modal" id="moveFilesModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="moveFilesModalLabel">Move Files</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">Move to</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <label for="destination">Select Destination Folder:</label>
-                <input type="text" class="form-control" id="destination" placeholder="Enter destination path" required>
+                <label class="form-label" for="destination">Destination path</label>
+                <input type="text" class="form-control" id="destination" placeholder="relative/path" required>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="submitMove()">Move</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitMove()">Move</button>
             </div>
         </div>
     </div>
 </div>
-
 
 <script>
 let selectedFiles = [];
 const processName = '{{ process.name }}';
 const currentLocation = '{{ current_location }}';
 const fileTableBody = document.getElementById('file-table-body');
+let allFilesCache = [];
 
 function formatFileSize(bytes) {
     if (bytes === null || bytes === undefined) return '—';
@@ -354,8 +226,7 @@ function formatFileSize(bytes) {
 
 function formatModifiedTime(ts) {
     if (!ts) return '—';
-    const dt = new Date(ts * 1000);
-    return dt.toLocaleString();
+    return new Date(ts * 1000).toLocaleString();
 }
 
 function escapeHtml(text) {
@@ -367,21 +238,15 @@ function escapeHtml(text) {
 function renderFileRows(files) {
     selectedFiles = [];
     toggleActionsOverlay();
+    allFilesCache = files || [];
 
     if (!files || files.length === 0) {
-        fileTableBody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center text-muted" style="padding: 40px;">
-                    <i class="bi bi-folder2-open" style="font-size: 36px;"></i>
-                    <p class="mt-3 mb-0">This folder is empty</p>
-                </td>
-            </tr>
-        `;
+        fileTableBody.innerHTML = `<tr><td colspan="5" class="text-muted py-3">Empty folder</td></tr>`;
         updateSelectAllCheckbox();
         return;
     }
 
-    const rows = files.map((file) => {
+    fileTableBody.innerHTML = files.map((file) => {
         const safeName = escapeHtml(file.name);
         const safePath = escapeHtml(file.path);
         const deleteAction = `/files/${processName}/file-manager/delete`;
@@ -390,28 +255,22 @@ function renderFileRows(files) {
         if (file.is_directory) {
             const folderLink = `/files/manage/${processName}?location=${encodeURIComponent(file.path)}`;
             return `
-                <tr>
+                <tr data-name="${safeName.toLowerCase()}">
                     <td><input type="checkbox" class="file-checkbox" data-path="${safePath}"></td>
+                    <td><a class="fm-name is-dir" href="${folderLink}">${safeName}/</a></td>
+                    <td class="text-muted">—</td>
+                    <td class="text-muted">${formatModifiedTime(file.modified_time)}</td>
                     <td>
-                        <a href="${folderLink}" class="text-decoration-none">
-                            <i class="bi bi-folder-fill text-primary"></i>
-                            <span class="ms-2">${safeName}</span>
-                        </a>
+                        <div class="fm-actions">
+                            <form action="${deleteAction}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '${safeName}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="filename" value="${deleteFilename}">
+                                <input type="hidden" name="location" value="${escapeHtml(currentLocation)}">
+                                <button type="submit" class="danger">Delete</button>
+                            </form>
+                        </div>
                     </td>
-                    <td><span class="text-muted">—</span></td>
-                    <td><span class="text-muted">${formatModifiedTime(file.modified_time)}</span></td>
-                    <td>
-                        <form action="${deleteAction}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '${safeName}');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="filename" value="${deleteFilename}">
-                            <input type="hidden" name="location" value="${escapeHtml(currentLocation)}">
-                            <button type="submit" class="btn btn-outline-danger btn-sm">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-            `;
+                </tr>`;
         }
 
         const editLink = `/files/${processName}/edit?file=${encodeURIComponent(file.path)}`;
@@ -419,117 +278,84 @@ function renderFileRows(files) {
         const downloadLink = `/files/${processName}/file-manager/download/${encodeURIComponent(relativePath)}`;
 
         return `
-            <tr>
+            <tr data-name="${safeName.toLowerCase()}">
                 <td><input type="checkbox" class="file-checkbox" data-path="${safePath}"></td>
+                <td><a class="fm-name" href="${editLink}">${safeName}</a></td>
+                <td class="text-muted">${formatFileSize(file.size)}</td>
+                <td class="text-muted">${formatModifiedTime(file.modified_time)}</td>
                 <td>
-                    <a href="${editLink}" class="text-decoration-none">
-                        <i class="bi bi-file-text text-muted"></i>
-                        <span class="ms-2">${safeName}</span>
-                    </a>
-                </td>
-                <td><span class="text-muted">${formatFileSize(file.size)}</span></td>
-                <td><span class="text-muted">${formatModifiedTime(file.modified_time)}</span></td>
-                <td>
-                    <div class="btn-group">
-                        <a href="${downloadLink}" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-download"></i> Download
-                        </a>
+                    <div class="fm-actions">
+                        <a href="${downloadLink}">Download</a>
                         <form action="${deleteAction}" method="POST" class="d-inline" onsubmit="return confirmDelete(this, '${safeName}');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="filename" value="${deleteFilename}">
                             <input type="hidden" name="location" value="${escapeHtml(currentLocation)}">
-                            <button type="submit" class="btn btn-outline-danger btn-sm">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                            <button type="submit" class="danger">Delete</button>
                         </form>
                     </div>
                 </td>
-            </tr>
-        `;
-    });
+            </tr>`;
+    }).join('');
 
-    fileTableBody.innerHTML = rows.join('');
     updateSelectAllCheckbox();
+}
 
-    if (typeof fileManager !== 'undefined' && fileManager && typeof fileManager.enhanceFileRows === 'function') {
-        fileManager.enhanceFileRows();
-    }
+function filterFiles() {
+    const q = (document.getElementById('file-search').value || '').toLowerCase().trim();
+    fileTableBody.querySelectorAll('tr[data-name]').forEach((row) => {
+        row.style.display = !q || row.dataset.name.includes(q) ? '' : 'none';
+    });
 }
 
 async function loadFiles() {
     try {
         const response = await fetch(`/files/${processName}/file-manager/list?location=${encodeURIComponent(currentLocation)}`);
         const data = await response.json();
-        if (!response.ok || !data.success) {
-            throw new Error(data.error || 'Failed to load files');
-        }
+        if (!response.ok || !data.success) throw new Error(data.error || 'Failed to load files');
         renderFileRows(data.files || []);
     } catch (error) {
-        fileTableBody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-danger py-3">
-                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(error.message)}
-                </td>
-            </tr>
-        `;
+        fileTableBody.innerHTML = `<tr><td colspan="5" class="text-danger py-3">${escapeHtml(error.message)}</td></tr>`;
     }
 }
 
-// Individual checkbox handler (delegated for async rows)
 fileTableBody.addEventListener('change', (event) => {
-    if (event.target.classList.contains('file-checkbox')) {
-        const filePath = event.target.getAttribute('data-path');
-        if (event.target.checked) {
-            if (!selectedFiles.includes(filePath)) {
-                selectedFiles.push(filePath);
-            }
-        } else {
-            selectedFiles = selectedFiles.filter(path => path !== filePath);
-        }
-
-        updateSelectAllCheckbox();
-        toggleActionsOverlay();
+    if (!event.target.classList.contains('file-checkbox')) return;
+    const filePath = event.target.getAttribute('data-path');
+    if (event.target.checked) {
+        if (!selectedFiles.includes(filePath)) selectedFiles.push(filePath);
+    } else {
+        selectedFiles = selectedFiles.filter(path => path !== filePath);
     }
-});
-
-// Select all checkbox in table header
-document.getElementById('select-all-checkbox').addEventListener('change', (event) => {
-    const allCheckboxes = fileTableBody.querySelectorAll('.file-checkbox');
-    const isChecked = event.target.checked;
-
-    selectedFiles = [];
-    allCheckboxes.forEach(checkbox => {
-        checkbox.checked = isChecked;
-        if (isChecked) {
-            const filePath = checkbox.getAttribute('data-path');
-            selectedFiles.push(filePath);
-        }
-    });
-
+    updateSelectAllCheckbox();
     toggleActionsOverlay();
 });
 
-// Select all button
-document.getElementById('select-all-btn').addEventListener('click', () => {
-    const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    selectAllCheckbox.checked = !selectAllCheckbox.checked;
-    selectAllCheckbox.dispatchEvent(new Event('change'));
+document.getElementById('select-all-checkbox').addEventListener('change', (event) => {
+    const allCheckboxes = fileTableBody.querySelectorAll('.file-checkbox');
+    const isChecked = event.target.checked;
+    selectedFiles = [];
+    allCheckboxes.forEach(checkbox => {
+        if (checkbox.closest('tr').style.display === 'none') return;
+        checkbox.checked = isChecked;
+        if (isChecked) selectedFiles.push(checkbox.getAttribute('data-path'));
+    });
+    toggleActionsOverlay();
 });
 
 function updateSelectAllCheckbox() {
-    const allCheckboxes = fileTableBody.querySelectorAll('.file-checkbox');
+    const allCheckboxes = [...fileTableBody.querySelectorAll('.file-checkbox')].filter(cb => cb.closest('tr').style.display !== 'none');
     const selectAllCheckbox = document.getElementById('select-all-checkbox');
-    const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
-    
+    const checkedCount = allCheckboxes.filter(cb => cb.checked).length;
     selectAllCheckbox.checked = checkedCount === allCheckboxes.length && allCheckboxes.length > 0;
     selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
 }
 
 function toggleActionsOverlay() {
     const overlay = document.getElementById('actions-overlay');
+    const count = document.getElementById('fm-bar-count');
     if (selectedFiles.length > 0) {
         overlay.classList.add('active');
-        overlay.setAttribute('data-count', `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} selected`);
+        count.textContent = `${selectedFiles.length} selected`;
     } else {
         overlay.classList.remove('active');
     }
@@ -538,49 +364,35 @@ function toggleActionsOverlay() {
 document.addEventListener('DOMContentLoaded', loadFiles);
 
 function deleteSelectedFiles() {
-    // Use the new bulk operations with progress
     if (typeof deleteSelectedFilesWithProgress !== 'undefined') {
         deleteSelectedFilesWithProgress();
-    } else {
-        // Fallback to old method
-        if (selectedFiles.length === 0) return;
-
-        if (confirm("Are you sure you want to delete the selected files?")) {
-            selectedFiles.forEach(filePath => {
-                fetch("{{ url_for('files.delete_files', name=process.name) }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: new URLSearchParams({
-                        'filename': filePath,
-                        'location': "{{ current_location }}",
-                        'permanent': true
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showSuccess('Deleted file: ' + filePath);
-                        location.reload();
-                    } else {
-                        showError('Error deleting file: ' + filePath);
-                    }
-                })
-                .catch(error => {
-                    console.log(error)
-                    console.error('Error:', error);
-                    showError('Error deleting file: ' + filePath);
-                });
-            });
-        }
+        return;
     }
+    if (selectedFiles.length === 0) return;
+    if (!confirm('Delete selected files?')) return;
+    selectedFiles.forEach(filePath => {
+        fetch("{{ url_for('files.delete_files', name=process.name) }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                filename: filePath,
+                location: "{{ current_location }}",
+                permanent: true
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showSuccess('Deleted');
+                location.reload();
+            } else showError('Delete failed');
+        })
+        .catch(() => showError('Delete failed'));
+    });
 }
-
 
 function downloadSelectedFiles() {
     if (selectedFiles.length === 0) return;
-    showInfo('Downloading: ' + selectedFiles.join(', '));
     selectedFiles.forEach(filePath => {
         const relativePath = filePath.replace("{{ process.name }}/", "");
         const downloadUrl = "{{ url_for('files.download_file', name=process.name, relative_path='__REL_PATH__') }}".replace('__REL_PATH__', encodeURIComponent(relativePath));
@@ -589,115 +401,51 @@ function downloadSelectedFiles() {
 }
 
 function confirmDelete(form, filename) {
-    // Prevent default form submission
     event.preventDefault();
-    
-    // Show confirmation with undo option
-    if (typeof showToastWithUndo !== 'undefined') {
+    showConfirmation(`Delete '${filename}'?`, () => {
         const formData = new FormData(form);
-        const filepath = formData.get('filename');
-        
-        showConfirmation(`Delete '${filename}'?`, () => {
-            // Perform delete
-            fetch(form.action, {
-                method: 'POST',
-                body: new URLSearchParams(formData)
-            })
-            .then(response => response.json())
+        fetch(form.action, { method: 'POST', body: new URLSearchParams(formData) })
+            .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    showToastWithUndo(
-                        `Deleted '${filename}'`,
-                        'success',
-                        5000,
-                        () => {
-                            // Undo delete - would need backend endpoint to restore
-                            showWarning('Undo not yet implemented on backend');
-                        }
-                    );
-                    // Reload to refresh the directory listing
-                    setTimeout(() => window.location.reload(), 1500);
-                } else {
-                    showError('Failed to delete: ' + (data.error || 'Unknown error'));
-                }
+                    showSuccess(`Deleted ${filename}`);
+                    setTimeout(() => location.reload(), 400);
+                } else showError(data.error || 'Delete failed');
             })
-            .catch(error => {
-                showError('Error deleting file: ' + error.message);
-            });
-        });
-    } else {
-        // Fallback to old confirm
-        const userConfirmed = confirm(`Are you sure you want to delete '${filename}'?`);
-        if (userConfirmed) {
-            // Use fetch for the fallback too so we can refresh properly
-            const formData = new FormData(form);
-            fetch(form.action, {
-                method: 'POST',
-                body: new URLSearchParams(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showSuccess('Deleted');
-                    window.location.reload();
-                } else {
-                    showError('Failed to delete: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                showError('Error deleting file: ' + error.message);
-            });
-        }
-    }
-    
+            .catch(err => showError(err.message));
+    });
     return false;
 }
 
 function moveSelectedFiles() {
-    // Use new bulk operations with progress if available
     if (typeof moveSelectedFilesWithProgress !== 'undefined') {
         moveSelectedFilesWithProgress();
-    } else {
-        // Fallback to modal
-        if (selectedFiles.length === 0) return;
-        $('#moveFilesModal').modal('show');
+        return;
     }
+    if (selectedFiles.length === 0) return;
+    $('#moveFilesModal').modal('show');
 }
 
 function submitMove() {
     const destination = document.getElementById('destination').value;
     if (!destination) {
-        showWarning('Please enter a destination path.');
+        showWarning('Enter a destination path');
         return;
     }
-
     fetch('{{ url_for("files.move_files", name=process.name) }}', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            files: selectedFiles,
-            destination: destination
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: selectedFiles, destination })
     })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
         if (data.success) {
-            showSuccess('Files moved');
+            showSuccess('Moved');
             location.reload();
-        } else {
-            showError(data.error || 'Failed to move files');
-        }
+        } else showError(data.error || 'Move failed');
     })
-    .catch(error => {
-        console.error('Error:', error);
-        showError('Error moving files');
-    });
-
+    .catch(() => showError('Move failed'));
     $('#moveFilesModal').modal('hide');
 }
-
 </script>
-
 {% endblock process_content %}

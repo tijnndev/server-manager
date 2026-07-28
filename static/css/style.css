@@ -407,6 +407,22 @@ body > .alert {
     font-weight: 450;
 }
 
+.nav-icon-link {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0 !important;
+    position: relative;
+}
+
+.nav-icon {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
 .nav-link:hover {
     background: transparent !important;
     color: var(--text-primary) !important;
@@ -1977,24 +1993,26 @@ th.sortable.sort-desc .sort-icon {
 /* Notification Center — minimal dropdown */
 .notification-bell {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
+}
+
+.notification-dot {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-red, #ef4444);
+    border: 1.5px solid var(--bg-primary);
+    pointer-events: none;
+}
+
+.notification-dot[hidden] {
+    display: none !important;
 }
 
 .notification-badge {
-    display: none;
-    min-width: 1.1rem;
-    height: 1.1rem;
-    padding: 0 0.3rem;
-    border-radius: 999px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    font-size: 10px;
-    font-weight: 550;
-    line-height: 1.1rem;
-    text-align: center;
+    display: none !important;
 }
 
 .notification-center {
