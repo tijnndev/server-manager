@@ -923,7 +923,33 @@
     const normalized = mapApiStatusToUi(status);
     currentStatus = normalized;
     updateUIBasedOnStatus(normalized);
-    statusLabel.textContent = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    if (statusLabel) {
+      statusLabel.textContent = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    }
+    updateHeaderBadge(normalized);
+  }
+
+  function updateHeaderBadge(status) {
+    const badge = document.getElementById("process-header-badge");
+    if (!badge) return;
+    const normalized = (status || "").toLowerCase();
+    badge.className = "badge";
+    if (normalized === "running") {
+      badge.classList.add("bg-success");
+      badge.textContent = "Running";
+    } else if (normalized === "starting" || normalized === "restarting") {
+      badge.classList.add("bg-warning", "text-dark");
+      badge.textContent = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    } else if (normalized === "stopping") {
+      badge.classList.add("bg-warning", "text-dark");
+      badge.textContent = "Stopping";
+    } else if (normalized === "process stopped") {
+      badge.classList.add("bg-warning", "text-dark");
+      badge.textContent = "Process Stopped";
+    } else {
+      badge.classList.add("bg-secondary");
+      badge.textContent = "Stopped";
+    }
   }
 
   function updateUIBasedOnStatus(status) {

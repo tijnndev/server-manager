@@ -8,9 +8,11 @@
     <h3 class="process-title">
         <i class="bi bi-box"></i> {{ process.name }}
         {% if process_status|lower == 'running' %}
-        <span class="badge bg-success">Running</span>
+        <span id="process-header-badge" class="badge bg-success">Running</span>
+        {% elif process_status|lower == 'process stopped' %}
+        <span id="process-header-badge" class="badge bg-warning text-dark">Process Stopped</span>
         {% else %}
-        <span class="badge bg-secondary">Stopped</span>
+        <span id="process-header-badge" class="badge bg-secondary">Stopped</span>
         {% endif %}
     </h3>
     <p class="text-muted">{{ process.description or "Process management and monitoring" }}</p>
