@@ -12,14 +12,36 @@ class NotificationManager {
     }
 
     initializeDOM() {
-        // Create toast container
-        let toastContainer = document.getElementById('toast-container');
+        // Toast stack — keep off Bootstrap class names; pin with inline styles
+        let toastContainer = document.getElementById('app-toast-root');
         if (!toastContainer) {
             toastContainer = document.createElement('div');
-            toastContainer.id = 'toast-container';
+            toastContainer.id = 'app-toast-root';
             document.body.appendChild(toastContainer);
         }
-        toastContainer.className = 'app-toast-stack';
+        // Remove legacy container if present
+        const legacy = document.getElementById('toast-container');
+        if (legacy && legacy !== toastContainer) legacy.remove();
+
+        toastContainer.className = 'app-toast-root';
+        Object.assign(toastContainer.style, {
+            position: 'fixed',
+            bottom: '16px',
+            right: '16px',
+            top: 'auto',
+            left: 'auto',
+            zIndex: '2147483646',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            width: 'min(320px, calc(100vw - 32px))',
+            maxWidth: '320px',
+            margin: '0',
+            padding: '0',
+            pointerEvents: 'none',
+            transform: 'none',
+            height: 'auto',
+        });
 
         // Create notification center
         if (!document.getElementById('notification-center')) {
@@ -99,8 +121,12 @@ class NotificationManager {
     }
 
     showToast(message, type = 'info', duration = 3000, undoCallback = null) {
+        const root = document.getElementById('app-toast-root');
+        if (!root) return null;
+
         const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
+        toast.className = `app-toast app-toast--${type}`;
+        toast.setAttribute('role', 'status');
 
         const maxLength = 140;
         const displayMessage = message.length > maxLength
@@ -108,35 +134,31 @@ class NotificationManager {
             : message;
 
         toast.innerHTML = `
-            <div class="toast-body">
-                <span class="toast-kind">${this.escapeHtml(type || 'info')}</span>
-                <span class="toast-message" title="${this.escapeHtml(message)}">${this.escapeHtml(displayMessage)}</span>
+            <div class="app-toast__body">
+                <span class="app-toast__kind">${this.escapeHtml(type || 'info')}</span>
+                <span class="app-toast__msg" title="${this.escapeHtml(message)}">${this.escapeHtml(displayMessage)}</span>
             </div>
-            <div class="toast-actions">
-                ${undoCallback ? '<button type="button" class="toast-undo">Undo</button>' : ''}
-                <button type="button" class="toast-close" aria-label="Dismiss">×</button>
+            <div class="app-toast__actions">
+                ${undoCallback ? '<button type="button" class="app-toast__undo">Undo</button>' : ''}
+                <button type="button" class="app-toast__close" aria-label="Dismiss">×</button>
             </div>
         `;
 
-        const closeBtn = toast.querySelector('.toast-close');
-        closeBtn.addEventListener('click', () => toast.remove());
-
+        toast.querySelector('.app-toast__close').addEventListener('click', () => toast.remove());
         if (undoCallback) {
-            toast.querySelector('.toast-undo').addEventListener('click', () => {
+            toast.querySelector('.app-toast__undo').addEventListener('click', () => {
                 undoCallback();
                 toast.remove();
             });
         }
 
-        const container = document.getElementById('toast-container');
-        container.appendChild(toast);
-
-        setTimeout(() => toast.classList.add('show'), 10);
+        root.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('is-visible'));
 
         if (duration > 0) {
             setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 200);
+                toast.classList.remove('is-visible');
+                setTimeout(() => toast.remove(), 180);
             }, duration);
         }
 
