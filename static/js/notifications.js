@@ -70,6 +70,7 @@ class NotificationManager {
                         <path d="M8 1.75a3.25 3.25 0 0 0-3.25 3.25v1.3c0 .55-.18 1.09-.5 1.54L3.2 9.3A1 1 0 0 0 4.04 10.9h7.92a1 1 0 0 0 .84-1.6l-1.05-1.46a2.75 2.75 0 0 1-.5-1.54V5A3.25 3.25 0 0 0 8 1.75Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
                         <path d="M6.4 12.25a1.75 1.75 0 0 0 3.2 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
                     </svg>
+                    <span class="nav-link-text">Alerts</span>
                     <span class="notification-dot" id="notification-badge" hidden></span>
                 </a>
             `;
