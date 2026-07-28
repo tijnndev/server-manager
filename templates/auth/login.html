@@ -25,13 +25,8 @@
             {% endwith %}
     <div class="login-container">
         <div class="login-box">
-            <div class="login-icon">
-                <i class="bi bi-hdd-rack-fill"></i>
-            </div>
-
             <h2>Server Manager</h2>
-            <p style="color: var(--text-secondary); text-align: center; margin-bottom: 2rem;">Sign in to manage your
-                server</p>
+            <p>Sign in to continue</p>
 
             <form method="post" id="loginForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -46,14 +41,13 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-box-arrow-in-right"></i>
                     Sign In
                 </button>
             </form>
 
-            <div class="text-center mt-3 row justify-content-center">
-                <div><a href="{{ url_for("auth.register") }}">Create Account</a></div>
-                <div><a href="{{ url_for("auth.reset_password") }}">Forgot Password?</a></div>
+            <div class="login-links">
+                <a href="{{ url_for("auth.register") }}">Create account</a>
+                <a href="{{ url_for("auth.reset_password") }}">Forgot password?</a>
             </div>
         </div>
     </div>

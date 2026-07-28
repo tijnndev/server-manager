@@ -1,197 +1,64 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-<div class="row gap-0">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-calendar-event"></i> Create Scheduled Task
-            </div>
-            <div class="card-body">
-                <form method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="mb-3">
-                        <label class="form-label">Cron Schedule Expression</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" name="schedule" 
-                                   placeholder="0 8 * * * (Daily at 8 AM)" required>
-                        </div>
-                        <small class="text-muted">Use standard cron expression format (minute hour day month weekday)</small>
+<div class="stack">
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">New schedule</span>
+        </div>
+        <div class="panel-body">
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">Cron expression</label>
+                    <input type="text" class="form-control" name="schedule"
+                           placeholder="0 8 * * *" required>
+                    <p class="form-hint">minute hour day month weekday · e.g. <code>0 8 * * *</code> daily at 08:00</p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Action</label>
+                    <div class="choice-row">
+                        <label class="choice">
+                            <input id="action-start" type="radio" name="action" value="start" required>
+                            <span>Start</span>
+                        </label>
+                        <label class="choice">
+                            <input id="action-stop" type="radio" name="action" value="stop">
+                            <span>Stop</span>
+                        </label>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Action to Schedule</label>
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="form-check align-items-normal">
-                                    <input id="action-start" class="form-check-input" type="radio" name="action" value="start" required>
-                                    <label for="action-start" class="form-check-label">
-                                        <i class="bi bi-play-circle text-success"></i> Start Process
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="form-check align-items-normal">
-                                    <input id="action-stop" class="form-check-input" type="radio" name="action" value="stop">
-                                    <label for="action-stop" class="form-check-label">
-                                        <i class="bi bi-stop-circle text-danger"></i> Stop Process
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-plus-circle"></i> Schedule Task
-                    </button>
-                </form>
-            </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Schedule</button>
+            </form>
         </div>
+    </section>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <i class="bi bi-list-check"></i> Active Scheduled Tasks
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Task Name</th>
-                            <th>Schedule</th>
-                            <th>Command</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="schedule-jobs-tbody">
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 220px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
-                        </tr>
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 130px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 110px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 200px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">Active tasks</span>
         </div>
-    </div>
-
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header bg-info">
-                <i class="bi bi-info-circle"></i> Cron Expression Guide
-            </div>
-            <div class="card-body">
-                <h6>Format: minute hour day month weekday</h6>
-                <table class="table table-sm">
-                    <tbody>
-                        <tr>
-                            <td><code>* * * * *</code></td>
-                            <td>Every minute</td>
-                        </tr>
-                        <tr>
-                            <td><code>0 * * * *</code></td>
-                            <td>Every hour</td>
-                        </tr>
-                        <tr>
-                            <td><code>0 8 * * *</code></td>
-                            <td>Daily at 8 AM</td>
-                        </tr>
-                        <tr>
-                            <td><code>0 0 * * 0</code></td>
-                            <td>Weekly (Sunday)</td>
-                        </tr>
-                        <tr>
-                            <td><code>0 0 1 * *</code></td>
-                            <td>Monthly (1st day)</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="table-responsive">
+            <table class="table table-dense mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Schedule</th>
+                        <th>Command</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="schedule-jobs-tbody">
+                    <tr class="skeleton-row">
+                        <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                        <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-
-        <div class="card mt-3">
-            <div class="card-header bg-warning">
-                <i class="bi bi-exclamation-triangle"></i> Important Notes
-            </div>
-            <div class="card-body">
-                <ul class="small mb-0">
-                    <li>All times are in server timezone</li>
-                    <li>Tasks run with process permissions</li>
-                    <li>Failed tasks will be logged</li>
-                    <li>Maximum 10 tasks per process</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+    </section>
 </div>
-
-<style>
-.input-group {
-    display: flex;
-    gap: 10px;
-}
-.btn-info {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    cursor: pointer;
-}
-.btn-primary {
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    cursor: pointer;
-}
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.4);
-}
-.modal-content {
-    background-color: #171717;
-    margin: 10% auto;
-    padding: 20px;
-    border: 1px solid #232323;
-    width: 80%;
-    max-width: 400px;
-    text-align: center;
-}
-.close {
-    float: right;
-    font-size: 24px;
-    font-weight: bold;
-    cursor: pointer;
-}
-.cheatsheet-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-}
-.cheatsheet-table th, .cheatsheet-table td {
-    border: 1px solid #ddd;
-    padding: 8px;
-}
-.cheatsheet-table th {
-    background-color: #000;
-}
-.note {
-    font-size: 12px;
-    color: #555;
-}
-</style>
 
 <script>
 const scheduleProcessName = "{{ process.name }}";
@@ -207,14 +74,7 @@ function renderScheduleJobs(jobs) {
     tbody.innerHTML = '';
 
     if (!jobs || jobs.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center py-4">
-                    <i class="bi bi-calendar-x display-6 text-muted"></i>
-                    <p class="text-muted mt-3 mb-0">No scheduled tasks configured for this process.</p>
-                </td>
-            </tr>
-        `;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-muted py-3">No scheduled tasks.</td></tr>`;
         return;
     }
 
@@ -226,15 +86,15 @@ function renderScheduleJobs(jobs) {
         nameTd.textContent = job.name || scheduleProcessName;
 
         const scheduleTd = document.createElement('td');
-        scheduleTd.style.whiteSpace = 'nowrap';
         const scheduleCode = document.createElement('code');
         scheduleCode.textContent = job.schedule || '';
         scheduleTd.appendChild(scheduleCode);
 
         const commandTd = document.createElement('td');
-        commandTd.innerHTML = `<span class="badge bg-info">${escapeHtml(job.command || '')}</span>`;
+        commandTd.textContent = job.command || '';
 
         const actionTd = document.createElement('td');
+        actionTd.className = 'text-end';
         const form = document.createElement('form');
         form.action = `/process/schedule/${encodeURIComponent(scheduleProcessName)}/delete`;
         form.method = 'POST';
@@ -253,7 +113,7 @@ function renderScheduleJobs(jobs) {
         const btn = document.createElement('button');
         btn.type = 'submit';
         btn.className = 'btn btn-sm btn-outline-danger';
-        btn.innerHTML = '<i class="bi bi-trash"></i>';
+        btn.textContent = 'Delete';
 
         form.appendChild(csrf);
         form.appendChild(line);
@@ -280,7 +140,7 @@ async function loadScheduleJobs() {
         }
         renderScheduleJobs(data.jobs || []);
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-danger py-3"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(error.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-danger py-3">${escapeHtml(error.message)}</td></tr>`;
     }
 }
 

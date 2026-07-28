@@ -1,229 +1,81 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-<style>
-/* No Domain Configured Alert Styling */
-.alert-no-domain {
-    margin-bottom: 1.5rem;
-    padding: 1.25rem 1.5rem;
-    border: none;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-    color: #856404;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.alert-no-domain::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 5px;
-    height: 100%;
-    background: linear-gradient(135deg, #ffc107, #fd7e14);
-}
-
-.alert-no-domain:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-}
-
-.alert-no-domain i {
-    margin-right: 0.5rem;
-    font-size: 1.2em;
-}
-
-.alert-no-domain .alert-link {
-    color: #856404;
-    text-decoration: underline;
-    font-weight: 600;
-    transition: color 0.2s ease;
-}
-
-.alert-no-domain .alert-link:hover {
-    color: #533f00;
-}
-
-.health-status-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.45rem 0.7rem;
-    border-radius: 999px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    border: 1px solid transparent;
-    line-height: 1;
-}
-
-.health-status-chip.success {
-    background: rgba(40, 167, 69, 0.12);
-    color: #7ee2a0;
-    border-color: rgba(40, 167, 69, 0.35);
-}
-
-.health-status-chip.info {
-    background: rgba(23, 162, 184, 0.12);
-    color: #89deea;
-    border-color: rgba(23, 162, 184, 0.35);
-}
-
-.health-meta {
-    margin-top: 0.5rem;
-    padding: 0.55rem 0.7rem;
-    border-radius: 8px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-}
-
-.health-meta small {
-    display: block;
-}
-</style>
-<div class="row gap-0">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-globe"></i> Nginx Configuration
+<div class="stack">
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">Nginx</span>
+            {% if process.domain %}
+            <div id="domain-status-badge-wrap">
+                <div class="skeleton skeleton-text" style="width: 80px; height: 20px;"></div>
             </div>
-            <div class="card-body">
-                {% if not process.domain %}
-                    <div class="alert alert-warning alert-no-domain">
-                        <i class="bi bi-exclamation-triangle"></i> <strong>No Domain Configured</strong>
-                        <p class="mb-0 mt-2">Please configure a domain name in the <a href="{{ url_for('process.settings', name=process.name) }}" class="alert-link">Process Settings</a> tab before creating Nginx configuration.</p>
-                    </div>
-                {% else %}
+            {% endif %}
+        </div>
+        <div class="panel-body">
+            {% if not process.domain %}
+                <p class="text-muted mb-0">Set a domain in <a href="{{ url_for('process.settings', name=process.name) }}">Settings</a> before configuring Nginx.</p>
+            {% else %}
+                <div class="mb-3">
+                    <span class="stat-key">Domain</span>
+                    <div class="fw-medium">{{ process.domain }}</div>
+                </div>
+            {% endif %}
+
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% if nginx_content and process.domain %}
                     <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <label class="form-label mb-1">Domain Name</label>
-                                <div class="fs-5 fw-bold">{{ process.domain }}</div>
-                                <small class="text-muted">Configured in <a href="{{ url_for('process.settings', name=process.name) }}">Process Settings</a></small>
-                            </div>
-                            <div id="domain-status-badge-wrap">
-                                <div class="skeleton skeleton-text" style="width: 120px; height: 28px;"></div>
-                            </div>
-                        </div>
+                        <label for="nginx_config" class="form-label">Configuration</label>
+                        <input type="hidden" id="nginx_config" name="nginx_config">
+                        <div id="editor" class="code-editor"></div>
                     </div>
+                    <div class="btn-row">
+                        <button type="submit" name="action" value="save_nginx" class="btn btn-primary btn-sm">Save</button>
+                        <button type="submit" name="action" value="restart_nginx" class="btn btn-outline-secondary btn-sm">Restart</button>
+                        {% if cert_exists %}
+                            <button type="submit" name="action" value="renew_cert" class="btn btn-outline-secondary btn-sm">Renew cert</button>
+                            <button type="submit" name="action" value="delete_cert" class="btn btn-outline-danger btn-sm">Delete cert</button>
+                        {% else %}
+                            <button type="submit" name="action" value="add_cert" class="btn btn-outline-secondary btn-sm">Add cert</button>
+                        {% endif %}
+                        <button type="submit" name="action" value="remove_nginx" class="btn btn-outline-danger btn-sm">Remove</button>
+                    </div>
+                {% elif process.domain %}
+                    <button type="submit" name="action" value="create_nginx" class="btn btn-primary btn-sm">Create config</button>
                 {% endif %}
-
-                <form method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    {% if nginx_content and process.domain %}
-                        <div class="mb-3">
-                            <label for="nginx_config" class="form-label">NGINX Configuration</label>
-                            <input type="hidden" id="nginx_config" name="nginx_config">
-                            <div id="editor" style="height: 300px;"></div>
-                        </div>
-                        <div class="d-flex flex-wrap gap-2">
-                            <button type="submit" name="action" value="save_nginx" class="btn btn-primary">
-                                <i class="bi bi-save"></i> Save Configuration
-                            </button>
-                            <button type="submit" name="action" value="restart_nginx" class="btn btn-warning">
-                                <i class="bi bi-arrow-clockwise"></i> Restart Nginx
-                            </button>
-                            {% if cert_exists %}
-                                <button type="submit" name="action" value="renew_cert" class="btn btn-info">
-                                    <i class="bi bi-shield-check"></i> Renew Certificate
-                                </button>
-                                <button type="submit" name="action" value="delete_cert" class="btn btn-danger">
-                                    <i class="bi bi-shield-x"></i> Delete Certificate
-                                </button>
-                            {% else %}
-                                <button type="submit" name="action" value="add_cert" class="btn btn-success">
-                                    <i class="bi bi-shield-plus"></i> Add Certificates
-                                </button>
-                            {% endif %}
-                            <button type="submit" name="action" value="remove_nginx" class="btn btn-danger">
-                                <i class="bi bi-trash"></i> Remove Nginx
-                            </button>
-                        </div>
-                    {% elif process.domain %}
-                        <button type="submit" name="action" value="create_nginx" class="btn btn-success">
-                            <i class="bi bi-plus-circle"></i> Create NGINX
-                        </button>
-                    {% endif %}
-                </form>
-            </div>
+            </form>
         </div>
-    </div>
+    </section>
 
-    <div class="col-xl-4">
-        {% if process.domain %}
-        <div class="card mb-3" id="domain-health-card">
-            <div class="card-header bg-secondary" id="domain-health-header">
-                <i class="bi bi-speedometer2"></i> Domain Health Check
-            </div>
-            <div class="card-body" id="domain-health-body">
-                <div class="skeleton skeleton-text mb-2" style="width: 160px;"></div>
-                <div class="skeleton skeleton-text mb-2" style="width: 100%; height: 40px;"></div>
-                <div class="skeleton skeleton-text mb-3" style="width: 70%;"></div>
-                <div class="skeleton skeleton-text mb-2" style="width: 140px;"></div>
-                <div class="skeleton skeleton-text" style="width: 100%; height: 40px;"></div>
-            </div>
+    {% if process.domain %}
+    <section class="panel" id="domain-health-card">
+        <div class="panel-toolbar">
+            <span class="panel-label" id="domain-health-header">Health</span>
         </div>
-        {% endif %}
-
-        <div class="card">
-            <div class="card-header bg-info">
-                <i class="bi bi-info-circle"></i> Nginx Guide
-            </div>
-            <div class="card-body">
-                <h6>Configuration Tips:</h6>
-                <ul class="list-unstyled small">
-                    <li><i class="bi bi-gear"></i> Configure domain in Process Settings</li>
-                    <li><i class="bi bi-globe"></i> Domain name is required for SSL</li>
-                    <li><i class="bi bi-shield"></i> Certificates are auto-renewed</li>
-                    <li><i class="bi bi-arrow-clockwise"></i> Restart required after changes</li>
-                    <li><i class="bi bi-code"></i> Use proper NGINX syntax</li>
-                </ul>
-            </div>
+        <div class="panel-body" id="domain-health-body">
+            <div class="skeleton skeleton-text mb-2" style="width: 160px;"></div>
+            <div class="skeleton skeleton-text" style="width: 70%;"></div>
         </div>
-
-        <div class="card mt-3">
-            <div class="card-header bg-warning">
-                <i class="bi bi-exclamation-triangle"></i> Important Notes
-            </div>
-            <div class="card-body">
-                <ul class="small mb-0">
-                    <li>Configure domain in settings first</li>
-                    <li>Invalid config may break the site</li>
-                    <li>SSL certificates require valid domain</li>
-                    <li>Changes take effect after restart</li>
-                    <li>Backup config before major changes</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+    </section>
+    {% endif %}
 </div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
 <script>
 let editor = null;
 const editorElement = document.getElementById("editor");
 if (editorElement) {
-    editor = ace.edit("editor", {
-        theme: "ace/theme/tomorrow_night_bright",
-    });
+    editor = ace.edit("editor", { theme: "ace/theme/tomorrow_night_bright" });
     editor.session.setMode("ace/mode/nginx");
-
     const fileContent = {{ nginx_content|tojson }};
-    if (fileContent) {
-        editor.setValue(fileContent);
-    }
+    if (fileContent) editor.setValue(fileContent);
 }
 
 const nginxForm = document.querySelector("form");
 if (nginxForm) {
     nginxForm.addEventListener("submit", function() {
         const hiddenConfig = document.getElementById("nginx_config");
-        if (hiddenConfig && editor) {
-            hiddenConfig.value = editor.getValue();
-        }
+        if (hiddenConfig && editor) hiddenConfig.value = editor.getValue();
     });
 }
 
@@ -232,107 +84,62 @@ const processName = "{{ process.name }}";
 function renderDomainBadge(domainStatus) {
     const wrap = document.getElementById('domain-status-badge-wrap');
     if (!wrap) return;
-
-    if (!domainStatus) {
-        wrap.innerHTML = '<span class="badge bg-secondary fs-6"><i class="bi bi-gear"></i> Needs Config</span>';
-        return;
+    let text = 'Needs config';
+    let cls = 'badge bg-secondary';
+    if (domainStatus) {
+        if (domainStatus.overall_status === 'healthy') { text = 'Healthy'; cls = 'badge bg-success'; }
+        else if (domainStatus.overall_status === 'ssl_expired') { text = 'SSL expired'; cls = 'badge bg-danger'; }
+        else if (domainStatus.overall_status === 'no_ssl') { text = 'No SSL'; cls = 'badge bg-secondary'; }
+        else if (domainStatus.overall_status === 'dns_error' || domainStatus.overall_status === 'dns_warning') { text = 'DNS issue'; cls = 'badge bg-warning'; }
     }
-
-    let badgeHtml = '<span class="badge bg-secondary fs-6"><i class="bi bi-gear"></i> Needs Config</span>';
-    if (domainStatus.overall_status === 'healthy') {
-        badgeHtml = '<span class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Healthy</span>';
-    } else if (domainStatus.overall_status === 'ssl_expired') {
-        badgeHtml = '<span class="badge bg-danger fs-6"><i class="bi bi-shield-x"></i> SSL Expired</span>';
-    } else if (domainStatus.overall_status === 'no_ssl') {
-        badgeHtml = '<span class="badge bg-info fs-6"><i class="bi bi-shield-exclamation"></i> No SSL</span>';
-    } else if (domainStatus.overall_status === 'dns_error' || domainStatus.overall_status === 'dns_warning') {
-        badgeHtml = '<span class="badge bg-warning fs-6"><i class="bi bi-exclamation-triangle"></i> DNS Issue</span>';
-    }
-
-    wrap.innerHTML = badgeHtml;
+    wrap.innerHTML = `<span class="${cls}">${text}</span>`;
 }
 
 function renderDomainHealthCard(domainStatus) {
-    const card = document.getElementById('domain-health-card');
-    if (!card) return;
-
-    const header = document.getElementById('domain-health-header');
     const body = document.getElementById('domain-health-body');
-
+    if (!body) return;
     if (!domainStatus) {
-        header.className = 'card-header bg-secondary';
-        body.innerHTML = '<div class="alert alert-secondary py-2 small mb-0"><i class="bi bi-info-circle"></i> Domain status not available.</div>';
+        body.innerHTML = '<p class="text-muted mb-0">Domain status not available.</p>';
         return;
     }
 
-    if (domainStatus.overall_status === 'healthy') {
-        header.className = 'card-header bg-success';
-    } else if (domainStatus.overall_status === 'ssl_expired' || domainStatus.overall_status === 'dns_error') {
-        header.className = 'card-header bg-danger';
-    } else if (domainStatus.overall_status === 'dns_warning' || domainStatus.overall_status === 'no_ssl') {
-        header.className = 'card-header bg-warning';
-    } else {
-        header.className = 'card-header bg-secondary';
-    }
-
-    let dnsHtml = '<div class="alert alert-secondary py-2 small mb-2"><i class="bi bi-info-circle"></i> DNS data unavailable</div>';
+    let dnsHtml = '<p class="text-muted small mb-2">DNS unavailable</p>';
     if (domainStatus.dns) {
         if (domainStatus.dns.status === 'healthy') {
             const aRecords = domainStatus.dns.records && domainStatus.dns.records.A ? domainStatus.dns.records.A.join(', ') : '';
-            dnsHtml = `
-                <div class="health-status-chip success mb-2">
-                    <i class="bi bi-check-circle-fill"></i>
-                    <span>Domain correctly points to server</span>
-                </div>
-                ${aRecords ? `<div class="health-meta mb-2"><small>A Records: ${aRecords}</small></div>` : ''}
-            `;
+            dnsHtml = `<p class="small mb-1">DNS points to this server</p>${aRecords ? `<p class="form-hint mb-2">A: ${aRecords}</p>` : ''}`;
         } else if (domainStatus.dns.status === 'error') {
-            dnsHtml = `<div class="alert alert-danger py-2 small mb-2"><i class="bi bi-x-circle"></i> ${(domainStatus.dns.errors || []).join(', ')}</div>`;
+            dnsHtml = `<p class="text-danger small mb-2">${(domainStatus.dns.errors || []).join(', ')}</p>`;
         } else {
-            dnsHtml = `<div class="alert alert-warning py-2 small mb-2"><i class="bi bi-exclamation-triangle"></i> ${(domainStatus.dns.warnings || []).join(', ')}</div>`;
+            dnsHtml = `<p class="text-warning small mb-2">${(domainStatus.dns.warnings || []).join(', ')}</p>`;
         }
     }
 
-    let sslHtml = '<div class="alert alert-secondary py-2 small mb-0"><i class="bi bi-info-circle"></i> SSL data unavailable</div>';
+    let sslHtml = '<p class="text-muted small mb-0">SSL unavailable</p>';
     if (domainStatus.ssl) {
         if (domainStatus.ssl.exists && domainStatus.ssl.valid) {
-            sslHtml = `
-                <div class="health-status-chip success mb-2">
-                    <i class="bi bi-shield-check"></i>
-                    <span>Valid certificate</span>
-                </div>
-                <div class="health-meta">
-                    <small>Expires: ${domainStatus.ssl.expiration_date}</small>
-                    <small>Days left: ${domainStatus.ssl.days_until_expiry}</small>
-                </div>
-                ${domainStatus.ssl.is_wildcard ? '<div class="mt-2"><span class="health-status-chip info"><i class="bi bi-asterisk"></i><span>Wildcard</span></span></div>' : ''}
-            `;
+            sslHtml = `<p class="small mb-1">Valid certificate</p>
+                <p class="form-hint mb-0">Expires ${domainStatus.ssl.expiration_date} · ${domainStatus.ssl.days_until_expiry} days left${domainStatus.ssl.is_wildcard ? ' · wildcard' : ''}</p>`;
         } else if (domainStatus.ssl.exists) {
-            sslHtml = `<div class="alert alert-danger py-2 small mb-0"><i class="bi bi-shield-x"></i> ${(domainStatus.ssl.errors || []).join(', ')}</div>`;
+            sslHtml = `<p class="text-danger small mb-0">${(domainStatus.ssl.errors || []).join(', ')}</p>`;
         } else {
-            sslHtml = '<div class="alert alert-info py-2 small mb-0"><i class="bi bi-shield-exclamation"></i> No SSL certificate installed</div>';
+            sslHtml = '<p class="text-muted small mb-0">No certificate installed</p>';
         }
     }
 
-    body.innerHTML = `
-        <h6>DNS Status</h6>
-        ${dnsHtml}
-        <h6 class="mt-3">SSL Certificate</h6>
-        ${sslHtml}
-    `;
+    body.innerHTML = `<div class="detail-row"><span class="stat-key">DNS</span></div>${dnsHtml}
+        <div class="detail-row mt-3"><span class="stat-key">SSL</span></div>${sslHtml}`;
 }
 
 async function loadDomainStatus() {
     try {
         const response = await fetch(`/nginx/${processName}/api/domain-status`);
         const data = await response.json();
-
         if (!response.ok || !data.success) {
             renderDomainBadge(null);
             renderDomainHealthCard(null);
             return;
         }
-
         renderDomainBadge(data.domain_status);
         renderDomainHealthCard(data.domain_status);
     } catch (error) {

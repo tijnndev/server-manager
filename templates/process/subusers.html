@@ -1,114 +1,68 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-<div class="row gap-0">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-person-plus"></i> Invite Sub User
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('process.invite_subuser', name=process.name)}}" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" class="form-control" name="email" placeholder="user@example.com" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Permissions</label>
-                            <select class="form-select" name="permissions" multiple required size="5">
-                                <option value="console">Console Access</option>
-                                <option value="settings">Settings Management</option>
-                                <option value="file">File Manager</option>
-                                <option value="nginx">Nginx Configuration</option>
-                                <option value="git">Git Management</option>
-                                <option value="schedule">Task Scheduling</option>
-                                <option value="sub_users">Sub User Management</option>
-                                <option value="email">Email Configuration</option>
-                            </select>
-                            <small class="text-muted">Hold Ctrl/Cmd to select multiple permissions</small>
-                        </div>
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-success">
-                                <i class="bi bi-send"></i> Send Invitation
-                            </button>
-                        </div>
+<div class="stack">
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">Invite</span>
+        </div>
+        <div class="panel-body">
+            <form action="{{ url_for('process.invite_subuser', name=process.name)}}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" placeholder="user@example.com" required>
                     </div>
-                </form>
-            </div>
+                    <div>
+                        <label class="form-label">Permissions</label>
+                        <select class="form-select" name="permissions" multiple required size="5">
+                            <option value="console">Console</option>
+                            <option value="settings">Settings</option>
+                            <option value="file">Files</option>
+                            <option value="nginx">Nginx</option>
+                            <option value="git">Git</option>
+                            <option value="schedule">Schedule</option>
+                            <option value="sub_users">Access</option>
+                            <option value="email">Email</option>
+                        </select>
+                        <p class="form-hint">Hold Ctrl/Cmd for multiple</p>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary btn-sm">Send invitation</button>
+                </div>
+            </form>
         </div>
+    </section>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <i class="bi bi-people"></i> Current Sub Users
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Permissions</th>
-                            <th>Role</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="subusers-tbody">
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 220px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 180px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 90px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
-                        </tr>
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 200px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 90px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">Sub users</span>
         </div>
-    </div>
-
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header bg-info">
-                <i class="bi bi-shield-check"></i> Permission Guide
-            </div>
-            <div class="card-body">
-                <h6>Available Permissions:</h6>
-                <ul class="list-unstyled small">
-                    <li><i class="bi bi-terminal"></i> <strong>Console:</strong> View logs and execute commands</li>
-                    <li><i class="bi bi-gear"></i> <strong>Settings:</strong> Modify process configuration</li>
-                    <li><i class="bi bi-folder"></i> <strong>File Manager:</strong> Access and edit files</li>
-                    <li><i class="bi bi-globe"></i> <strong>Nginx:</strong> Web server configuration</li>
-                    <li><i class="bi bi-git"></i> <strong>Git:</strong> Source code management</li>
-                    <li><i class="bi bi-calendar"></i> <strong>Schedule:</strong> Manage cron jobs</li>
-                    <li><i class="bi bi-people"></i> <strong>Sub Users:</strong> Invite other users</li>
-                    <li><i class="bi bi-envelope"></i> <strong>Email:</strong> Email configuration</li>
-                </ul>
-            </div>
+        <div class="table-responsive">
+            <table class="table table-dense mb-0">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Permissions</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="subusers-tbody">
+                    <tr class="skeleton-row">
+                        <td><div class="skeleton skeleton-text" style="width: 220px;"></div></td>
+                        <td><div class="skeleton skeleton-button" style="width: 180px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 90px;"></div></td>
+                        <td><div class="skeleton skeleton-button" style="width: 40px;"></div></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-
-        <div class="card mt-3">
-            <div class="card-header bg-warning">
-                <i class="bi bi-exclamation-triangle"></i> Security Notes
-            </div>
-            <div class="card-body">
-                <ul class="small mb-0">
-                    <li>Sub users can only access this specific process</li>
-                    <li>Permissions can be revoked at any time</li>
-                    <li>Users must accept invitation via email</li>
-                    <li>All actions are logged for security</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+    </section>
 </div>
 
 <script>
@@ -121,9 +75,9 @@ function escapeHtml(text) {
 }
 
 function formatCreatedDate(value) {
-    if (!value) return 'Unknown';
+    if (!value) return '—';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Unknown';
+    if (Number.isNaN(date.getTime())) return '—';
     return date.toISOString().slice(0, 10);
 }
 
@@ -132,14 +86,7 @@ function renderSubusers(users) {
     tbody.innerHTML = '';
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center py-4">
-                    <i class="bi bi-people display-6 text-muted"></i>
-                    <p class="text-muted mt-3 mb-0">No sub users have been invited to this process.</p>
-                </td>
-            </tr>
-        `;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-muted py-3">No sub users.</td></tr>`;
         return;
     }
 
@@ -148,32 +95,25 @@ function renderSubusers(users) {
         const tr = document.createElement('tr');
 
         const userTd = document.createElement('td');
-        userTd.innerHTML = `<div class="d-flex align-items-center"><i class="bi bi-person-circle me-2"></i>${escapeHtml(user.email)}</div>`;
+        userTd.textContent = user.email || '';
 
         const permsTd = document.createElement('td');
         const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-        if (permissions.length === 0) {
-            permsTd.innerHTML = '<span class="text-muted">None</span>';
-        } else {
-            permissions.forEach((perm) => {
-                const badge = document.createElement('span');
-                badge.className = 'badge bg-secondary me-1';
-                badge.textContent = (perm || '').toString().trim();
-                permsTd.appendChild(badge);
-            });
-        }
+        permsTd.textContent = permissions.length ? permissions.join(', ') : 'None';
 
         const roleTd = document.createElement('td');
-        roleTd.innerHTML = `<span class="badge bg-info">${escapeHtml(user.sub_role || 'sub_user')}</span>`;
+        roleTd.textContent = user.sub_role || 'sub_user';
 
         const createdTd = document.createElement('td');
         createdTd.textContent = formatCreatedDate(user.created_at);
 
         const actionsTd = document.createElement('td');
+        actionsTd.className = 'text-end';
         const form = document.createElement('form');
         form.action = `/process/subusers/${encodeURIComponent(subusersProcessName)}/delete/${user.id}`;
         form.method = 'POST';
         form.className = 'd-inline';
+        form.onsubmit = () => confirm('Remove this user?');
 
         const csrf = document.createElement('input');
         csrf.type = 'hidden';
@@ -183,8 +123,7 @@ function renderSubusers(users) {
         const btn = document.createElement('button');
         btn.type = 'submit';
         btn.className = 'btn btn-sm btn-outline-danger';
-        btn.innerHTML = '<i class="bi bi-person-dash"></i>';
-        btn.onclick = () => confirm('Remove this user?');
+        btn.textContent = 'Remove';
 
         form.appendChild(csrf);
         form.appendChild(btn);
@@ -211,7 +150,7 @@ async function loadSubusers() {
         }
         renderSubusers(data.users || []);
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-danger py-3"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(error.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-danger py-3">${escapeHtml(error.message)}</td></tr>`;
     }
 }
 

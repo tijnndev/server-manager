@@ -2,48 +2,17 @@
 
 {% block process_content %}
 <style>
-/* File Manager Styling */
-.file-manager-card {
-    background: var(--bg-secondary-glass);
-    backdrop-filter: blur(var(--surface-blur));
-    -webkit-backdrop-filter: blur(var(--surface-blur));
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-}
-
-.file-manager-header {
-    background: var(--bg-glass);
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.file-manager-header h5 {
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-primary);
-}
-
-/* Breadcrumb */
+/* File Manager */
 .breadcrumb {
     background: transparent;
-    padding: 1rem 1.5rem;
+    padding: 0.5rem 0 0.75rem;
     margin: 0;
+    font-size: 13px;
 }
 
 .breadcrumb-item a {
     color: var(--accent-blue);
     text-decoration: none;
-    transition: color 0.2s;
-}
-
-.breadcrumb-item a:hover {
-    color: var(--accent-blue-hover);
 }
 
 .breadcrumb-item.active {
@@ -54,41 +23,10 @@
     color: var(--text-muted);
 }
 
-/* Table Styling */
-.table {
-    margin: 0;
-    color: var(--text-primary);
-}
-
-.table thead th {
-    background: var(--bg-tertiary);
-    border-bottom: 2px solid var(--border-color);
-    color: var(--text-primary);
-    font-weight: 600;
-    padding: 0.875rem 1rem;
-    border-top: none;
-}
-
-.table tbody tr {
-    border-bottom: 1px solid var(--border-color);
-    transition: background-color 0.2s;
-}
-
-.table tbody tr:hover {
-    background: var(--bg-hover);
-}
-
-.table tbody td {
-    padding: 0.875rem 1rem;
-    vertical-align: middle;
-    border-top: none;
-}
-
-/* Checkbox Styling */
 .file-checkbox,
 #select-all-checkbox {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     accent-color: var(--accent-blue);
 }
@@ -128,7 +66,7 @@
     bottom: -100px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--bg-secondary-glass);
+    background: var(--bg-secondary);
     backdrop-filter: blur(var(--surface-blur));
     -webkit-backdrop-filter: blur(var(--surface-blur));
     border: 1px solid var(--border-color);
@@ -192,7 +130,7 @@
 
 /* Modal Styling */
 .modal-content {
-    background: var(--bg-secondary-glass);
+    background: var(--bg-secondary);
     backdrop-filter: blur(var(--surface-blur));
     -webkit-backdrop-filter: blur(var(--surface-blur));
     border: 1px solid var(--border-color);
@@ -278,27 +216,19 @@
 
 
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-folder"></i> File Manager</span>
+    <div class="panel-toolbar">
+        <span class="panel-label">Files</span>
         <div class="btn-group">
-            <a href="{{ url_for('files.create_file', name=process.name, location=current_location) }}" class="btn btn-success btn-sm">
-                <i class="bi bi-file-plus"></i> New File
-            </a>
-            <a href="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}" class="btn btn-warning btn-sm">
-                <i class="bi bi-folder-plus"></i> New Folder
-            </a>
-            <button type="button" class="btn btn-primary btn-sm w-auto" id="select-all-btn">
-                <i class="bi bi-check-all"></i> Select All
-            </button>
+            <a href="{{ url_for('files.create_file', name=process.name, location=current_location) }}" class="btn btn-outline-secondary btn-sm">New file</a>
+            <a href="{{ url_for('files.create_directory_file', name=process.name, location=current_location) }}" class="btn btn-outline-secondary btn-sm">New folder</a>
+            <button type="button" class="btn btn-outline-secondary btn-sm w-auto" id="select-all-btn">Select all</button>
         </div>
     </div>
     <div class="card-body p-0">
         <nav aria-label="breadcrumb" class="px-3 pt-3">
-            <ol class="breadcrumb">
+            <ol class="breadcrumb mb-0">
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('files.file_manager', name=process.name) }}">
-                        <i class="bi bi-house"></i> home
-                    </a>
+                    <a href="{{ url_for('files.file_manager', name=process.name) }}">home</a>
                 </li>
                 {% set path_parts = current_location.replace('\\', '/').split('/') %}
                 {% for i in range(path_parts|length) %}
@@ -359,7 +289,7 @@
     </div>
 
     <div class="card-footer">
-        <h6><i class="bi bi-cloud-upload"></i> Upload Files</h6>
+        <h6 class="panel-label" style="padding: 0;">Upload</h6>
         <form action="{{ url_for('files.file_manager', name=process.name, location=current_location) }}" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="input-group">

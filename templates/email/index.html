@@ -1,186 +1,95 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-<div class="row gap-0">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-envelope-plus"></i> Add New Email Account
-            </div>
-            <div class="card-body">
-                <form id="create-email-form">
-                    <input type="hidden" name="action" value="create">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="text" name="email" id="email" class="form-control" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <div class="input-group">
-                                <input type="password" name="password" id="password" class="form-control" required>
-                                <button type="button" class="btn btn-secondary" onclick="generatePassword()">Generate</button>
-                            </div>
-                        </div>
-                        <div class="col-12 mb-3" id="generated-password-container" style="display: none;">
-                            <label for="generated-password" class="form-label">Generated Password (click to copy)</label>
-                            <input type="text" id="generated-password" class="form-control" onclick="copyGeneratedPassword()" style="cursor: pointer;" disabled>
-                        </div>
-                        <div class="col-12">
-                            <button type="button" class="btn btn-success" onclick="createEmail()">
-                                <i class="bi bi-plus-circle"></i> Add Account
-                            </button>
+<div class="stack">
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">New account</span>
+        </div>
+        <div class="panel-body">
+            <form id="create-email-form">
+                <input type="hidden" name="action" value="create">
+                <div class="form-grid">
+                    <div>
+                        <label for="email" class="form-label">Email</label>
+                        <input type="text" name="email" id="email" class="form-control" required>
+                    </div>
+                    <div>
+                        <label for="password" class="form-label">Password</label>
+                        <div class="input-group">
+                            <input type="password" name="password" id="password" class="form-control" required>
+                            <button type="button" class="btn btn-outline-secondary" onclick="generatePassword()">Generate</button>
                         </div>
                     </div>
-                </form>
-            </div>
-        </div>
-
-        <div class="card mt-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <i class="bi bi-envelope"></i> Current Email Accounts
-                <button type="button" class="btn btn-sm btn-outline-info" onclick="loadEmailAccounts()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                </button>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Email</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="email-accounts-tbody">
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 240px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 210px;"></div></td>
-                        </tr>
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 230px;"></div></td>
-                        </tr>
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 260px;"></div></td>
-                            <td><div class="skeleton skeleton-button" style="width: 190px;"></div></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-body d-none" id="email-load-error">
-                <div class="alert alert-danger mb-0">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    Failed to load email accounts.
                 </div>
-            </div>
+                <div class="mt-3" id="generated-password-container" style="display: none;">
+                    <label for="generated-password" class="form-label">Generated password</label>
+                    <input type="text" id="generated-password" class="form-control" onclick="copyGeneratedPassword()" readonly>
+                </div>
+                <div class="mt-3">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="createEmail()">Add account</button>
+                </div>
+            </form>
         </div>
-    </div>
+    </section>
 
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header bg-info">
-                <i class="bi bi-info-circle"></i> Email Guide
-            </div>
-            <div class="card-body">
-                <h6>Account Management:</h6>
-                <ul class="list-unstyled small">
-                    <li><i class="bi bi-envelope"></i> Emails are created in Roundcube</li>
-                    <li><i class="bi bi-shield"></i> Strong passwords recommended</li>
-                    <li><i class="bi bi-key"></i> Use password generator for security</li>
-                    <li><i class="bi bi-pencil"></i> Passwords can be changed anytime</li>
-                </ul>
-            </div>
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">Accounts</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadEmailAccounts()">Refresh</button>
         </div>
-
-        <div class="card mt-3">
-            <div class="card-header bg-warning">
-                <i class="bi bi-exclamation-triangle"></i> Security Notes
-            </div>
-            <div class="card-body">
-                <ul class="small mb-0">
-                    <li>Store passwords securely</li>
-                    <li>Regular password updates recommended</li>
-                    <li>Deleted accounts cannot be recovered</li>
-                    <li>All actions are logged</li>
-                </ul>
-            </div>
+        <div class="table-responsive">
+            <table class="table table-dense mb-0">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="email-accounts-tbody">
+                    <tr class="skeleton-row">
+                        <td><div class="skeleton skeleton-text" style="width: 240px;"></div></td>
+                        <td><div class="skeleton skeleton-button" style="width: 160px;"></div></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-    </div>
+        <div class="panel-body d-none" id="email-load-error">
+            <div class="alert alert-danger mb-0">Failed to load email accounts.</div>
+        </div>
+    </section>
 </div>
 
-<!-- Modal for Editing Password -->
 <div class="modal fade" tabindex="-1" id="editPasswordModal">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
-            <div class="modal-header" style="background-color: var(--bg-tertiary); border-bottom: 1px solid var(--border-color);">
-                <h5 class="modal-title" style="color: var(--text-primary);">
-                    <i class="bi bi-key"></i> Edit Password
-                </h5>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit password</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body" style="background-color: var(--bg-secondary);">
+            <div class="modal-body">
                 <form id="edit-password-form">
                     <div class="mb-3">
-                        <label for="email-modal" class="form-label" style="color: var(--text-primary);">
-                            <i class="bi bi-envelope"></i> Email Address
-                        </label>
-                        <input type="text" id="email-modal" class="form-control" 
-                               style="background-color: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary);" 
-                               disabled readonly>
+                        <label for="email-modal" class="form-label">Email</label>
+                        <input type="text" id="email-modal" class="form-control" disabled readonly>
                     </div>
                     <div class="mb-3">
-                        <label for="new-password" class="form-label" style="color: var(--text-primary);">
-                            <i class="bi bi-lock"></i> New Password
-                        </label>
-                        <input type="password" id="new-password" class="form-control" 
-                               style="background-color: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary);" 
-                               required placeholder="Enter new password">
+                        <label for="new-password" class="form-label">New password</label>
+                        <input type="password" id="new-password" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label for="confirm-password" class="form-label" style="color: var(--text-primary);">
-                            <i class="bi bi-lock-check"></i> Confirm Password
-                        </label>
-                        <input type="password" id="confirm-password" class="form-control" 
-                               style="background-color: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary);" 
-                               required placeholder="Confirm new password">
+                        <label for="confirm-password" class="form-label">Confirm</label>
+                        <input type="password" id="confirm-password" class="form-control" required>
                     </div>
                     <div class="d-flex gap-2 justify-content-end">
-                        <button type="button" class="btn btn-secondary" onclick="closeEditPasswordModal()">
-                            <i class="bi bi-x-circle"></i> Cancel
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="updatePassword()">
-                            <i class="bi bi-check-circle"></i> Update Password
-                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeEditPasswordModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="updatePassword()">Update</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-/* Modal Animation */
-.modal.fade .modal-dialog {
-    transform: scale(0.8);
-    transition: transform 0.3s ease-out;
-}
-
-.modal.show .modal-dialog {
-    transform: scale(1);
-}
-
-/* Focus states for better accessibility */
-.modal input:focus {
-    box-shadow: 0 0 0 1px var(--accent-blue-border);
-    border-color: var(--accent-blue);
-}
-
-/* Button hover effects */
-.modal .btn:hover {
-    transform: translateY(-1px);
-    transition: transform 0.2s ease;
-}
-</style>
 
 <script>
 const processName = "{{ process.name }}";
@@ -195,8 +104,8 @@ function renderEmailAccounts(users) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
         td.colSpan = 2;
-        td.className = 'text-center py-4 text-muted';
-        td.innerHTML = '<i class="bi bi-envelope display-6 d-block mb-2"></i>No email accounts configured for this process.';
+        td.className = 'text-muted py-3';
+        td.textContent = 'No email accounts yet.';
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;
@@ -205,20 +114,20 @@ function renderEmailAccounts(users) {
     const fragment = document.createDocumentFragment();
     users.forEach((userEmail) => {
         const tr = document.createElement('tr');
-
         const emailTd = document.createElement('td');
         emailTd.textContent = userEmail;
 
         const actionsTd = document.createElement('td');
+        actionsTd.className = 'text-end';
 
         const editBtn = document.createElement('button');
-        editBtn.className = 'btn btn-sm btn-warning me-1';
-        editBtn.innerHTML = '<i class="bi bi-pencil"></i> Edit Password';
+        editBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+        editBtn.textContent = 'Password';
         editBtn.addEventListener('click', () => editPassword(userEmail));
 
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-sm btn-danger';
-        deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Delete';
+        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        deleteBtn.textContent = 'Delete';
         deleteBtn.addEventListener('click', () => deleteEmail(userEmail));
 
         actionsTd.appendChild(editBtn);
@@ -234,19 +143,17 @@ function renderEmailAccounts(users) {
 function renderEmailLoadError(message) {
     const errorBox = document.getElementById('email-load-error');
     errorBox.classList.remove('d-none');
-    errorBox.querySelector('.alert').innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${message}`;
+    errorBox.querySelector('.alert').textContent = message;
 }
 
 async function loadEmailAccounts() {
     try {
         const response = await fetch(`/email/${processName}/api/accounts`);
         const data = await response.json();
-
         if (!response.ok || !data.success) {
             renderEmailLoadError(data.error || 'Failed to load email accounts.');
             return;
         }
-
         renderEmailAccounts(data.users || []);
     } catch (error) {
         console.error('Error loading email accounts:', error);
@@ -260,12 +167,9 @@ function generatePassword() {
     for (let i = 0; i < 16; i++) {
         password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
-
     document.getElementById("password").value = password;
-
     const container = document.getElementById("generated-password-container");
     const displayField = document.getElementById("generated-password");
-
     displayField.value = password;
     container.style.display = "block";
 }
@@ -283,17 +187,13 @@ function copyGeneratedPassword() {
 function createEmail() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
-
     if (!email || !password) {
         alert("Email and password are required.");
         return;
     }
-
     fetch(`/email/{{ process.name }}/create`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
     })
     .then(res => res.json())
@@ -324,31 +224,24 @@ function editPassword(email) {
 
 function closeEditPasswordModal() {
     const modal = bootstrap.Modal.getInstance(document.getElementById('editPasswordModal'));
-    if (modal) {
-        modal.hide();
-    }
+    if (modal) modal.hide();
 }
 
 function updatePassword() {
     const email = document.getElementById('email-modal').value;
     const newPassword = document.getElementById('new-password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
-
     if (!newPassword || !confirmPassword) {
         alert("Both new password and confirmation are required.");
         return;
     }
-
     if (newPassword !== confirmPassword) {
         alert("Passwords do not match.");
         return;
     }
-
     fetch(`/email/{{ process.name }}/update-password`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: newPassword })
     })
     .then(res => res.json())
@@ -368,12 +261,10 @@ function updatePassword() {
 }
 
 function deleteEmail(email) {
-    if (confirm(`Are you sure you want to delete the email account: ${email}?`)) {
+    if (confirm(`Delete email account: ${email}?`)) {
         fetch(`/email/{{ process.name }}/delete`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email })
         })
         .then(response => response.json())

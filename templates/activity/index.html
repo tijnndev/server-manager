@@ -1,58 +1,52 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-clock-history"></i> Activity Log</span>
-                <div class="d-flex gap-2">
-                    <input type="text" id="user-filter" class="form-control form-control-sm" placeholder="Filter by user..." style="width: 200px;">
-                    <select id="action-filter" class="form-select form-select-sm" style="width: 200px;">
-                        <option value="">All Actions</option>
-                    </select>
-                    <button class="btn btn-sm btn-secondary" onclick="refreshLogs()">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh
-                    </button>
-                </div>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>User</th>
-                            <th>Action</th>
-                            <th>Target</th>
-                            <th>Details</th>
-                            <th>IP Address</th>
-                        </tr>
-                    </thead>
-                    <tbody id="activity-logs">
-                        <!-- Skeleton loader -->
-                        <tr class="skeleton-row">
-                            <td><div class="skeleton skeleton-text" style="width: 150px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 150px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
-                            <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer d-flex justify-content-between align-items-center">
-                <div class="text-muted">
-                    <span id="log-count">Loading...</span>
-                </div>
-                <div class="btn-group" id="pagination">
-                    <!-- Pagination buttons will be inserted here -->
-                </div>
-            </div>
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Activity</h1>
+            <p class="page-subtitle">Audit log for this host</p>
+        </div>
+        <div class="page-head-actions">
+            <input type="text" id="user-filter" class="form-control form-control-sm search-input" placeholder="Userâ€¦">
+            <select id="action-filter" class="form-select form-select-sm" style="width: 160px;">
+                <option value="">All actions</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" onclick="refreshLogs()">Refresh</button>
         </div>
     </div>
-</div>
 
+    <section class="panel">
+        <div class="table-responsive">
+            <table class="table table-dense mb-0">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>Details</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody id="activity-logs">
+                    <tr class="skeleton-row">
+                        <td><div class="skeleton skeleton-text" style="width: 150px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 100px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 150px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="panel-toolbar" style="border-top: 1px solid var(--border-color); border-bottom: none;">
+            <span class="text-muted" id="log-count" style="font-size: 12px;">Loadingâ€¦</span>
+            <div class="btn-group" id="pagination"></div>
+        </div>
+    </section>
+</div>
 <script>
 let currentPage = 1;
 const perPage = 50;
@@ -107,9 +101,9 @@ function renderLogs(logs) {
                 <td><span class="text-muted">${timeAgo}</span></td>
                 <td><code>${escapeHtml(log.username)}</code></td>
                 <td>${actionBadge}</td>
-                <td>${log.target ? `<code>${escapeHtml(log.target)}</code>` : 'â€”'}</td>
-                <td><span class="text-muted">${log.details ? escapeHtml(log.details) : 'â€”'}</span></td>
-                <td><span class="text-muted">${log.ip_address || 'â€”'}</span></td>
+                <td>${log.target ? `<code>${escapeHtml(log.target)}</code>` : 'ÔÇö'}</td>
+                <td><span class="text-muted">${log.details ? escapeHtml(log.details) : 'ÔÇö'}</span></td>
+                <td><span class="text-muted">${log.ip_address || 'ÔÇö'}</span></td>
             </tr>
         `;
     }).join('');

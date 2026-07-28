@@ -1,139 +1,106 @@
 {% extends 'process/process_layout.html' %} 
 
 {% block process_content %}
-<div class="row">
-    <div class="col-lg-8 mb-3">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-terminal"></i> Console Output</span>
+<div class="console-layout">
+    <div class="console-main">
+        <section class="panel panel-flush">
+            <div class="panel-toolbar">
+                <span class="panel-label">Console</span>
                 <div class="btn-group">
-                    <button class="btn btn-success btn-sm" id="start-btn" onclick="startProcess('{{ process.name }}')">
-                        <i class="bi bi-play-fill"></i> Start
-                    </button>
-                    <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopProcess('{{ process.name }}')">
-                        <i class="bi bi-stop-fill"></i> Stop
-                    </button>
-                    <button class="btn btn-warning btn-sm" id="restart-btn" onclick="restartProcess('{{ process.name }}')">
-                        <i class="bi bi-arrow-clockwise"></i> Restart
-                    </button>
-                    <button class="btn btn-info btn-sm" onclick="refreshLogs()">
-                        <i class="bi bi-arrow-repeat"></i> Refresh
-                    </button>
-                    <button class="btn btn-secondary btn-sm" onclick="clearLogs('{{ process.name }}')">
-                        <i class="bi bi-trash"></i> Clear
-                    </button>
+                    <button class="btn btn-success btn-sm" id="start-btn" onclick="startProcess('{{ process.name }}')">Start</button>
+                    <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopProcess('{{ process.name }}')">Stop</button>
+                    <button class="btn btn-warning btn-sm" id="restart-btn" onclick="restartProcess('{{ process.name }}')">Restart</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="refreshLogs()">Refresh</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearLogs('{{ process.name }}')">Clear</button>
                 </div>
             </div>
-            <div class="card-body p-0">
-                <div class="console-output" id="console-output"></div>
-            </div>
-        </div>
+            <div class="console-output" id="console-output"></div>
+        </section>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <i class="bi bi-terminal-plus"></i> Execute Commands
+        <section class="panel mt-3">
+            <div class="panel-toolbar">
+                <span class="panel-label">Command</span>
             </div>
-            <div class="card-body">
+            <div class="panel-body">
                 <div class="input-group command-input-group" style="position: relative;">
                     <span class="input-group-text">$</span>
                     <input
                         type="text"
                         class="form-control"
                         id="command-input"
-                        placeholder="Enter command to execute..."
+                        placeholder="Run in /app…"
                         style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
                         autocomplete="off"
                     />
                     <button class="btn btn-primary" type="button" onclick="executeCommand()" id="execute-btn">
-                        Execute
+                        Run
                     </button>
-                    <!-- Command autocomplete dropdown -->
                     <div id="command-autocomplete" class="command-autocomplete" style="display: none;"></div>
                 </div>
-                <small class="text-muted mt-2 d-block">
-                    Commands execute in /app directory. 
-                    <span style="color: var(--accent-blue);">↑↓ to navigate history, Tab to autocomplete, Esc to close</span>
-                </small>
             </div>
-        </div>
+        </section>
     </div>
 
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-info-circle"></i> Process Information
+    <aside class="console-aside">
+        <section class="panel">
+            <div class="panel-toolbar">
+                <span class="panel-label">Details</span>
             </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted">Type:</span>
-                            <span class="type-indicator">
-                                <span id="type-label">{{ process.type | capitalize }}</span>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted">Status:</span>
-                            <span class="status-indicator">
-                                <span class="status-dot" id="status-dot"></span>
-                                <span id="status-label">{{ process_status | capitalize }}</span>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted">Uptime:</span>
-                            <span id="process-uptime">Fetching...</span>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted">URL:</span>
-                            <span>
-                                {% if not process.domain %}
-                                <a href="http://{{ server_ip }}:{{ 8000 + process.port_id}}" target="_blank" class="text-decoration-none">
-                                    <i class="bi bi-box-arrow-up-right"></i>
-                                </a>
-                                {% else %}
-                                <a href="https://{{process.domain}}" target="_blank" class="text-decoration-none">
-                                    <i class="bi bi-box-arrow-up-right"></i>
-                                </a>
-                                {% endif %}
-                            </span>
-                        </div>
-                    </div>
+            <div class="panel-body detail-list">
+                <div class="detail-row">
+                    <span class="stat-key">Type</span>
+                    <span id="type-label">{{ process.type }}</span>
                 </div>
+                <div class="detail-row">
+                    <span class="stat-key">Status</span>
+                    <span class="status-indicator">
+                        <span class="status-dot" id="status-dot"></span>
+                        <span id="status-label">{{ process_status | capitalize }}</span>
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="stat-key">Uptime</span>
+                    <span id="process-uptime">—</span>
+                </div>
+                {% if process.domain %}
+                <div class="detail-row">
+                    <span class="stat-key">Domain</span>
+                    <span>
+                        {{ process.domain }}
+                        <a href="https://{{process.domain}}" target="_blank" rel="noopener" class="detail-ext">↗</a>
+                    </span>
+                </div>
+                {% else %}
+                <div class="detail-row">
+                    <span class="stat-key">URL</span>
+                    <a href="http://{{ server_ip }}:{{ 8000 + process.port_id}}" target="_blank" rel="noopener" class="detail-ext">Open ↗</a>
+                </div>
+                {% endif %}
             </div>
-        </div>
+        </section>
 
-        <div class="card mt-3">
-            <div class="card-header">
-                <i class="bi bi-graph-up"></i> Resource Usage
+        <section class="panel mt-3">
+            <div class="panel-toolbar">
+                <span class="panel-label">Resources</span>
             </div>
-            <div class="card-body">
-                <div class="progress-item">
-                    <div class="progress-header">
-                        <span>CPU</span>
-                        <span class="fw-bold" id="process-cpu">0%</span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar" id="cpu-progress" style="width: 0%"></div>
-                    </div>
+            <div class="panel-body">
+                <div class="stat-row">
+                    <span class="stat-key">CPU</span>
+                    <span class="stat-val" id="process-cpu">0%</span>
                 </div>
-                <div class="progress-item">
-                    <div class="progress-header">
-                        <span>Memory</span>
-                        <span class="fw-bold" id="process-memory">0 MB</span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-warning" id="memory-progress" style="width: 0%"></div>
-                    </div>
+                <div class="progress progress-thin">
+                    <div class="progress-bar" id="cpu-progress" style="width: 0%"></div>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-key">Memory</span>
+                    <span class="stat-val" id="process-memory">0 MB</span>
+                </div>
+                <div class="progress progress-thin">
+                    <div class="progress-bar bg-warning" id="memory-progress" style="width: 0%"></div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
+    </aside>
 </div>
 
 <div class="loading-overlay" id="loading-overlay">

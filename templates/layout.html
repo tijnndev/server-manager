@@ -58,32 +58,26 @@
     <div class="dashboard-wrapper">
         <nav class="navbar">
             <div class="container-fluid">
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <div class="navbar-left">
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()" aria-label="Menu">
                         <i class="bi bi-list"></i>
                     </button>
-                    <a class="navbar-brand" href="/">
-                        <i class="bi bi-hdd-rack-fill"></i>
-                        Server Manager
-                    </a>
+                    <a class="navbar-brand" href="/">Server Manager</a>
                 </div>
                 <ul class="navbar-nav" id="navbar-nav">
                     {% if session["role"] == "admin" %}
                     <li>
-                        <a class="nav-link" href="/process/create"><i class="bi bi-plus-circle"></i> Create Process</a>
+                        <a class="nav-link" href="/process/create">New</a>
                     </li>
-                    <!-- <li>
-                        <a class="nav-link" href="/activity"><i class="bi bi-clock-history"></i> Activity Log</a>
-                    </li> -->
                     <li>
-                        <a class="nav-link" href="/settings"><i class="bi bi-gear"></i> Settings</a>
+                        <a class="nav-link" href="/settings">Settings</a>
                     </li>
                     {% endif %}
                     <li>
-                        <a class="nav-link" href="/roundcube"><i class="bi bi-envelope"></i> Email</a>
+                        <a class="nav-link" href="/roundcube">Mail</a>
                     </li>
                     <li>
-                        <a class="nav-link" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a>
+                        <a class="nav-link nav-link-muted" href="{{ url_for('auth.logout') }}">Log out</a>
                     </li>
                 </ul>
             </div>

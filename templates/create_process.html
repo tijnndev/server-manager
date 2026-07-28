@@ -1,123 +1,79 @@
 {% extends 'layout.html' %}
 
-{% block title %}Create New Process - Server Manager{% endblock %}
+{% block title %}Create process | Server Manager{% endblock %}
 
 {% block content %}
-<div class="process-header mb-4">
-    <h3 class="process-title">
-        <i class="bi bi-plus-circle"></i> Create New Process
-    </h3>
-    <p class="text-muted">Configure container basics, runtime settings, and deployment options.</p>
-</div>
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">New process</h1>
+            <p class="page-subtitle">Name, type, and start command</p>
+        </div>
+        <a href="/" class="btn btn-sm btn-outline-secondary">Cancel</a>
+    </div>
 
-<div class="row gap-0">
-    <div class="col-xl-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-collection"></i> Process Configuration
-            </div>
-            <div class="card-body">
-                <form id="process-create-form">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Process Name</label>
-                            <input type="text" class="form-control" name="name" id="process-name" placeholder="my-service" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Process Type</label>
-                            <select class="form-select" name="type" id="process-type" required>
-                                {% for type in types %}
-                                <option value="{{type}}">{{type | capitalize}}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-12 mb-3">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="3" placeholder="Describe the service purpose..."></textarea>
-                        </div>
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Command</label>
-                            <input type="text" class="form-control" name="command" id="process-command" placeholder="npm start">
-                        </div>
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Dependencies (comma-separated)</label>
-                            <input type="text" class="form-control" name="dependencies" id="process-dependencies" placeholder="python3, nodejs, nginx">
-                        </div>
-                        <div class="col-12">
-                            <button type="button" class="btn btn-success" onclick="addProcess()">
-                                <i class="bi bi-check-circle"></i> Create Process
-                            </button>
-                            <a href="/" class="btn btn-secondary ms-2">
-                                <i class="bi bi-arrow-left"></i> Back to Dashboard
-                            </a>
-                        </div>
+    <section class="panel" style="max-width: 640px;">
+        <div class="panel-body">
+            <form id="process-create-form">
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" name="name" id="process-name" placeholder="my-service" required>
                     </div>
-                </form>
-            </div>
+                    <div>
+                        <label class="form-label">Type</label>
+                        <select class="form-select" name="type" id="process-type" required>
+                            {% for type in types %}
+                            <option value="{{type}}">{{type | capitalize}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" rows="2" placeholder="Optional"></textarea>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Command</label>
+                    <input type="text" class="form-control" name="command" id="process-command" placeholder="npm start">
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Dependencies</label>
+                    <input type="text" class="form-control" name="dependencies" id="process-dependencies" placeholder="python3, nodejs">
+                    <p class="form-hint">Comma-separated packages for the container image</p>
+                </div>
+                <div class="mt-3 btn-row">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="addProcess()">Create</button>
+                </div>
+            </form>
+            {% if success %}
+            <div class="alert alert-success mt-3 mb-0">{{ success }}</div>
+            {% endif %}
+            {% if error %}
+            <div class="alert alert-danger mt-3 mb-0">{{ error }}</div>
+            {% endif %}
         </div>
-    </div>
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-info-circle"></i> Help & Tips
-            </div>
-            <div class="card-body">
-                <h6>Process Types:</h6>
-                <ul class="list-unstyled small text-muted mb-3">
-                    <li><strong>Web:</strong> HTTP servers and web applications</li>
-                    <li><strong>Worker:</strong> Background processing tasks</li>
-                    <li><strong>Database:</strong> Database servers</li>
-                    <li><strong>Cache:</strong> Caching services like Redis</li>
-                </ul>
-                
-                <h6>Command Examples:</h6>
-                <ul class="list-unstyled small text-muted mb-3">
-                    <li><code>python app.py</code></li>
-                    <li><code>npm start</code></li>
-                    <li><code>./start.sh</code></li>
-                </ul>
-                
-                <h6>Port Configuration:</h6>
-                <p class="small text-muted">Specify the port your application listens on. Common ports: 3000 (Node.js), 8000 (Python), 80/443 (Web servers).</p>
-            </div>
-        </div>
-        
-        {% if success %}
-        <div class="alert alert-success mt-3">
-            <i class="bi bi-check-circle"></i> {{ success }}
-        </div>
-        {% endif %}
-        
-        {% if error %}
-        <div class="alert alert-danger mt-3">
-            <i class="bi bi-exclamation-triangle"></i> {{ error }}
-        </div>
-        {% endif %}
-    </div>
+    </section>
 </div>
 
 <script>
     async function addProcess() {
         const form = document.getElementById('process-create-form');
         const formData = new FormData(form);
-        
-        // Get values for the original API (keeping backward compatibility)
         const name = formData.get('name');
         const command = formData.get('command');
         const dependencies = formData.get('dependencies');
         const type = formData.get('type');
-        
+
         const response = await fetch('{{ url_for('process.add_process') }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, command, type, dependencies })
         });
-        
+
         if (response.ok) {
-            alert('Process added successfully');
             const responseData = await response.json();
-            const redirectUrl = responseData.redirect_url;
-            window.location.href = redirectUrl;
+            window.location.href = responseData.redirect_url;
         } else {
             const responseData = await response.json();
             alert('Failed to add process: ' + responseData);

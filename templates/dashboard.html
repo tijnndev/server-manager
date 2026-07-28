@@ -1,32 +1,33 @@
-{% extends 'layout.html' %}
+﻿{% extends 'layout.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-server"></i> Managed Processes
-            </div>
-            <div class="card-body">
-                <div class="search-container mb-3">
-                    <input type="text" id="search-bar" class="form-control" placeholder="Search process..." oninput="filterProcesses()">
-                </div>
-            </div>
+<div class="page">
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Processes</h1>
+            <p class="page-subtitle">Managed containers on this host</p>
+        </div>
+        <div class="page-head-actions">
+            <input type="text" id="search-bar" class="form-control form-control-sm search-input" placeholder="Filter…" oninput="filterProcesses()">
+        </div>
+    </div>
+
+    <div class="layout-split">
+        <section class="panel">
             <div class="table-responsive">
-                <table class="table table-sticky-header">
+                <table class="table table-sticky-header table-dense">
                     <thead>
                         <tr>
-                            <th class="sortable" data-sort="name" onclick="handleSort('name')">Process ID <i class="bi sort-icon"></i></th>
+                            <th class="sortable" data-sort="name" onclick="handleSort('name')">ID <i class="bi sort-icon"></i></th>
                             <th class="sortable" data-sort="name" onclick="handleSort('name')">Name <i class="bi sort-icon"></i></th>
                             <th class="sortable" data-sort="type" onclick="handleSort('type')">Type <i class="bi sort-icon"></i></th>
                             <th class="sortable" data-sort="status" onclick="handleSort('status')">Status <i class="bi sort-icon"></i></th>
                             <th class="sortable" data-sort="cpu" onclick="handleSort('cpu')">CPU <i class="bi sort-icon"></i></th>
-                            <th class="sortable" data-sort="memory" onclick="handleSort('memory')">Memory <i class="bi sort-icon"></i></th>
-                            <th>Actions</th>
+                            <th class="sortable" data-sort="memory" onclick="handleSort('memory')">Mem <i class="bi sort-icon"></i></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody id="process-grid">
-                        <!-- Skeleton loader -->
                         <tr class="skeleton-row">
                             <td><div class="skeleton skeleton-text" style="width: 80px;"></div></td>
                             <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
@@ -39,63 +40,44 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-cpu"></i> System Resources
-            </div>
-            <div class="card-body" id="server-stats">
-                <div class="progress-item">
-                    <div class="progress-header">
-                        <span>CPU Usage</span>
-                        <span class="fw-bold"><span id="cpu-usage">Loading...</span>%</span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar" id="cpu-progress" style="width: 0%"></div>
-                    </div>
-                    <small class="text-muted"><span id="cpu-name">Loading...</span></small>
+        <aside class="panel panel-side">
+            <div class="panel-label">Host</div>
+            <div id="server-stats" class="stat-list">
+                <div class="stat-row">
+                    <span class="stat-key">CPU</span>
+                    <span class="stat-val"><span id="cpu-usage">—</span>%</span>
+                </div>
+                <div class="progress progress-thin">
+                    <div class="progress-bar" id="cpu-progress" style="width: 0%"></div>
+                </div>
+                <div class="stat-meta" id="cpu-name">—</div>
+
+                <div class="stat-row">
+                    <span class="stat-key">Memory</span>
+                    <span class="stat-val"><span id="memory-used">—</span> / <span id="memory-allocated">—</span> MB</span>
+                </div>
+                <div class="progress progress-thin">
+                    <div class="progress-bar bg-warning" id="memory-progress" style="width: 0%"></div>
                 </div>
 
-                <div class="progress-item">
-                    <div class="progress-header">
-                        <span>Memory</span>
-                        <span class="fw-bold">
-                            <span id="memory-used">Loading...</span> / <span id="memory-allocated">Loading...</span> MB
-                        </span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-warning" id="memory-progress" style="width: 0%"></div>
-                    </div>
+                <div class="stat-row">
+                    <span class="stat-key">Storage</span>
+                    <span class="stat-val"><span id="storage-used">—</span> / <span id="storage-allocated">—</span> GB</span>
+                </div>
+                <div class="progress progress-thin">
+                    <div class="progress-bar bg-info" id="storage-progress" style="width: 0%"></div>
                 </div>
 
-                <div class="progress-item">
-                    <div class="progress-header">
-                        <span>Storage</span>
-                        <span class="fw-bold">
-                            <span id="storage-used">Loading...</span> / <span id="storage-allocated">Loading...</span> GB
-                        </span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-info" id="storage-progress" style="width: 0%"></div>
-                    </div>
-                </div>
-
-                <div class="progress-item" style="margin-bottom: 0;">
-                    <div class="progress-header">
-                        <span>Network</span>
-                        <span class="fw-bold">
-                            <i class="bi bi-arrow-down" style="color: var(--accent-green);"></i> <span id="network-usage">Loading...</span> MB/s
-                        </span>
-                    </div>
+                <div class="stat-row stat-row-last">
+                    <span class="stat-key">Network</span>
+                    <span class="stat-val"><span id="network-usage">—</span> MB/s</span>
                 </div>
             </div>
-        </div>
+        </aside>
     </div>
 </div>
-
 <script>
 
     let userSettings = null;
@@ -214,28 +196,23 @@
 
     function getStatusBadgeClass(status) {
         const statusMap = {
-            'running': { class: 'bg-success', icon: 'bi-play-circle-fill' },
-            'exited': { class: 'bg-secondary', icon: 'bi-stop-circle-fill' },
-            'process stopped': { class: 'bg-warning', icon: 'bi-pause-circle-fill' },
-            'error': { class: 'bg-danger', icon: 'bi-exclamation-circle-fill' },
-            'restarting': { class: 'bg-info', icon: 'bi-arrow-clockwise' }
+            'running': 'bg-success',
+            'exited': 'bg-secondary',
+            'process stopped': 'bg-warning',
+            'error': 'bg-danger',
+            'restarting': 'bg-info'
         };
-        const normalized = status.toLowerCase();
-        return statusMap[normalized] || { class: 'bg-secondary', icon: 'bi-question-circle-fill' };
+        return statusMap[status.toLowerCase()] || 'bg-secondary';
     }
 
     function renderProcesses(processEntries) {
         const grid = document.getElementById('process-grid');
         
-        // Only show "no processes" if we've finished initial load and truly have no processes
         if (processEntries.length === 0) {
             if (!isInitialLoad) {
                 grid.innerHTML = `
                     <tr>
-                        <td colspan="7" class="text-center" style="padding: 40px;">
-                            <i class="bi bi-inbox" style="font-size: 48px; color: var(--text-muted);"></i>
-                            <p style="color: var(--text-muted); margin-top: 16px;">No processes found</p>
-                        </td>
+                        <td colspan="7" class="empty-cell">No processes</td>
                     </tr>
                 `;
             }
@@ -243,35 +220,21 @@
         }
         
         const rows = processEntries.map(([name, process]) => {
-            const statusInfo = getStatusBadgeClass(process.status);
+            const statusClass = getStatusBadgeClass(process.status);
             const cpuUsage = process.metrics?.cpu_percent || 0;
             const memUsage = process.metrics?.memory_mb || 0;
+            const statusLabel = process.status.charAt(0).toUpperCase() + process.status.slice(1);
             
             return `
             <tr data-process-name="${name}">
                 <td><code>${name.substring(0, 12)}</code></td>
-                <td>${name}</td>
+                <td class="cell-name">${name}</td>
                 <td><span class="badge bg-info">${process.type}</span></td>
-                <td>
-                    <span class="badge ${statusInfo.class}" style="display: flex; align-items: center; gap: 6px; width: fit-content;">
-                        <i class="bi ${statusInfo.icon}"></i>
-                        ${process.status.charAt(0).toUpperCase() + process.status.slice(1)}
-                    </span>
-                </td>
-                <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 12px; color: var(--text-secondary);">${cpuUsage}%</span>
-                    </div>
-                </td>
-                <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 12px; color: var(--text-secondary);">${memUsage} MB</span>
-                    </div>
-                </td>
-                <td>
-                    <a href="/process/console/${name}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-eye"></i> View
-                    </a>
+                <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+                <td class="cell-muted">${cpuUsage}%</td>
+                <td class="cell-muted">${memUsage} MB</td>
+                <td class="cell-actions">
+                    <a href="/process/console/${name}" class="btn btn-sm btn-outline-secondary">Open</a>
                 </td>
             </tr>
             `;
@@ -397,15 +360,15 @@
             const memUsage = process.metrics?.memory_mb || 0;
             
             // Update CPU
-            const cpuText = row.querySelector('td:nth-child(5) span');
-            if (cpuText) {
-                cpuText.textContent = `${cpuUsage}%`;
+            const cpuCell = row.querySelector('td:nth-child(5)');
+            if (cpuCell) {
+                cpuCell.textContent = `${cpuUsage}%`;
             }
             
             // Update Memory
-            const memText = row.querySelector('td:nth-child(6) span');
-            if (memText) {
-                memText.textContent = `${memUsage} MB`;
+            const memCell = row.querySelector('td:nth-child(6)');
+            if (memCell) {
+                memCell.textContent = `${memUsage} MB`;
             }
         }
     }
@@ -444,3 +407,4 @@
     updateSortHeaders();
 </script>
 {% endblock content %}
+

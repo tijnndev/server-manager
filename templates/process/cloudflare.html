@@ -1,70 +1,56 @@
 {% extends 'process/process_layout.html' %}
 
 {% block process_content %}
-<div class="row gap-0">
-    <div class="col-xl-8">
-        <div class="card mb-3">
-            <div class="card-header">
-                <i class="bi bi-list-ul"></i> Existing DNS Records
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle" id="cloudflare-table">
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Name</th>
-                                <th>Content</th>
-                                <th>Proxied</th>
-                                <th>TTL</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="skeleton-row">
-                                <td><div class="skeleton skeleton-text" style="width: 40px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 180px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 220px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 50px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 40px;"></div></td>
-                                <td><div class="skeleton skeleton-button" style="width: 120px;"></div></td>
-                            </tr>
-                            <tr class="skeleton-row">
-                                <td><div class="skeleton skeleton-text" style="width: 40px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 160px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 200px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 50px;"></div></td>
-                                <td><div class="skeleton skeleton-text" style="width: 40px;"></div></td>
-                                <td><div class="skeleton skeleton-button" style="width: 120px;"></div></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+<div class="stack">
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">DNS records</span>
+            {% if cloudflare_configured %}
+            <span class="badge bg-success">Token set</span>
+            {% else %}
+            <a href="{{ url_for('settings.preferences_page') }}" class="btn btn-sm btn-outline-secondary">Add token</a>
+            {% endif %}
         </div>
-        <div class="card mt-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="table-responsive">
+            <table class="table table-dense mb-0" id="cloudflare-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Content</th>
+                        <th>Proxied</th>
+                        <th>TTL</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="skeleton-row">
+                        <td><div class="skeleton skeleton-text" style="width: 40px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 180px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 220px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 50px;"></div></td>
+                        <td><div class="skeleton skeleton-text" style="width: 40px;"></div></td>
+                        <td><div class="skeleton skeleton-button" style="width: 80px;"></div></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-toolbar">
+            <span class="panel-label">Edit record</span>
+        </div>
+        <div class="panel-body">
+            <p class="form-hint mb-3">
+                {{ process.domain or 'Process domain' }}{% if server_ip %} · default A: {{ server_ip }}{% endif %}
+            </p>
+            <div id="cloudflare-alert" style="display:none;"></div>
+            <div id="cloudflare-data" data-configured="{{ 'true' if cloudflare_configured else 'false' }}" data-server-ip="{{ server_ip or '' }}"></div>
+
+            <div class="form-grid">
                 <div>
-                    <i class="bi bi-cloud"></i> Cloudflare DNS
-                </div>
-                {% if cloudflare_configured %}
-                <span class="badge bg-success">API token configured</span>
-                {% else %}
-                <a href="{{ url_for('settings.preferences_page') }}" class="badge bg-warning text-dark">Add API token in Settings</a>
-                {% endif %}
-            </div>
-            <div class="card-body">
-                <p class="text-muted small">
-                    Manage DNS records for <strong>{{ process.domain or 'this process' }}</strong> using your stored Cloudflare token.
-                    {% if server_ip %}Default A record value uses this server IP: <strong>{{ server_ip }}</strong>.{% endif %}
-                </p>
-
-                <div id="cloudflare-alert" style="display:none;"></div>
-
-                <div id="cloudflare-data" data-configured="{{ 'true' if cloudflare_configured else 'false' }}" data-server-ip="{{ server_ip or '' }}"></div>
-
-                <div class="mb-3">
-                    <label class="form-label">Record Type</label>
+                    <label class="form-label">Type</label>
                     <select class="form-select" id="cloudflare-record-type" {% if not cloudflare_configured %}disabled{% endif %}>
                         <option value="A" selected>A</option>
                         <option value="CNAME">CNAME</option>
@@ -72,52 +58,27 @@
                         <option value="TXT">TXT</option>
                     </select>
                 </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Record Name</label>
+                <div>
+                    <label class="form-label">Name</label>
                     <input type="text" class="form-control" id="cloudflare-record-name" value="{{ process.domain or '' }}" placeholder="example.com" {% if not cloudflare_configured %}disabled{% endif %}>
-                    <small class="text-muted">Uses the process domain by default. Wildcards will be trimmed to the root.</small>
                 </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Record Value</label>
-                    <input type="text" class="form-control" id="cloudflare-record-value" placeholder="{{ server_ip or 'e.g., 203.0.113.10' }}" {% if not cloudflare_configured %}disabled{% endif %}>
-                    <small class="text-muted">For A records, leave blank to use the server IP.</small>
-                </div>
-
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="cloudflare-proxied" {% if not cloudflare_configured %}disabled{% endif %} checked>
-                    <label class="form-check-label" for="cloudflare-proxied">Proxied (orange cloud)</label>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <button class="btn btn-primary" id="cloudflare-create-btn" onclick="submitCloudflareRecord('create')" {% if not cloudflare_configured %}disabled{% endif %}>
-                        <i class="bi bi-plus-circle"></i> Create / Upsert
-                    </button>
-                    <button class="btn btn-outline-secondary" id="cloudflare-update-btn" onclick="submitCloudflareRecord('update')" {% if not cloudflare_configured %}disabled{% endif %}>
-                        <i class="bi bi-pencil"></i> Edit
-                    </button>
-                    <button class="btn btn-outline-danger" id="cloudflare-delete-btn" onclick="submitCloudflareRecord('delete')" {% if not cloudflare_configured %}disabled{% endif %}>
-                        <i class="bi bi-trash"></i> Delete
-                    </button>
-                </div>
+            </div>
+            <div class="mt-3">
+                <label class="form-label">Value</label>
+                <input type="text" class="form-control" id="cloudflare-record-value" placeholder="{{ server_ip or 'IP or target' }}" {% if not cloudflare_configured %}disabled{% endif %}>
+                <p class="form-hint">A records: leave blank to use server IP</p>
+            </div>
+            <div class="form-check mt-3 mb-3">
+                <input class="form-check-input" type="checkbox" id="cloudflare-proxied" {% if not cloudflare_configured %}disabled{% endif %} checked>
+                <label class="form-check-label" for="cloudflare-proxied">Proxied</label>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary btn-sm" id="cloudflare-create-btn" onclick="submitCloudflareRecord('create')" {% if not cloudflare_configured %}disabled{% endif %}>Upsert</button>
+                <button class="btn btn-outline-secondary btn-sm" id="cloudflare-update-btn" onclick="submitCloudflareRecord('update')" {% if not cloudflare_configured %}disabled{% endif %}>Update</button>
+                <button class="btn btn-outline-danger btn-sm" id="cloudflare-delete-btn" onclick="submitCloudflareRecord('delete')" {% if not cloudflare_configured %}disabled{% endif %}>Delete</button>
             </div>
         </div>
-    </div>
-    <div class="col-xl-4">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-info-circle"></i> Tips
-            </div>
-            <div class="card-body text-muted small">
-                <ul class="mb-0">
-                    <li>Use a Cloudflare token with <strong>Zone:DNS Edit</strong> and <strong>Zone:Read</strong> for the zones you manage.</li>
-                    <li>We determine the zone from the record name (e.g., app.example.com -> example.com).</li>
-                    <li>Proxied A records will route traffic through Cloudflare (orange cloud). Disable if you need direct origin access.</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+    </section>
 </div>
 
 <script>
