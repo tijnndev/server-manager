@@ -183,12 +183,14 @@
     background: var(--bg-secondary);
     border-color: var(--accent-blue);
     color: var(--text-primary);
-    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+    box-shadow: 0 0 0 1px var(--accent-blue-border);
 }
 
 /* Modal Styling */
 .modal-content {
-    background: var(--bg-secondary);
+    background: var(--bg-secondary-glass);
+    backdrop-filter: blur(var(--surface-blur));
+    -webkit-backdrop-filter: blur(var(--surface-blur));
     border: 1px solid var(--border-color);
     color: var(--text-primary);
 }

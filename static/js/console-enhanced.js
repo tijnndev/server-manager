@@ -190,7 +190,7 @@ class EnhancedConsole {
             }
 
             .log-highlight {
-                background: rgba(59, 130, 246, 0.3);
+                background: var(--accent-blue-wash);
                 padding: 2px 4px;
                 border-radius: 2px;
             }
