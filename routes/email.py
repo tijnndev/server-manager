@@ -88,7 +88,7 @@ def create_email(name):
     if result.returncode == 0:
         return jsonify({"message": f"Email {email} created successfully"}), 200
 
-    return jsonify({"error": result.stderr}), 500
+    return jsonify({"error": _mailserver_error(result.stderr, result.stdout)}), 500
 
 
 @email_routes.route('<name>/delete', methods=['POST'])
@@ -108,7 +108,7 @@ def delete_email(name):
     if result.returncode == 0:
         return jsonify({"message": f"Email {email} deleted successfully"}), 200
 
-    return jsonify({"error": result.stderr}), 500
+    return jsonify({"error": _mailserver_error(result.stderr, result.stdout)}), 500
 
 
 @email_routes.route('<name>/update-password', methods=['POST'])
@@ -131,4 +131,4 @@ def update_email_password(name):
     if result.returncode == 0:
         return jsonify({"message": f"Password updated successfully for {email}"}), 200
 
-    return jsonify({"error": result.stderr}), 500
+    return jsonify({"error": _mailserver_error(result.stderr, result.stdout)}), 500

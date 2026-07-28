@@ -938,13 +938,13 @@
       badge.classList.add("bg-success");
       badge.textContent = "Running";
     } else if (normalized === "starting" || normalized === "restarting") {
-      badge.classList.add("bg-warning", "text-dark");
+      badge.classList.add("bg-warning");
       badge.textContent = normalized.charAt(0).toUpperCase() + normalized.slice(1);
     } else if (normalized === "stopping") {
-      badge.classList.add("bg-warning", "text-dark");
+      badge.classList.add("bg-warning");
       badge.textContent = "Stopping";
     } else if (normalized === "process stopped") {
-      badge.classList.add("bg-warning", "text-dark");
+                  badge.classList.add("bg-warning");
       badge.textContent = "Process Stopped";
     } else {
       badge.classList.add("bg-secondary");

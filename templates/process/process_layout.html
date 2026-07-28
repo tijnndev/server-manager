@@ -10,7 +10,7 @@
         {% if process_status|lower == 'running' %}
         <span id="process-header-badge" class="badge bg-success">Running</span>
         {% elif process_status|lower == 'process stopped' %}
-        <span id="process-header-badge" class="badge bg-warning text-dark">Process Stopped</span>
+        <span id="process-header-badge" class="badge bg-warning">Process Stopped</span>
         {% else %}
         <span id="process-header-badge" class="badge bg-secondary">Stopped</span>
         {% endif %}

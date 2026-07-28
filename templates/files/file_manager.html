@@ -128,12 +128,14 @@
     bottom: -100px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--bg-secondary);
+    background: var(--bg-secondary-glass);
+    backdrop-filter: blur(var(--surface-blur));
+    -webkit-backdrop-filter: blur(var(--surface-blur));
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     padding: 1rem 1.5rem;
     z-index: 9999;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease-in-out;

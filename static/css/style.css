@@ -254,6 +254,12 @@ body {
     border: 1px solid transparent !important;
 }
 
+.btn-primary:hover,
+.btn-primary:focus {
+    background: var(--accent-blue) !important;
+    color: #fff !important;
+}
+
 /* Full-width only on login / standalone primary buttons, not toolbar ones */
 .login-box .btn-primary,
 .card-body > .btn-primary.w-100,
