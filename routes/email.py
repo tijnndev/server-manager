@@ -5,16 +5,53 @@ from utils import find_process_by_name
 
 email_routes = Blueprint('email', __name__)
 
+_MAILSERVER_CONTAINER = "mailserver"
 _MAILSERVER_MISSING = (
     "Mail server container is not running. "
     "Start the `mailserver` container to manage email accounts."
 )
 
 
+def _run_docker(args, timeout=35):
+    return subprocess.run(
+        ["docker", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+    )
+
+
+def _mailserver_status():
+    """Return (running: bool, error: str | None) for the mailserver container."""
+    inspect = _run_docker(
+        ["inspect", "-f", "{{.State.Status}}", _MAILSERVER_CONTAINER],
+        timeout=10,
+    )
+    combined = f"{inspect.stderr or ''}\n{inspect.stdout or ''}"
+    if inspect.returncode != 0:
+        if "No such container" in combined:
+            return False, _MAILSERVER_MISSING
+        return False, (inspect.stderr or inspect.stdout or "docker inspect failed").strip()
+
+    status = (inspect.stdout or "").strip()
+    if status != "running":
+        return False, (
+            f"Mail server container is {status or 'not running'}. "
+            "IMAP will fail until `mailserver` is healthy."
+        )
+    return True, None
+
+
 def _mailserver_error(stderr: str = "", stdout: str = "") -> str:
     combined = f"{stderr or ''}\n{stdout or ''}"
     if "No such container" in combined:
         return _MAILSERVER_MISSING
+    if "is restarting" in combined:
+        return (
+            "Mail server container is restarting. "
+            "Check SSL certs in /etc/server-manager/mail-certs and `docker logs mailserver`."
+        )
     return (stderr or stdout or "Mail server command failed").strip()
 
 
@@ -22,12 +59,13 @@ def list_email_users():
     """List configured email users from the mailserver container."""
     users = []
     try:
-        list_result = subprocess.run(
-            ["docker", "exec", "mailserver", "setup", "email", "list"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=35
+        running, status_error = _mailserver_status()
+        if not running:
+            return users, status_error
+
+        list_result = _run_docker(
+            ["exec", _MAILSERVER_CONTAINER, "setup", "email", "list"],
+            timeout=35,
         )
 
         if list_result.returncode != 0:
@@ -78,11 +116,12 @@ def create_email(name):
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    result = subprocess.run(
-        ["docker", "exec", "mailserver", "setup", "email", "add", email, password],
-        capture_output=True,
-        text=True,
-        check=False
+    running, status_error = _mailserver_status()
+    if not running:
+        return jsonify({"error": status_error}), 500
+
+    result = _run_docker(
+        ["exec", _MAILSERVER_CONTAINER, "setup", "email", "add", email, password],
     )
 
     if result.returncode == 0:
@@ -99,10 +138,12 @@ def delete_email(name):
     if not email:
         return jsonify({"error": "Email is required"}), 400
 
-    result = subprocess.run(
-        ["docker", "exec", "mailserver", "setup", "email", "del", email],
-        capture_output=True,
-        text=True, check=False
+    running, status_error = _mailserver_status()
+    if not running:
+        return jsonify({"error": status_error}), 500
+
+    result = _run_docker(
+        ["exec", _MAILSERVER_CONTAINER, "setup", "email", "del", email],
     )
 
     if result.returncode == 0:
@@ -121,11 +162,12 @@ def update_email_password(name):
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    result = subprocess.run(
-        ["docker", "exec", "mailserver", "setup", "email", "update", email, password],
-        capture_output=True,
-        text=True,
-        check=False
+    running, status_error = _mailserver_status()
+    if not running:
+        return jsonify({"error": status_error}), 500
+
+    result = _run_docker(
+        ["exec", _MAILSERVER_CONTAINER, "setup", "email", "update", email, password],
     )
 
     if result.returncode == 0:

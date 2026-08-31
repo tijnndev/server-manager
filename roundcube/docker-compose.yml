@@ -1,4 +1,4 @@
-version: "3.8"
+name: roundcube
 
 services:
   mailserver:
@@ -14,6 +14,7 @@ services:
       - /etc/server-manager/mail-certs:/tmp/docker-mailserver/ssl:ro
     ports:
       - "25:25"
+      - "143:143"
       - "465:465"
       - "587:587"
       - "993:993"
@@ -42,15 +43,17 @@ services:
     ports:
       - "8080:80"
     environment:
-      ROUNDCUBEMAIL_DEFAULT_HOST: tls://mailserver
-      ROUNDCUBEMAIL_DEFAULT_PORT: 143
-      ROUNDCUBEMAIL_SMTP_SERVER: tls://mailserver
-      ROUNDCUBEMAIL_SMTP_PORT: 587
+      # ssl:// = implicit TLS (IMAPS 993 / SMTPS 465). tls:// + 143 is STARTTLS and
+      # fails against docker-mailserver with TLS_LEVEL=modern / SSL_TYPE=manual.
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mailserver
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
+      ROUNDCUBEMAIL_SMTP_SERVER: ssl://mailserver
+      ROUNDCUBEMAIL_SMTP_PORT: 465
       ROUNDCUBEMAIL_SMTP_USER: "%u"
       ROUNDCUBEMAIL_SMTP_PASSWORD: "%p"
       ROUNDCUBEMAIL_SMTP_AUTH_TYPE: LOGIN
-      ROUNDCUBEMAIL_IMAP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false}}'
-      ROUNDCUBEMAIL_SMTP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false}}'
+      ROUNDCUBEMAIL_IMAP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false,"allow_self_signed":true}}'
+      ROUNDCUBEMAIL_SMTP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false,"allow_self_signed":true}}'
       ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
     depends_on:
       - mailserver
