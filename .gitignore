@@ -3,5 +3,9 @@ venv
 .env
 /.venv
 /active-servers/*
-roundcube/
 .trash/
+
+roundcube/maildata/
+roundcube/mailstate/
+roundcube/maillogs/
+roundcube/config/

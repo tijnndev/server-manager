@@ -34,29 +34,36 @@ services:
       ONE_DIR: 1
       DMS_DEBUG: 1
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "ss -lntp | grep -q ':993'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
     networks:
-      - mailnetwork
+      mailnetwork:
+        aliases:
+          - mail.tijnn.dev
 
   roundcube:
     image: roundcube/roundcubemail:latest
     container_name: roundcube
     ports:
       - "8080:80"
+    volumes:
+      - ./roundcube-config.inc.php:/var/roundcube/config/imap.inc.php:ro
     environment:
-      # ssl:// = implicit TLS (IMAPS 993 / SMTPS 465). tls:// + 143 is STARTTLS and
-      # fails against docker-mailserver with TLS_LEVEL=modern / SSL_TYPE=manual.
-      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mailserver
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail.tijnn.dev
       ROUNDCUBEMAIL_DEFAULT_PORT: 993
-      ROUNDCUBEMAIL_SMTP_SERVER: ssl://mailserver
+      ROUNDCUBEMAIL_SMTP_SERVER: ssl://mail.tijnn.dev
       ROUNDCUBEMAIL_SMTP_PORT: 465
       ROUNDCUBEMAIL_SMTP_USER: "%u"
       ROUNDCUBEMAIL_SMTP_PASSWORD: "%p"
       ROUNDCUBEMAIL_SMTP_AUTH_TYPE: LOGIN
-      ROUNDCUBEMAIL_IMAP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false,"allow_self_signed":true}}'
-      ROUNDCUBEMAIL_SMTP_CONN_OPTIONS: '{"ssl":{"verify_peer":false,"verify_peer_name":false,"allow_self_signed":true}}'
       ROUNDCUBEMAIL_REQUEST_PATH: /roundcube/
     depends_on:
-      - mailserver
+      mailserver:
+        condition: service_healthy
     restart: always
     networks:
       - mailnetwork
