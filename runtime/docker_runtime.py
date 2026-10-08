@@ -163,6 +163,42 @@ class DockerRuntime:
         cid = result.stdout.strip()
         return cid or None
 
+    def sync_public_port(self, process_name: str) -> None:
+        """Write PUBLIC_PORT into the process .env so compose publishes 8000 + port_id."""
+        try:
+            from flask import current_app, has_app_context
+
+            if not has_app_context():
+                return
+            with current_app.app_context():
+                from models.process import Process
+
+                process = Process.query.filter_by(name=process_name).first()
+        except Exception as exc:
+            logger.debug("PUBLIC_PORT lookup skipped for %s: %s", process_name, exc)
+            return
+        if process is None or process.port_id is None:
+            return
+
+        public_port = str(8000 + int(process.port_id))
+        env_path = os.path.join(self.process_dir(process_name), ".env")
+        lines: List[str] = []
+        if os.path.isfile(env_path):
+            with open(env_path, encoding="utf-8") as fh:
+                lines = fh.read().splitlines()
+        replaced = False
+        updated: List[str] = []
+        for line in lines:
+            if line.startswith("PUBLIC_PORT="):
+                updated.append(f"PUBLIC_PORT={public_port}")
+                replaced = True
+            else:
+                updated.append(line)
+        if not replaced:
+            updated.append(f"PUBLIC_PORT={public_port}")
+        with open(env_path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(updated).rstrip() + "\n")
+
     async def compose_up(self, process_name: str, detach: bool = True) -> CommandResult:
         self.invalidate_cache()
         cmd = ["docker", "compose", "up"]

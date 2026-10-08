@@ -219,6 +219,7 @@ class RuntimeManager:
     # --- Sync API for Flask routes ---
 
     def start(self, process_name: str, process_type: Optional[str] = None) -> Dict[str, Any]:
+        self.docker.sync_public_port(process_name)
         return run_sync(self._start(process_name, process_type))
 
     async def _start(self, process_name: str, process_type: Optional[str] = None):
@@ -363,6 +364,7 @@ class RuntimeManager:
         self.docker.invalidate_cache()
 
     def compose_up(self, process_name: str) -> Dict[str, Any]:
+        self.docker.sync_public_port(process_name)
         result = run_sync(self.docker.compose_up(process_name))
         self.docker.invalidate_cache()
         return {"success": result.success, "stderr": result.stderr}
