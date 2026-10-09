@@ -1,6 +1,10 @@
 services:
   panel:
     pid: host
+    # Docker's default AppArmor profile denies signaling host processes; the
+    # panel must SIGHUP the host nginx to apply domain configs.
+    security_opt:
+      - apparmor=unconfined
     volumes:
       - /etc/nginx/sites-available:/etc/nginx/sites-available
       - /etc/nginx/sites-enabled:/etc/nginx/sites-enabled
