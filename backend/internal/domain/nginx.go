@@ -16,6 +16,41 @@ import (
 func Render(domains []model.Domain) string {
 	var b strings.Builder
 	for _, d := range domains {
+		if d.TLS {
+			// HTTP -> HTTPS redirect
+			fmt.Fprintf(&b, `server {
+    listen 80;
+    server_name %s;
+    return 301 https://$host$request_uri;
+}
+
+`, d.Hostname)
+			fmt.Fprintf(&b, `server {
+    listen 443 ssl;
+    server_name %s;
+
+    ssl_certificate /etc/letsencrypt/live/%s/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/%s/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+`, d.Hostname, d.Hostname, d.Hostname)
+			if _, err := os.Stat("/etc/letsencrypt/ssl-dhparams.pem"); err == nil {
+				b.WriteString("    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;\n")
+			}
+			fmt.Fprintf(&b, `
+    location / {
+        proxy_pass http://127.0.0.1:%d;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+`, d.UpstreamPort)
+			continue
+		}
 		fmt.Fprintf(&b, `server {
     listen 80;
     server_name %s;
