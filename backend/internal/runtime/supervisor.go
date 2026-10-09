@@ -24,6 +24,7 @@ import (
 
 	"server-manager/backend/internal/hub"
 	"server-manager/backend/internal/model"
+	"server-manager/backend/internal/template"
 )
 
 type Status struct {
@@ -277,11 +278,11 @@ func (s *Supervisor) Apply(project, dir, action string) error {
 	lock := s.mutex(project)
 	lock.Lock()
 	defer lock.Unlock()
-	args, timeout, err := actionArgs(action)
+	file, err := FindCompose(dir)
 	if err != nil {
 		return err
 	}
-	file, err := FindCompose(dir)
+	steps, timeout, err := actionSteps(dir, file, action)
 	if err != nil {
 		return err
 	}
@@ -290,18 +291,24 @@ func (s *Supervisor) Apply(project, dir, action string) error {
 	s.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	applyErr := s.compose(ctx, project, dir, file, args)
-	if applyErr != nil && (action == "start" || action == "rebuild") {
-		// A container name held by an unmanaged container (e.g. one created by
-		// the legacy panel) blocks compose. Replace it and retry once — this is
-		// the cutover from the legacy panel. Compose-managed conflicts are
-		// reported untouched.
-		if name := conflictName(applyErr.Error()); name != "" {
-			if rmErr := s.removeUnmanaged(name); rmErr == nil {
-				applyErr = s.compose(ctx, project, dir, file, args)
-			} else {
-				applyErr = fmt.Errorf("%s (could not replace %s: %v)", applyErr, name, rmErr)
+	var applyErr error
+	for _, args := range steps {
+		applyErr = s.compose(ctx, project, dir, file, args)
+		if applyErr != nil && (action == "start" || action == "rebuild") && containsArg(args, "up") {
+			// A container name held by an unmanaged container (e.g. one created by
+			// the legacy panel) blocks compose. Replace it and retry once — this is
+			// the cutover from the legacy panel. Compose-managed conflicts are
+			// reported untouched.
+			if name := conflictName(applyErr.Error()); name != "" {
+				if rmErr := s.removeUnmanaged(name); rmErr == nil {
+					applyErr = s.compose(ctx, project, dir, file, args)
+				} else {
+					applyErr = fmt.Errorf("%s (could not replace %s: %v)", applyErr, name, rmErr)
+				}
 			}
+		}
+		if applyErr != nil {
+			break
 		}
 	}
 	if applyErr != nil {
@@ -369,19 +376,71 @@ func (s *Supervisor) Down(project, dir string) error {
 	return err
 }
 
-func actionArgs(action string) ([]string, time.Duration, error) {
+func actionSteps(dir, file, action string) ([][]string, time.Duration, error) {
 	switch action {
 	case "start":
-		return []string{"up", "-d", "--remove-orphans"}, 4 * time.Minute, nil
+		return [][]string{{"up", "-d", "--remove-orphans"}}, 4 * time.Minute, nil
 	case "stop":
-		return []string{"stop"}, time.Minute, nil
+		return [][]string{{"stop"}}, time.Minute, nil
 	case "restart":
-		return []string{"restart"}, 2 * time.Minute, nil
+		args := []string{"restart"}
+		if names := publishedServices(dir, file); len(names) > 0 {
+			args = append(args, names...)
+		}
+		return [][]string{args}, 2 * time.Minute, nil
 	case "rebuild":
-		return []string{"up", "-d", "--build", "--remove-orphans"}, 15 * time.Minute, nil
+		build := []string{"build"}
+		if dockerfileBuildsApp(dir) {
+			build = append(build, "--no-cache")
+		}
+		return [][]string{
+			build,
+			{"up", "-d", "--force-recreate", "--remove-orphans"},
+		}, 15 * time.Minute, nil
 	default:
 		return nil, 0, fmt.Errorf("unknown action %s", action)
 	}
+}
+
+func publishedServices(dir, file string) []string {
+	svcs, err := template.ParseCompose(dir, file)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, svc := range svcs {
+		if svc.HostPort > 0 {
+			names = append(names, svc.Name)
+		}
+	}
+	return names
+}
+
+func dockerfileBuildsApp(dir string) bool {
+	matches, err := filepath.Glob(filepath.Join(dir, "Dockerfile*"))
+	if err != nil {
+		return false
+	}
+	for _, path := range matches {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		text := strings.ToLower(string(b))
+		if strings.Contains(text, "npm run build") || strings.Contains(text, "pnpm run build") || strings.Contains(text, "yarn build") || strings.Contains(text, "vite build") {
+			return true
+		}
+	}
+	return false
+}
+
+func containsArg(args []string, want string) bool {
+	for _, arg := range args {
+		if arg == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Supervisor) mark(project, action string) {

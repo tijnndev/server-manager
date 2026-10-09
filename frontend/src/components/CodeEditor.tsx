@@ -1,41 +1,11 @@
-import { useEffect } from "react";
-import Editor, { loader, type OnMount } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
-import editorWorker from "../../node_modules/monaco-editor/esm/vs/editor/editor.worker.js?worker";
-import cssWorker from "../../node_modules/monaco-editor/esm/vs/language/css/css.worker.js?worker";
-import htmlWorker from "../../node_modules/monaco-editor/esm/vs/language/html/html.worker.js?worker";
-import jsonWorker from "../../node_modules/monaco-editor/esm/vs/language/json/json.worker.js?worker";
-import tsWorker from "../../node_modules/monaco-editor/esm/vs/language/typescript/ts.worker.js?worker";
+import Editor, { loader, type Monaco, type OnMount } from "@monaco-editor/react";
 
-// Bundle Monaco locally (no CDN dependency) and wire up the web workers.
-self.MonacoEnvironment = {
-  getWorker(_workerId: string, label: string) {
-    switch (label) {
-      case "json":
-        return new jsonWorker();
-      case "css":
-      case "scss":
-      case "less":
-        return new cssWorker();
-      case "html":
-      case "handlebars":
-      case "razor":
-        return new htmlWorker();
-      case "typescript":
-      case "javascript":
-        return new tsWorker();
-      default:
-        return new editorWorker();
-    }
-  },
-};
-
-loader.config({ monaco });
+loader.config({ paths: { vs: "/monaco/vs" } });
 
 /** Dark theme matching the panel design tokens. */
 const SM_DARK = "sm-dark";
 
-function defineTheme() {
+function defineTheme(monaco: Monaco) {
   monaco.editor.defineTheme(SM_DARK, {
     base: "vs-dark",
     inherit: true,
@@ -148,14 +118,13 @@ export function CodeEditor({
   readOnly?: boolean;
   height?: number;
 }) {
-  useEffect(defineTheme, []);
-
   const onMount: OnMount = (editor) => {
     editor.focus();
   };
 
   return (
     <Editor
+      beforeMount={defineTheme}
       language={detectLanguage(path)}
       theme={SM_DARK}
       value={value}
