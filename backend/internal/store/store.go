@@ -168,6 +168,29 @@ func (s *Store) CreateStack(ctx context.Context, in NewStack) error {
 	return tx.Commit()
 }
 
+// SyncStackServices replaces a stack's stored service list with the services
+// currently defined in its compose file.
+func (s *Store) SyncStackServices(ctx context.Context, stackID string, services []model.NewService) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM v2_services WHERE stack_id = ?`, stackID); err != nil {
+		return err
+	}
+	for _, svc := range services {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO v2_services (stack_id, name, http, internal_port, host_port, logs_enabled, shell)
+			VALUES (?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?)`,
+			stackID, svc.Name, boolInt(svc.HTTP), svc.InternalPort, svc.HostPort, boolInt(svc.Logs), boolInt(svc.Shell))
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *Store) ListStacks(ctx context.Context, user model.User) ([]model.Stack, error) {
 	q := `
 		SELECT s.id, s.name, s.owner_id, u.username, s.source, IFNULL(s.template_id, ''), s.dir,

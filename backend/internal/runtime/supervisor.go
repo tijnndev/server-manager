@@ -274,7 +274,7 @@ func (s *Supervisor) Apply(project, dir, action string) error {
 	if err != nil {
 		return err
 	}
-	file, err := findCompose(dir)
+	file, err := FindCompose(dir)
 	if err != nil {
 		return err
 	}
@@ -351,7 +351,7 @@ func (s *Supervisor) removeUnmanaged(name string) error {
 }
 
 func (s *Supervisor) Down(project, dir string) error {
-	file, err := findCompose(dir)
+	file, err := FindCompose(dir)
 	if err != nil {
 		return nil
 	}
@@ -461,7 +461,8 @@ func (s *Supervisor) mutex(project string) *sync.Mutex {
 	return m
 }
 
-func findCompose(dir string) (string, error) {
+// FindCompose returns the compose file used for a stack directory.
+func FindCompose(dir string) (string, error) {
 	for _, name := range []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"} {
 		path := filepath.Join(dir, name)
 		if st, err := os.Stat(path); err == nil && !st.IsDir() {

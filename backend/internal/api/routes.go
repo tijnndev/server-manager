@@ -20,6 +20,7 @@ import (
 	"server-manager/backend/internal/domain"
 	"server-manager/backend/internal/model"
 	"server-manager/backend/internal/notify"
+	"server-manager/backend/internal/runtime"
 	"server-manager/backend/internal/schedule"
 	"server-manager/backend/internal/store"
 	"server-manager/backend/internal/template"
@@ -430,6 +431,7 @@ func (a *App) perform(ctx context.Context, user model.User, st model.Stack, acti
 	}
 	a.sup.SetDesired(st.Name, desired)
 	a.store.AddActivity(ctx, user.ID, st.Name, action, "")
+	a.resyncServices(ctx, st)
 	settings, _ := a.store.GetSettings(ctx)
 	who := user.Username
 	if who == "" {
@@ -438,6 +440,39 @@ func (a *App) perform(ctx context.Context, user model.User, st model.Stack, acti
 	go notify.Discord(settings.DiscordWebhook, who+" "+action+" "+st.Name)
 	a.PushState()
 	return nil
+}
+
+// resyncServices re-reads the stack's compose file and updates the stored
+// service list, so edits made in the Files tab are reflected in the UI.
+func (a *App) resyncServices(ctx context.Context, st model.Stack) {
+	file, err := runtime.FindCompose(st.Dir)
+	if err != nil {
+		return
+	}
+	parsed, err := template.ParseCompose(st.Dir, file)
+	if err != nil {
+		return
+	}
+	services := make([]model.NewService, len(parsed))
+	names := make([]string, len(parsed))
+	changed := len(parsed) != len(st.Services)
+	for i, svc := range parsed {
+		services[i] = model.NewService{
+			Name: svc.Name, HTTP: svc.HTTP, InternalPort: svc.InternalPort, HostPort: svc.HostPort,
+			Logs: svc.Logs, Shell: svc.Shell,
+		}
+		names[i] = svc.Name
+		if !changed && (i >= len(st.Services) || st.Services[i].Name != svc.Name || st.Services[i].HostPort != svc.HostPort || st.Services[i].InternalPort != svc.InternalPort) {
+			changed = true
+		}
+	}
+	if !changed {
+		return
+	}
+	if err := a.store.SyncStackServices(ctx, st.ID, services); err != nil {
+		return
+	}
+	a.sup.SetServices(st.Name, names)
 }
 
 func (a *App) exec(w http.ResponseWriter, r *http.Request) {
