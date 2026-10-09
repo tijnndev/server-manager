@@ -3,12 +3,10 @@ package api
 import (
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"server-manager/backend/internal/model"
 	"server-manager/backend/internal/safe"
 )
 
@@ -231,7 +229,7 @@ func (a *App) gitStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"repo": false, "output": ""})
 		return
 	}
-	out, err := git(st, "status", "--porcelain=v1", "-b")
+	out, err := a.runGit(st.Dir, "status", "--porcelain=v1", "-b")
 	writeJSON(w, 200, map[string]any{"repo": true, "output": out, "error": errString(err)})
 }
 
@@ -244,10 +242,10 @@ func (a *App) gitPull(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out, err := git(st, "pull", "--ff-only")
+	out, err := a.pullStack(st)
 	a.store.AddActivity(r.Context(), user.ID, st.Name, "git-pull", errString(err))
 	if err != nil {
-		writeJSON(w, 500, map[string]string{"error": out})
+		writeErr(w, 500, out)
 		return
 	}
 	writeJSON(w, 200, map[string]string{"output": out})
@@ -270,33 +268,23 @@ func (a *App) gitClone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	remote := strings.TrimSpace(body.URL)
-	if remote == "" || strings.HasPrefix(remote, "-") {
+	if !validGitRemote(remote) {
 		writeErr(w, 400, "invalid git url")
 		return
 	}
-	if _, err := os.Stat(filepath.Join(st.Dir, ".git")); err == nil {
-		writeErr(w, 409, "repository already exists")
-		return
+	var out string
+	var err error
+	if _, statErr := os.Stat(filepath.Join(st.Dir, ".git")); statErr == nil {
+		out, err = a.attachAndPull(st, remote)
+	} else {
+		out, err = a.cloneInto(st, remote)
 	}
-	cmd := exec.Command("git", "clone", remote, ".")
-	cmd.Dir = st.Dir
-	out, err := cmd.CombinedOutput()
-	text := strings.TrimSpace(string(out))
 	a.store.AddActivity(r.Context(), user.ID, st.Name, "git-clone", remote)
 	if err != nil {
-		if text == "" {
-			text = err.Error()
-		}
-		writeErr(w, 500, text)
+		writeErr(w, 500, out)
 		return
 	}
-	writeJSON(w, 200, map[string]string{"output": text})
-}
-
-func git(st model.Stack, args ...string) (string, error) {
-	cmd := exec.Command("git", append([]string{"-C", st.Dir}, args...)...)
-	out, err := cmd.CombinedOutput()
-	return strings.TrimSpace(string(out)), err
+	writeJSON(w, 200, map[string]string{"output": out})
 }
 
 func errString(err error) string {

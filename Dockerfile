@@ -13,7 +13,7 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 go build -o /server-manager ./cmd/server-manager
 
 FROM docker:27-cli
-RUN apk add --no-cache ca-certificates nginx certbot certbot-nginx
+RUN apk add --no-cache ca-certificates nginx certbot certbot-nginx git openssh-client
 # The panel validates and reloads the HOST nginx via bind mounts (compose.nginx.yaml).
 # This container config includes sites-enabled so `nginx -t` checks the real configs,
 # and its pid path resolves to the host nginx pid file (pid: "host").

@@ -543,7 +543,10 @@ function Git({ name }: { name: string }) {
               setPulling(true);
               setError("");
               api.gitPull(name)
-                .then((res) => setOutput(res.output))
+                .then((res) => {
+                  setOutput(res.output);
+                  git.refetch();
+                })
                 .catch((err: Error) => setError(err.message))
                 .finally(() => setPulling(false));
             }}
