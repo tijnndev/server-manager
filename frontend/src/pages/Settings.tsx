@@ -12,6 +12,7 @@ export function Settings() {
   const [cloudflareToken, setToken] = useState("");
   const [publicIP, setIP] = useState("");
   const [acmeEmail, setEmail] = useState("");
+  const [githubToken, setGithub] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("user");
@@ -26,11 +27,12 @@ export function Settings() {
     setToken(settings.data.cloudflareToken);
     setIP(settings.data.publicIP);
     setEmail(settings.data.acmeEmail);
+    setGithub(settings.data.githubToken || "");
   }, [settings.data]);
 
   const save = useMutation({
     mutationFn: () =>
-      api.saveSettings({ discordWebhook, cloudflareToken, publicIP, acmeEmail }),
+      api.saveSettings({ discordWebhook, cloudflareToken, publicIP, acmeEmail, githubToken }),
     onSuccess: () => {
       setError("");
       setSaved(true);
@@ -89,6 +91,11 @@ export function Settings() {
             <span className="label" id="lbl-ip">Public IP</span>
             <input className="input mono" style={{ fontSize: 12 }} value={publicIP} onChange={(e) => setIP(e.target.value)} placeholder="203.0.113.10" aria-labelledby="lbl-ip" />
             <span className="hint">Used for Cloudflare A records</span>
+          </div>
+          <div className="field">
+            <span className="label" id="lbl-gh">GitHub token</span>
+            <input className="input mono" style={{ fontSize: 12 }} type="password" value={githubToken} onChange={(e) => setGithub(e.target.value)} placeholder="github_pat_…" aria-labelledby="lbl-gh" autoComplete="off" />
+            <span className="hint">Personal access token for private repository pull and clone</span>
           </div>
           <div className="field">
             <span className="label" id="lbl-acme">ACME email</span>

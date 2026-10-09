@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
@@ -98,6 +100,9 @@ func (a *App) runGit(dir string, args ...string) (string, error) {
 	if err != nil && text == "" {
 		text = err.Error()
 	}
+	if err != nil && strings.Contains(text, "could not read Username") && a.githubToken() == "" {
+		text = "GitHub authentication required. Add a personal access token in Settings."
+	}
 	return text, err
 }
 
@@ -113,9 +118,9 @@ func (a *App) gitEnv() ([]string, error) {
 	}
 	_ = f.Close()
 
-	env := make([]string, 0, len(os.Environ())+2)
+	env := make([]string, 0, len(os.Environ())+5)
 	for _, e := range os.Environ() {
-		if strings.HasPrefix(e, "GIT_SSH_COMMAND=") || strings.HasPrefix(e, "GIT_TERMINAL_PROMPT=") {
+		if strings.HasPrefix(e, "GIT_SSH_COMMAND=") || strings.HasPrefix(e, "GIT_TERMINAL_PROMPT=") || strings.HasPrefix(e, "GIT_CONFIG_") {
 			continue
 		}
 		env = append(env, e)
@@ -124,7 +129,33 @@ func (a *App) gitEnv() ([]string, error) {
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_SSH_COMMAND="+sshCommand(known),
 	)
+	if token := a.githubToken(); token != "" {
+		env = append(env,
+			"GIT_CONFIG_COUNT=1",
+			"GIT_CONFIG_KEY_0=http.https://github.com/.extraheader",
+			"GIT_CONFIG_VALUE_0="+githubAuthHeader(token),
+		)
+	}
 	return env, nil
+}
+
+func (a *App) githubToken() string {
+	if a.store != nil {
+		settings, err := a.store.GetSettings(context.Background())
+		if err == nil {
+			if token := strings.TrimSpace(settings.GithubToken); token != "" {
+				return token
+			}
+		}
+	}
+	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
+		return token
+	}
+	return strings.TrimSpace(os.Getenv("GH_TOKEN"))
+}
+
+func githubAuthHeader(token string) string {
+	return "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte("x-access-token:"+token))
 }
 
 func (a *App) resolveRemote(remote string) string {

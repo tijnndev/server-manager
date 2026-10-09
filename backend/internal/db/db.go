@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -24,8 +25,14 @@ func Open(dsn string) (*sql.DB, error) {
 }
 
 func Migrate(conn *sql.DB) error {
-	_, err := conn.Exec(schema)
-	return err
+	if _, err := conn.Exec(schema); err != nil {
+		return err
+	}
+	_, err := conn.Exec(`ALTER TABLE v2_settings ADD COLUMN github_token VARCHAR(512) NOT NULL DEFAULT ''`)
+	if err != nil && !strings.Contains(err.Error(), "Duplicate column") {
+		return err
+	}
+	return nil
 }
 
 const schema = `
@@ -114,7 +121,8 @@ CREATE TABLE IF NOT EXISTS v2_settings (
   discord_webhook VARCHAR(512) NOT NULL DEFAULT '',
   cloudflare_token VARCHAR(512) NOT NULL DEFAULT '',
   public_ip VARCHAR(64) NOT NULL DEFAULT '',
-  acme_email VARCHAR(255) NOT NULL DEFAULT ''
+  acme_email VARCHAR(255) NOT NULL DEFAULT '',
+  github_token VARCHAR(512) NOT NULL DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS v2_template_overrides (

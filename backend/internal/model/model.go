@@ -77,6 +77,7 @@ type Settings struct {
 	CloudflareToken string `json:"cloudflareToken"`
 	PublicIP        string `json:"publicIP"`
 	AcmeEmail       string `json:"acmeEmail"`
+	GithubToken     string `json:"githubToken"`
 }
 
 type NewService struct {

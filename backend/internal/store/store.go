@@ -513,8 +513,8 @@ func (s *Store) DeleteSchedule(ctx context.Context, stackID string, id int) erro
 
 func (s *Store) GetSettings(ctx context.Context) (model.Settings, error) {
 	var st model.Settings
-	err := s.db.QueryRowContext(ctx, `SELECT discord_webhook, cloudflare_token, public_ip, acme_email FROM v2_settings WHERE id = 1`).
-		Scan(&st.DiscordWebhook, &st.CloudflareToken, &st.PublicIP, &st.AcmeEmail)
+	err := s.db.QueryRowContext(ctx, `SELECT discord_webhook, cloudflare_token, public_ip, acme_email, github_token FROM v2_settings WHERE id = 1`).
+		Scan(&st.DiscordWebhook, &st.CloudflareToken, &st.PublicIP, &st.AcmeEmail, &st.GithubToken)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.Settings{}, nil
 	}
@@ -523,11 +523,11 @@ func (s *Store) GetSettings(ctx context.Context) (model.Settings, error) {
 
 func (s *Store) SaveSettings(ctx context.Context, st model.Settings) error {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO v2_settings (id, discord_webhook, cloudflare_token, public_ip, acme_email)
-		VALUES (1, ?, ?, ?, ?)
+		INSERT INTO v2_settings (id, discord_webhook, cloudflare_token, public_ip, acme_email, github_token)
+		VALUES (1, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE discord_webhook = VALUES(discord_webhook), cloudflare_token = VALUES(cloudflare_token),
-		  public_ip = VALUES(public_ip), acme_email = VALUES(acme_email)`,
-		st.DiscordWebhook, st.CloudflareToken, st.PublicIP, st.AcmeEmail)
+		  public_ip = VALUES(public_ip), acme_email = VALUES(acme_email), github_token = VALUES(github_token)`,
+		st.DiscordWebhook, st.CloudflareToken, st.PublicIP, st.AcmeEmail, st.GithubToken)
 	return err
 }
 

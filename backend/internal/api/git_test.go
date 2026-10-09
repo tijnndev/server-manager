@@ -56,6 +56,13 @@ func TestSSHIdentityPresent(t *testing.T) {
 	}
 }
 
+func TestGithubAuthHeader(t *testing.T) {
+	got := githubAuthHeader("ghp_test")
+	if got != "Authorization: Basic eC1hY2Nlc3MtdG9rZW46Z2hwX3Rlc3Q=" {
+		t.Fatalf("got %s", got)
+	}
+}
+
 func TestSSHCommandQuotesPath(t *testing.T) {
 	got := sshCommand(`/var/lib/server manager/.ssh/known_hosts`)
 	if got != `ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o UserKnownHostsFile='/var/lib/server manager/.ssh/known_hosts'` {

@@ -143,8 +143,8 @@ export const api = {
   resetTemplate: (id: string) => req(`/api/templates/${id}`, { method: "DELETE" }),
   activity: () => req<Activity[]>("/api/activity"),
   settings: () =>
-    req<{ discordWebhook: string; cloudflareToken: string; publicIP: string; acmeEmail: string }>("/api/settings"),
-  saveSettings: (body: { discordWebhook: string; cloudflareToken: string; publicIP: string; acmeEmail: string }) =>
+    req<{ discordWebhook: string; cloudflareToken: string; publicIP: string; acmeEmail: string; githubToken: string }>("/api/settings"),
+  saveSettings: (body: { discordWebhook: string; cloudflareToken: string; publicIP: string; acmeEmail: string; githubToken: string }) =>
     req("/api/settings", { method: "PUT", body: JSON.stringify(body) }),
   users: () => req<User[]>("/api/users"),
   createUser: (username: string, password: string, role: string) =>
