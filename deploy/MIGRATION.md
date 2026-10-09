@@ -10,8 +10,8 @@ worden in één keer overgezet. De oude panel blijft gewoon draaien.
 cd /opt/server-manager        # checkout van de remake
 cp .env.example .env          # ADMIN_PASSWORD, MYSQL_PASSWORD etc. instellen
 
-# 2. Nieuwe panel starten (MariaDB + panel + mail)
-docker compose up -d --build
+# 2. Nieuwe panel starten (MariaDB + panel + mail) — overlay koppelt de host-nginx
+docker compose -f compose.yaml -f compose.nginx.yaml up -d --build
 
 # 3. Migratie draaien
 sudo ./deploy/migrate.sh
@@ -19,6 +19,10 @@ sudo ./deploy/migrate.sh
 
 Klaar. De script logt alles; bij een fout draait hij gewoon opnieuw (idempotent:
 bestaande users/stacks/sub-users worden overgeslagen).
+
+De `compose.nginx.yaml` overlay is verplicht voor domeinen: hij geeft de panel
+`pid: host` + mounts voor `/etc/nginx/sites-*`, `/etc/letsencrypt` en de host
+nginx pid-file, zodat de panel host-nginx-configs kan schrijven en herladen.
 
 ## Wat de migratie doet
 

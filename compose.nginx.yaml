@@ -5,4 +5,5 @@ services:
       - /etc/nginx/sites-available:/etc/nginx/sites-available
       - /etc/nginx/sites-enabled:/etc/nginx/sites-enabled
       - /etc/letsencrypt:/etc/letsencrypt
-      - /run/nginx.pid:/run/nginx.pid:ro
+      - /run/nginx.pid:/run/nginx.pid
+      - /etc/nginx/mime.types:/etc/nginx/mime.types:ro
