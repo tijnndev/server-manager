@@ -36,7 +36,9 @@ bestaande users/stacks/sub-users worden overgeslagen).
 Known caveat: legacy templates genereren Dockerfiles met `node:18`. Nieuwere
 build-tooling (rolldown/vite) vereist Node >= 20.12 — pas de Dockerfile van
 zo'n stack aan naar `node:22` (Files-tab) of reset/edit het `build-vite`
-template (Templates-pagina).
+template (Templates-pagina). De migrator verwijdert automatisch de legacy
+`build-vite` helper-service uit compose-bestanden (die probeerde `npm` te
+starten in de httpd-image en crashte bij het starten van de stack).
 
 Migrated stacks worden **niet gestart**: de legacy containers blijven op hun
 poorten draaien en de oude nginx-configs blijven werken.

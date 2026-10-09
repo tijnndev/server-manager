@@ -87,6 +87,8 @@ export const api = {
     compose?: string;
   }) => req<{ name: string }>("/api/stacks", { method: "POST", body: JSON.stringify(body) }),
   deleteStack: (name: string) => req(`/api/stacks/${name}`, { method: "DELETE" }),
+  patchStack: (name: string, body: { description: string }) =>
+    req(`/api/stacks/${name}`, { method: "PATCH", body: JSON.stringify(body) }),
   power: (name: string, action: string) =>
     req(`/api/stacks/${name}/power/${action}`, { method: "POST" }),
   exec: (name: string, service: string, command: string) =>

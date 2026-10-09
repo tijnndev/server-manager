@@ -7,6 +7,7 @@ import { ConfirmDialog, Empty, InlineConfirm, Notice, Pill, SkeletonRows } from 
 
 const CodeEditor = lazy(() => import("../components/CodeEditor").then((m) => ({ default: m.CodeEditor })));
 import {
+  Check,
   ChevronUp,
   Clock,
   File,
@@ -19,6 +20,7 @@ import {
   Plus,
   Refresh,
   Restart,
+  Sliders,
   Spinner,
   Square,
   Terminal,
@@ -29,7 +31,7 @@ import {
 } from "../components/icons";
 import { bytes, servicePill, stackStatus } from "../lib/format";
 
-const tabs = ["console", "files", "git", "domain", "schedule", "access"] as const;
+const tabs = ["console", "files", "git", "domain", "schedule", "access", "settings"] as const;
 type Tab = (typeof tabs)[number];
 
 export function StackPage() {
@@ -147,6 +149,7 @@ export function StackPage() {
             ["domain", "Domains", <Globe size={14} />],
             ["schedule", "Schedules", <Clock size={14} />],
             ["access", "Access", <Users size={14} />],
+            ["settings", "Settings", <Sliders size={14} />],
           ] as [Tab, string, React.ReactNode][]
         ).map(([id, label, icon]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={`tab${tab === id ? " on" : ""}`} onClick={() => setTab(id)}>
@@ -162,6 +165,7 @@ export function StackPage() {
       {tab === "domain" && <Domains name={stack.name} stack={stack} />}
       {tab === "schedule" && <Schedules name={stack.name} />}
       {tab === "access" && <Access name={stack.name} />}
+      {tab === "settings" && <Settings stack={stack} />}
 
       <ConfirmDialog
         open={confirmDelete}
@@ -867,6 +871,78 @@ function Access({ name }: { name: string }) {
             </table>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+ Settings: stack metadata. Runtime behaviour lives in compose.yaml;
+ domains live in the Domains tab.
+ ------------------------------------------------------------------ */
+
+function Settings({ stack }: { stack: Stack }) {
+  const qc = useQueryClient();
+  const [desc, setDesc] = useState(stack.description);
+  const [err, setErr] = useState("");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => setDesc(stack.description), [stack.description]);
+
+  const save = useMutation({
+    mutationFn: () => api.patchStack(stack.name, { description: desc }),
+    onSuccess: () => {
+      setErr("");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      qc.invalidateQueries({ queryKey: ["stacks"] });
+      qc.invalidateQueries({ queryKey: ["stack", stack.name] });
+    },
+    onError: (e: Error) => setErr(e.message),
+  });
+
+  const info: [string, React.ReactNode][] = [
+    ["Name", <span className="mono">{stack.name}</span>],
+    ["Source", stack.source === "template" ? `template: ${stack.templateId || "custom"}` : stack.source],
+    ["Owner", stack.owner],
+    ["Created", new Date(stack.createdAt).toLocaleString()],
+    ["Services", stack.services.map((s) => s.name).join(", ") || "—"],
+    ["Ports", stack.services.map((s) => s.hostPort).filter(Boolean).join(", ") || "—"],
+  ];
+
+  return (
+    <div>
+      <form className="panel panel-pad" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
+        <h2 className="section-title">Stack settings</h2>
+        <div className="form-grid" style={{ alignItems: "end" }}>
+          <div className="field">
+            <span className="label" id="lbl-desc">Description</span>
+            <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="What runs here?" aria-labelledby="lbl-desc" />
+          </div>
+          <button className="btn btn-primary" disabled={save.isPending}>
+            {save.isPending ? <Spinner /> : <Check />}
+            {saved ? "Saved" : "Save"}
+          </button>
+        </div>
+        {err && <Notice kind="err">{err}</Notice>}
+      </form>
+
+      <div className="panel panel-pad" style={{ marginTop: 16 }}>
+        <h2 className="section-title">Details</h2>
+        <div className="table-wrap">
+          <table>
+            <tbody>
+              {info.map(([k, v]) => (
+                <tr key={k}>
+                  <th style={{ width: 140, textAlign: "left" }}>{k}</th>
+                  <td>{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="desc muted" style={{ fontSize: 12, marginBottom: 0 }}>
+          Runtime behaviour (type, command, ports, volumes) is defined in <span className="mono">compose.yaml</span> — edit it in the Files tab.
+        </p>
       </div>
     </div>
   );

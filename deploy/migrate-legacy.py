@@ -213,6 +213,40 @@ def slugify(name: str) -> str:
     return re.sub(r"-{2,}", "-", s) or "stack"
 
 
+def strip_legacy_build_service(compose: str) -> tuple[str, bool]:
+    """Drop the legacy 'build-vite' helper service (node image + `tail -f`).
+
+    In the legacy panel it was a persistent node shell for manual builds; the
+    stack's multi-stage Dockerfile already builds, and starting the helper only
+    fails in the new panel. Returns (new_compose, removed).
+    """
+    lines = compose.splitlines(keepends=True)
+    start = None
+    indent = 0
+    for i, line in enumerate(lines):
+        if re.match(r"^(\s+)build-vite:\s*(#.*)?$", line):
+            start = i
+            indent = len(line) - len(line.lstrip())
+            break
+    if start is None:
+        return compose, False
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        line = lines[j]
+        if not line.strip():
+            continue
+        cur_indent = len(line) - len(line.lstrip())
+        if cur_indent <= indent and re.match(r"^\s*[A-Za-z0-9_.-]+:", line):
+            end = j
+            break
+    new_lines = lines[:start] + lines[end:]
+    # drop dangling depends_on references to the removed service
+    new_text = re.sub(r"^\s*(?:-\s*)?build-vite\s*$\n?", "", "".join(new_lines), flags=re.M)
+    # drop depends_on keys left empty by that removal
+    new_text = re.sub(r"^\s*depends_on:\s*\n(?=(?:\s*[A-Za-z0-9_.-]+:)|\Z)", "", new_text, flags=re.M)
+    return new_text, True
+
+
 def first_published_service(compose: str) -> str | None:
     """Best-effort parse: first service with a host port mapping in a compose file."""
     svc = None
@@ -370,6 +404,9 @@ def main() -> int:
             summary["failed"] += 1
             continue
         compose = compose_path.read_text()
+        compose, stripped = strip_legacy_build_service(compose)
+        if stripped:
+            log("  + removed legacy build-vite helper service (build happens in the Dockerfile)")
 
         # 1. stack record (creates <data-dir>/<name>/compose.yaml)
         if args.dry_run:
