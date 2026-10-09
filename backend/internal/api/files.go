@@ -229,8 +229,7 @@ func (a *App) gitStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"repo": false, "output": ""})
 		return
 	}
-	out, err := a.runGit(st.Dir, "status", "--porcelain=v1", "-b")
-	writeJSON(w, 200, map[string]any{"repo": true, "output": out, "error": errString(err)})
+	writeJSON(w, 200, a.gitOverview(st.Dir))
 }
 
 func (a *App) gitPull(w http.ResponseWriter, r *http.Request) {

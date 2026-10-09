@@ -116,7 +116,18 @@ export const api = {
     body.set("file", file);
     return req(`/api/stacks/${name}/files/upload?path=${encodeURIComponent(dir)}`, { method: "POST", body });
   },
-  git: (name: string) => req<{ repo: boolean; output: string; error?: string }>(`/api/stacks/${name}/git`),
+  git: (name: string) =>
+    req<{
+      repo: boolean;
+      remote?: string;
+      branch?: string;
+      commit?: string;
+      ahead?: number;
+      behind?: number;
+      localChanges?: { file: string; type: string }[];
+      remoteChanges?: { file: string; type: string }[];
+      error?: string;
+    }>(`/api/stacks/${name}/git`),
   gitPull: (name: string) => req<{ output: string }>(`/api/stacks/${name}/git/pull`, { method: "POST" }),
   gitClone: (name: string, url: string) =>
     req<{ output: string }>(`/api/stacks/${name}/git/clone`, { method: "POST", body: JSON.stringify({ url }) }),

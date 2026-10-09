@@ -56,6 +56,17 @@ func TestSSHIdentityPresent(t *testing.T) {
 	}
 }
 
+func TestParsePorcelainAndNameStatus(t *testing.T) {
+	local := parsePorcelain(" M compose.yaml\n?? Dockerfile\nD  old.txt\n")
+	if len(local) != 3 || local[0].Type != "Modified" || local[1].Type != "Untracked" || local[2].Type != "Deleted" {
+		t.Fatalf("porcelain %#v", local)
+	}
+	remote := parseNameStatus("M\tsrc/app.ts\nA\tnew.ts\nR100\told.ts\tnew-name.ts\n")
+	if len(remote) != 3 || remote[0].File != "src/app.ts" || remote[2].Type != "Renamed" || remote[2].File != "new-name.ts" {
+		t.Fatalf("name-status %#v", remote)
+	}
+}
+
 func TestGithubAuthHeader(t *testing.T) {
 	got := githubAuthHeader("ghp_test")
 	if got != "Authorization: Basic eC1hY2Nlc3MtdG9rZW46Z2hwX3Rlc3Q=" {

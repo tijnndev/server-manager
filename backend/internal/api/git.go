@@ -7,26 +7,156 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"server-manager/backend/internal/model"
 )
 
+type gitChange struct {
+	File string `json:"file"`
+	Type string `json:"type"`
+}
+
+type gitOverview struct {
+	Repo          bool        `json:"repo"`
+	Remote        string      `json:"remote"`
+	Branch        string      `json:"branch"`
+	Commit        string      `json:"commit"`
+	Ahead         int         `json:"ahead"`
+	Behind        int         `json:"behind"`
+	LocalChanges  []gitChange `json:"localChanges"`
+	RemoteChanges []gitChange `json:"remoteChanges"`
+	Error         string      `json:"error,omitempty"`
+}
+
 func (a *App) pullStack(st model.Stack) (string, error) {
-	remote, err := a.runGit(st.Dir, "remote", "get-url", "origin")
+	return a.syncOrigin(st.Dir)
+}
+
+func (a *App) gitOverview(dir string) gitOverview {
+	ov := gitOverview{
+		Repo:          true,
+		LocalChanges:  []gitChange{},
+		RemoteChanges: []gitChange{},
+	}
+	a.ensureHTTPSOrigin(dir)
+	if remote, err := a.runGit(dir, "remote", "get-url", "origin"); err == nil {
+		ov.Remote = strings.TrimSpace(remote)
+	}
+	ov.Branch = a.currentBranch(dir)
+	if commit, err := a.runGit(dir, "rev-parse", "--short", "HEAD"); err == nil {
+		ov.Commit = strings.TrimSpace(commit)
+	}
+	if out, err := a.runGitTimeout(dir, 25*time.Second, "fetch", "origin", ov.Branch); err != nil {
+		ov.Error = out
+	}
+	ov.Ahead, ov.Behind = a.aheadBehind(dir, ov.Branch)
+	if status, err := a.runGit(dir, "status", "--porcelain"); err == nil {
+		ov.LocalChanges = parsePorcelain(status)
+	}
+	ov.RemoteChanges = a.remoteChanges(dir, ov.Branch, ov.Behind)
+	return ov
+}
+
+func (a *App) syncOrigin(dir string) (string, error) {
+	a.ensureHTTPSOrigin(dir)
+	branch := a.currentBranch(dir)
+	if out, err := a.runGitTimeout(dir, 2*time.Minute, "fetch", "origin", branch); err != nil {
+		return out, err
+	}
+	local, lerr := a.runGit(dir, "rev-parse", "HEAD")
+	remote, rerr := a.runGit(dir, "rev-parse", "origin/"+branch)
+	if lerr != nil {
+		return local, lerr
+	}
+	if rerr != nil {
+		return remote, rerr
+	}
+	local, remote = strings.TrimSpace(local), strings.TrimSpace(remote)
+	if local == remote {
+		return "Already up to date.", nil
+	}
+	out, err := a.runGit(dir, "pull", "--ff-only", "origin", branch)
+	if err != nil && localChangesBlockPull(out) {
+		if stashOut, stashErr := a.runGit(dir, "stash", "push", "-m", "server-manager"); stashErr != nil {
+			return strings.TrimSpace(out + "\n" + stashOut), err
+		}
+		out, err = a.runGit(dir, "pull", "--ff-only", "origin", branch)
+	}
 	if err != nil {
-		return a.runGit(st.Dir, "pull", "--ff-only")
+		return out, err
 	}
-	resolved := a.resolveRemote(strings.TrimSpace(remote))
-	if resolved == strings.TrimSpace(remote) {
-		return a.runGit(st.Dir, "pull", "--ff-only")
+	log, _ := a.runGit(dir, "log", "--oneline", local+"..HEAD")
+	log = strings.TrimSpace(log)
+	if log != "" {
+		return log, nil
 	}
-	branch, berr := a.runGit(st.Dir, "rev-parse", "--abbrev-ref", "HEAD")
+	if strings.TrimSpace(out) == "" {
+		return "Updated.", nil
+	}
+	return out, nil
+}
+
+func (a *App) ensureHTTPSOrigin(dir string) {
+	remote, err := a.runGit(dir, "remote", "get-url", "origin")
+	if err != nil {
+		return
+	}
+	remote = strings.TrimSpace(remote)
+	resolved := a.resolveRemote(remote)
+	if resolved != remote {
+		_, _ = a.runGit(dir, "remote", "set-url", "origin", resolved)
+	}
+}
+
+func (a *App) currentBranch(dir string) string {
+	branch, err := a.runGit(dir, "rev-parse", "--abbrev-ref", "HEAD")
 	branch = strings.TrimSpace(branch)
-	if berr != nil || branch == "" || branch == "HEAD" {
-		return a.runGit(st.Dir, "pull", "--ff-only", resolved)
+	if err != nil || branch == "" || branch == "HEAD" {
+		return "main"
 	}
-	return a.runGit(st.Dir, "pull", "--ff-only", resolved, branch)
+	return branch
+}
+
+func (a *App) aheadBehind(dir, branch string) (int, int) {
+	out, err := a.runGit(dir, "rev-list", "--left-right", "--count", "HEAD...origin/"+branch)
+	if err != nil {
+		return 0, 0
+	}
+	fields := strings.Fields(out)
+	if len(fields) != 2 {
+		return 0, 0
+	}
+	ahead, _ := strconv.Atoi(fields[0])
+	behind, _ := strconv.Atoi(fields[1])
+	return ahead, behind
+}
+
+func (a *App) remoteChanges(dir, branch string, behind int) []gitChange {
+	out, err := a.runGit(dir, "diff", "--name-status", "HEAD..origin/"+branch)
+	if err == nil {
+		if changes := parseNameStatus(out); len(changes) > 0 {
+			return changes
+		}
+	}
+	if behind <= 0 {
+		return []gitChange{}
+	}
+	log, err := a.runGit(dir, "log", "--oneline", "HEAD..origin/"+branch)
+	if err != nil || strings.TrimSpace(log) == "" {
+		return []gitChange{}
+	}
+	changes := []gitChange{}
+	for _, line := range strings.Split(log, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		changes = append(changes, gitChange{File: line, Type: "Commit"})
+	}
+	return changes
 }
 
 func (a *App) attachAndPull(st model.Stack, remote string) (string, error) {
@@ -38,19 +168,7 @@ func (a *App) attachAndPull(st model.Stack, remote string) (string, error) {
 	} else if out, err := a.runGit(st.Dir, "remote", "set-url", "origin", remote); err != nil {
 		return out, err
 	}
-	if out, err := a.runGit(st.Dir, "fetch", "origin"); err != nil {
-		return out, err
-	}
-	out, err := a.runGit(st.Dir, "pull", "--ff-only")
-	if err == nil {
-		return out, nil
-	}
-	branch, berr := a.runGit(st.Dir, "rev-parse", "--abbrev-ref", "HEAD")
-	branch = strings.TrimSpace(branch)
-	if berr != nil || branch == "" || branch == "HEAD" {
-		return out, err
-	}
-	return a.runGit(st.Dir, "pull", "--ff-only", "origin", branch)
+	return a.syncOrigin(st.Dir)
 }
 
 func (a *App) cloneInto(st model.Stack, remote string) (string, error) {
@@ -89,7 +207,17 @@ func (a *App) cloneInto(st model.Stack, remote string) (string, error) {
 }
 
 func (a *App) runGit(dir string, args ...string) (string, error) {
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	return a.runGitTimeout(dir, 0, args...)
+}
+
+func (a *App) runGitTimeout(dir string, timeout time.Duration, args ...string) (string, error) {
+	ctx := context.Background()
+	cancel := func() {}
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+	}
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
 	env, err := a.gitEnv()
 	if err != nil {
 		return err.Error(), err
@@ -104,6 +232,83 @@ func (a *App) runGit(dir string, args ...string) (string, error) {
 		text = "GitHub authentication required. Add a personal access token in Settings."
 	}
 	return text, err
+}
+
+func localChangesBlockPull(out string) bool {
+	return strings.Contains(out, "would be overwritten") || strings.Contains(out, "Please commit your changes") || strings.Contains(out, "Your local changes")
+}
+
+func parsePorcelain(out string) []gitChange {
+	changes := []gitChange{}
+	for _, line := range strings.Split(out, "\n") {
+		if len(line) < 4 {
+			continue
+		}
+		status := line[:2]
+		file := strings.TrimSpace(line[3:])
+		if i := strings.LastIndex(file, " -> "); i >= 0 {
+			file = file[i+4:]
+		}
+		kind := porcelainKind(status)
+		if kind == "" || file == "" {
+			continue
+		}
+		changes = append(changes, gitChange{File: file, Type: kind})
+	}
+	return changes
+}
+
+func porcelainKind(status string) string {
+	switch {
+	case strings.Contains(status, "?"):
+		return "Untracked"
+	case strings.Contains(status, "M"):
+		return "Modified"
+	case strings.Contains(status, "A"):
+		return "Added"
+	case strings.Contains(status, "D"):
+		return "Deleted"
+	case strings.Contains(status, "R"):
+		return "Renamed"
+	default:
+		return ""
+	}
+}
+
+func parseNameStatus(out string) []gitChange {
+	changes := []gitChange{}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+		file := parts[len(parts)-1]
+		kind := nameStatusKind(parts[0])
+		if kind == "" || file == "" {
+			continue
+		}
+		changes = append(changes, gitChange{File: file, Type: kind})
+	}
+	return changes
+}
+
+func nameStatusKind(status string) string {
+	switch {
+	case status == "M" || strings.HasPrefix(status, "M"):
+		return "Modified"
+	case status == "A" || strings.HasPrefix(status, "A"):
+		return "Added"
+	case status == "D" || strings.HasPrefix(status, "D"):
+		return "Deleted"
+	case strings.HasPrefix(status, "R"):
+		return "Renamed"
+	default:
+		return status
+	}
 }
 
 func (a *App) gitEnv() ([]string, error) {

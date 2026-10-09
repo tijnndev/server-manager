@@ -516,25 +516,52 @@ function Files({ name }: { name: string }) {
    ------------------------------------------------------------------ */
 
 function Git({ name }: { name: string }) {
-  const git = useQuery({ queryKey: ["git", name], queryFn: () => api.git(name) });
+  const qc = useQueryClient();
+  const git = useQuery({
+    queryKey: ["git", name],
+    queryFn: () => api.git(name),
+    refetchInterval: 15000,
+  });
   const [url, setUrl] = useState("");
   const [output, setOutput] = useState("");
   const [error, setError] = useState("");
   const [pulling, setPulling] = useState(false);
   const [cloning, setCloning] = useState(false);
+  const data = git.data;
+  const remoteChanges = data?.remoteChanges ?? [];
+  const localChanges = data?.localChanges ?? [];
+  const refresh = () => {
+    git.refetch();
+    qc.invalidateQueries({ queryKey: ["files", name] });
+  };
   return (
     <div>
       {git.isError && <Notice kind="err">{(git.error as Error).message}</Notice>}
+      {data?.error && <Notice kind="err">{data.error}</Notice>}
       <div className="log-panel">
         <div className="log-head">
           <GitBranch size={14} className="ico" />
-          <span className="title">git status</span>
+          <span className="title">{data?.repo ? data.remote || "git" : "git"}</span>
         </div>
-        <pre className="log" style={{ minHeight: 160, maxHeight: 320 }}>
-          {git.isLoading ? "Loading…" : git.data?.repo ? git.data.output || "clean" : "No git repository in this stack."}
-        </pre>
+        <div style={{ padding: 14 }}>
+          {git.isLoading ? (
+            <span className="muted">Loading…</span>
+          ) : !data?.repo ? (
+            <span className="muted">No git repository in this stack.</span>
+          ) : (
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <Pill tone="off">{data.branch || "main"}</Pill>
+              {data.commit && <code className="mono">{data.commit}</code>}
+              {(data.behind ?? 0) > 0 && <Pill tone="info">{data.behind} to pull</Pill>}
+              {(data.ahead ?? 0) > 0 && <Pill tone="ok">{data.ahead} ahead</Pill>}
+              {(data.behind ?? 0) === 0 && <span className="muted">Up to date with origin</span>}
+            </div>
+          )}
+        </div>
       </div>
-      {git.data?.repo && (
+      {remoteChanges.length > 0 && <ChangeList title="Changes to pull" changes={remoteChanges} />}
+      {localChanges.length > 0 && <ChangeList title="Local changes" changes={localChanges} />}
+      {data?.repo && (
         <div className="row" style={{ marginTop: 12 }}>
           <button
             className="btn"
@@ -545,7 +572,7 @@ function Git({ name }: { name: string }) {
               api.gitPull(name)
                 .then((res) => {
                   setOutput(res.output);
-                  git.refetch();
+                  refresh();
                 })
                 .catch((err: Error) => setError(err.message))
                 .finally(() => setPulling(false));
@@ -566,7 +593,7 @@ function Git({ name }: { name: string }) {
           api.gitClone(name, url)
             .then((res) => {
               setOutput(res.output);
-              git.refetch();
+              refresh();
             })
             .catch((err: Error) => setError(err.message))
             .finally(() => setCloning(false));
@@ -587,6 +614,24 @@ function Git({ name }: { name: string }) {
         </div>
       )}
       {error && <Notice kind="err">{error}</Notice>}
+    </div>
+  );
+}
+
+function ChangeList({ title, changes }: { title: string; changes: { file: string; type: string }[] }) {
+  return (
+    <div className="panel" style={{ marginTop: 12 }}>
+      <div className="log-head">
+        <span className="title">{title}</span>
+      </div>
+      <ul style={{ listStyle: "none", margin: 0, padding: 12, display: "grid", gap: 6 }}>
+        {changes.map((change) => (
+          <li key={`${change.type}-${change.file}`} className="row" style={{ gap: 8 }}>
+            <code className="mono" style={{ fontSize: 12 }}>{change.file}</code>
+            <Pill tone={change.type === "Deleted" ? "danger" : change.type === "Added" ? "ok" : "info"}>{change.type}</Pill>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
