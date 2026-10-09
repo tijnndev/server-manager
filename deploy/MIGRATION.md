@@ -33,6 +33,11 @@ bestaande users/stacks/sub-users worden overgeslagen).
   bestaande Let's Encrypt certificaten, certbot wordt overgeslagen als
   `/etc/letsencrypt/live/<host>/fullchain.pem` al bestaat).
 
+Known caveat: legacy templates genereren Dockerfiles met `node:18`. Nieuwere
+build-tooling (rolldown/vite) vereist Node >= 20.12 — pas de Dockerfile van
+zo'n stack aan naar `node:22` (Files-tab) of reset/edit het `build-vite`
+template (Templates-pagina).
+
 Migrated stacks worden **niet gestart**: de legacy containers blijven op hun
 poorten draaien en de oude nginx-configs blijven werken.
 
@@ -46,6 +51,9 @@ poorten draaien en de oude nginx-configs blijven werken.
 ## Cutover (later)
 
 1. In de nieuwe panel: stacks starten (zelfde hostpoorten → urls blijven werken).
+   - Start de stack een containernaam-conflict met een legacy container, dan
+     vervangt de panel die automatisch (force-remove + retry). Compose-managed
+     containers van andere stacks worden nooit automatisch verwijderd.
 2. Check dat elke site reageert.
 3. Legacy nginx-siteconfigs voor gemigreerde domeinen verwijderen
    (`/etc/nginx/sites-enabled/<domein>`) — de nieuwe panel heeft eigen configs
