@@ -788,6 +788,11 @@ func (s *Supervisor) streamLogs(ctx context.Context, project, service, id string
 		s.rememberLogLine(project, service, line)
 		s.hub.PublishLog(project, service, line)
 	}}
+	// TTY containers emit a raw stream without stdcopy multiplex headers.
+	if insp, err := cli.ContainerInspect(ctx, id); err == nil && insp.Config != nil && insp.Config.Tty {
+		_, _ = io.Copy(out, reader)
+		return
+	}
 	_, _ = stdcopy.StdCopy(out, out, reader)
 }
 
