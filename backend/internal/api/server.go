@@ -284,6 +284,21 @@ func (a *App) socket(w http.ResponseWriter, r *http.Request) {
 			}
 			a.hub.Subscribe(client, cmd.Stack)
 			stops[cmd.Stack] = a.sup.Watch(cmd.Stack)
+			// Replay recent log lines so a client that subscribes to an
+			// already-watched stack still sees output.
+			for _, svc := range st.Services {
+				if !svc.Logs {
+					continue
+				}
+				for _, line := range a.sup.LogTail(cmd.Stack, svc.Name) {
+					a.hub.Send(client, map[string]string{
+						"type":    "log",
+						"stack":   cmd.Stack,
+						"service": svc.Name,
+						"line":    line,
+					})
+				}
+			}
 		case "unsubscribe":
 			a.hub.Unsubscribe(client, cmd.Stack)
 			if stop, ok := stops[cmd.Stack]; ok {

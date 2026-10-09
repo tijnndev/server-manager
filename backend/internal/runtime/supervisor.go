@@ -48,6 +48,7 @@ type Supervisor struct {
 	watches     map[string]int
 	watchCancel map[string]context.CancelFunc
 	muteUntil   map[string]time.Time
+	logTail     map[string][]string
 	crashed     map[string]time.Time
 	locks       map[string]*sync.Mutex
 	root        context.Context
@@ -64,6 +65,7 @@ func New(h *hub.Hub) *Supervisor {
 		watches:     map[string]int{},
 		watchCancel: map[string]context.CancelFunc{},
 		muteUntil:   map[string]time.Time{},
+		logTail:     map[string][]string{},
 		crashed:     map[string]time.Time{},
 		locks:       map[string]*sync.Mutex{},
 		root:        ctx,
@@ -92,6 +94,11 @@ func (s *Supervisor) Forget(project string) {
 	delete(s.configured, project)
 	delete(s.desired, project)
 	delete(s.state, project)
+	for key := range s.logTail {
+		if strings.HasPrefix(key, project+"\x00") {
+			delete(s.logTail, key)
+		}
+	}
 	if cancel := s.watchCancel[project]; cancel != nil {
 		cancel()
 	}
@@ -777,8 +784,35 @@ func (s *Supervisor) streamLogs(ctx context.Context, project, service, id string
 		return
 	}
 	defer reader.Close()
-	out := &lineWriter{send: func(line string) { s.hub.PublishLog(project, service, line) }}
+	out := &lineWriter{send: func(line string) {
+		s.rememberLogLine(project, service, line)
+		s.hub.PublishLog(project, service, line)
+	}}
 	_, _ = stdcopy.StdCopy(out, out, reader)
+}
+
+const logTailCap = 200
+
+func (s *Supervisor) rememberLogLine(project, service, line string) {
+	key := project + "\x00" + service
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	buf := append(s.logTail[key], line)
+	if len(buf) > logTailCap {
+		buf = buf[len(buf)-logTailCap:]
+	}
+	s.logTail[key] = buf
+}
+
+// LogTail returns the most recent buffered log lines for a service, so that
+// clients subscribing to an already-watched stack still get a replay.
+func (s *Supervisor) LogTail(project, service string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	buf := s.logTail[project+"\x00"+service]
+	out := make([]string, len(buf))
+	copy(out, buf)
+	return out
 }
 
 func (s *Supervisor) Exec(ctx context.Context, project, service, command string) (string, int, error) {

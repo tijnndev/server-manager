@@ -50,6 +50,7 @@ export function PanelProvider({ children }: { children: React.ReactNode }) {
         }
       };
       socket.onopen = () => {
+        setLogs({});
         for (const stack of subs.current) {
           socket?.send(JSON.stringify({ type: "subscribe", stack }));
         }
