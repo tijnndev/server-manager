@@ -1,0 +1,8 @@
+services:
+  panel:
+    pid: host
+    volumes:
+      - /etc/nginx/sites-available:/etc/nginx/sites-available
+      - /etc/nginx/sites-enabled:/etc/nginx/sites-enabled
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /run/nginx.pid:/run/nginx.pid:ro

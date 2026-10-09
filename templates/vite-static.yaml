@@ -1,0 +1,20 @@
+id: vite-static
+name: Vite (static)
+description: Build with Node, serve the dist folder with nginx. Rebuild compiles the app. The running container is nginx, not a place to run npm.
+dockerfile: |
+  FROM node:22 AS build
+  WORKDIR /app
+  COPY package.json package-lock.json* ./
+  RUN npm install
+  COPY . .
+  RUN npm run build
+  FROM nginx:alpine
+  COPY --from=build /app/dist /usr/share/nginx/html
+  EXPOSE 80
+services:
+  - name: web
+    build: true
+    internalPort: 80
+    http: true
+    logs: true
+    shell: false

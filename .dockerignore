@@ -1,0 +1,8 @@
+.git
+.env
+frontend/node_modules
+frontend/dist
+data
+active-servers
+bin
+roundcube

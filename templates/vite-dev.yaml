@@ -1,0 +1,20 @@
+id: vite-dev
+name: Vite (dev)
+description: Node 22 dev server. npm lives in the running container, so the shell and logs are the Vite process.
+fields:
+  - key: script:app
+    label: Start script
+    default: npm install && npm run dev -- --host 0.0.0.0 --port 5173
+services:
+  - name: app
+    image: node:22
+    workdir: /app
+    script: npm install && npm run dev -- --host 0.0.0.0 --port 5173
+    internalPort: 5173
+    http: true
+    logs: true
+    shell: true
+    volumes:
+      - .:/app
+    env:
+      NODE_ENV: development

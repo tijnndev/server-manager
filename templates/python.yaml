@@ -1,0 +1,18 @@
+id: python
+name: Python
+description: Python 3.12. Edit the start script to match the app entrypoint.
+fields:
+  - key: script:app
+    label: Start script
+    default: pip install -r requirements.txt || true; python app.py
+services:
+  - name: app
+    image: python:3.12
+    workdir: /app
+    script: pip install -r requirements.txt || true; python app.py
+    internalPort: 8000
+    http: true
+    logs: true
+    shell: true
+    volumes:
+      - .:/app

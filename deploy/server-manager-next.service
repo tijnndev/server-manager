@@ -1,0 +1,16 @@
+[Unit]
+Description=Server Manager
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/etc/server-manager
+ExecStart=/usr/bin/docker compose -f compose.yaml -f compose.nginx.yaml up --build --remove-orphans
+ExecStop=/usr/bin/docker compose -f compose.yaml -f compose.nginx.yaml down
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

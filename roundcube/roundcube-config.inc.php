@@ -1,6 +1,6 @@
 <?php
-$config['imap_host'] = 'ssl://mail.tijnn.dev:993';
-$config['smtp_host'] = 'ssl://mail.tijnn.dev:465';
+$config['imap_host'] = 'ssl://mailserver:993';
+$config['smtp_host'] = 'ssl://mailserver:465';
 $config['imap_auth_type'] = 'LOGIN';
 $config['smtp_auth_type'] = 'LOGIN';
 $config['imap_conn_options'] = [

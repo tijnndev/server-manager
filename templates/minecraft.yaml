@@ -1,0 +1,18 @@
+id: minecraft
+name: Minecraft
+description: Paper server. The panel publishes a host port; the game listens on 25565 inside the container.
+services:
+  - name: server
+    image: itzg/minecraft-server:latest
+    internalPort: 25565
+    http: false
+    logs: true
+    shell: true
+    volumes:
+      - data:/data
+    env:
+      EULA: "TRUE"
+      TYPE: PAPER
+      MEMORY: 2G
+volumes:
+  data: {}
