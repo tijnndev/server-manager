@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -282,15 +283,71 @@ func (s *Supervisor) Apply(project, dir, action string) error {
 	s.mu.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	if err := s.compose(ctx, project, dir, file, args); err != nil {
+	applyErr := s.compose(ctx, project, dir, file, args)
+	if applyErr != nil && (action == "start" || action == "rebuild") {
+		// A container name held by an unmanaged container (e.g. one created by
+		// the legacy panel) blocks compose. Replace it and retry once — this is
+		// the cutover from the legacy panel. Compose-managed conflicts are
+		// reported untouched.
+		if name := conflictName(applyErr.Error()); name != "" {
+			if rmErr := s.removeUnmanaged(name); rmErr == nil {
+				applyErr = s.compose(ctx, project, dir, file, args)
+			} else {
+				applyErr = fmt.Errorf("%s (could not replace %s: %v)", applyErr, name, rmErr)
+			}
+		}
+	}
+	if applyErr != nil {
 		s.refreshProject(context.Background(), project)
 		s.fireChange()
-		return err
+		return applyErr
 	}
 	s.mark(project, action)
 	s.refreshProject(context.Background(), project)
 	s.fireChange()
 	return nil
+}
+
+var conflictRe = regexp.MustCompile(`The container name "/([^"]+)" is already in use by container`)
+
+// conflictName extracts the container name a compose up failed on, if any.
+func conflictName(errText string) string {
+	m := conflictRe.FindStringSubmatch(errText)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
+}
+
+// removeUnmanaged force-removes a container blocking a compose name, but only
+// when it is not managed by any compose project (e.g. legacy-panel containers).
+func (s *Supervisor) removeUnmanaged(name string) error {
+	ctx, cancel := context.WithTimeout(s.root, 30*time.Second)
+	defer cancel()
+	list, err := s.cli.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("name", name)),
+	})
+	if err != nil {
+		return err
+	}
+	full := "/" + name
+	var target *types.Container
+	for i := range list {
+		for _, n := range list[i].Names {
+			if n == full {
+				target = &list[i]
+				break
+			}
+		}
+	}
+	if target == nil {
+		return fmt.Errorf("container %s not found", name)
+	}
+	if proj := target.Labels["com.docker.compose.project"]; proj != "" {
+		return fmt.Errorf("container %s belongs to compose project %s", name, proj)
+	}
+	return s.cli.ContainerRemove(ctx, target.ID, container.RemoveOptions{Force: true})
 }
 
 func (s *Supervisor) Down(project, dir string) error {
