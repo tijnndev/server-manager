@@ -1,12 +1,16 @@
 id: php
 name: PHP
-description: PHP 8.3 with Apache. Files in the stack directory are served from /var/www/html.
+description: PHP application served by nginx + php-fpm
 services:
-  - name: app
-    image: php:8.3-apache
+  - name: web
+    image: nginx:alpine
     internalPort: 80
     http: true
     logs: true
-    shell: true
     volumes:
-      - .:/var/www/html
+      - ".:/usr/share/nginx/html"
+  - name: php
+    image: php:8.3-fpm
+    logs: true
+    volumes:
+      - ".:/usr/share/nginx/html"

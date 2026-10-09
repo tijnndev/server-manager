@@ -1,18 +1,16 @@
 id: python
 name: Python
-description: Python 3.12. Edit the start script to match the app entrypoint.
+description: Run a Python app inside python:3.12
 fields:
-  - key: script:app
-    label: Start script
-    default: pip install -r requirements.txt || true; python app.py
+  - key: script
+    label: Start command
+    default: pip install -r requirements.txt && python main.py
 services:
   - name: app
     image: python:3.12
     workdir: /app
-    script: pip install -r requirements.txt || true; python app.py
     internalPort: 8000
     http: true
     logs: true
     shell: true
-    volumes:
-      - .:/app
+    volumes: [".:/app"]

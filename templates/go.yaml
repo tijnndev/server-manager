@@ -1,18 +1,16 @@
 id: go
 name: Go
-description: Go 1.23. The process must listen on 8080.
+description: Build and run a Go module
 fields:
-  - key: script:app
-    label: Start script
+  - key: script
+    label: Run command
     default: go run .
 services:
   - name: app
-    image: golang:1.23
-    workdir: /app
-    script: go run .
+    image: golang:1.26
+    workdir: /src
     internalPort: 8080
     http: true
     logs: true
     shell: true
-    volumes:
-      - .:/app
+    volumes: [".:/src"]

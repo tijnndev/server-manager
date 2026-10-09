@@ -1,6 +1,6 @@
 id: mariadb
 name: MariaDB
-description: MariaDB. Set a root password before the first start.
+description: MariaDB database server with a persistent volume
 fields:
   - key: env:db:MARIADB_ROOT_PASSWORD
     label: Root password
@@ -9,12 +9,10 @@ services:
   - name: db
     image: mariadb:11
     internalPort: 3306
-    http: false
     logs: true
-    shell: true
-    volumes:
-      - db-data:/var/lib/mysql
     env:
       MARIADB_ROOT_PASSWORD: changeme
+    volumes:
+      - "db-data:/var/lib/mysql"
 volumes:
   db-data: {}

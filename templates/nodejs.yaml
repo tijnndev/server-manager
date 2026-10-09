@@ -1,0 +1,16 @@
+id: nodejs
+name: Node.js
+description: Run a Node.js app from main.js or package.json
+fields:
+  - key: script
+    label: Start script
+    default: node main.js
+services:
+  - name: app
+    image: node:22
+    workdir: /app
+    internalPort: 3000
+    http: true
+    logs: true
+    shell: true
+    volumes: [".:/app"]

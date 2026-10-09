@@ -1,0 +1,11 @@
+id: static
+name: Static site
+description: Plain static files served by nginx
+services:
+  - name: web
+    image: nginx:alpine
+    internalPort: 80
+    http: true
+    logs: true
+    volumes:
+      - ".:/usr/share/nginx/html:ro"
