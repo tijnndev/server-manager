@@ -1,0 +1,16 @@
+id: php
+name: PHP
+description: PHP application served by nginx + php-fpm
+services:
+  - name: web
+    image: nginx:alpine
+    internalPort: 80
+    http: true
+    logs: true
+    volumes:
+      - ".:/usr/share/nginx/html"
+  - name: php
+    image: php:8.3-fpm
+    logs: true
+    volumes:
+      - ".:/usr/share/nginx/html"

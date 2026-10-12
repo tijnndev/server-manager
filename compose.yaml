@@ -1,0 +1,126 @@
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-server-manager}
+      MARIADB_USER: ${MYSQL_USER:-server-manager}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:-server-manager}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-server-manager-root}
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  panel:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PANEL_PORT:-7101}:7101"
+    environment:
+      PANEL_ADDR: ":7101"
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: ${MYSQL_USER:-server-manager}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-server-manager}
+      DB_NAME: ${MYSQL_DATABASE:-server-manager}
+      DATA_DIR: ${DATA_DIR:-/var/lib/server-manager/stacks}
+      TEMPLATES_DIR: /app/templates
+      FRONTEND_DIR: /app/frontend/dist
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      MAIL_CONTAINER: mailserver
+      NGINX_SITES_AVAILABLE: /etc/nginx/sites-available
+      NGINX_SITES_ENABLED: /etc/nginx/sites-enabled
+      NGINX_PID: /run/nginx.pid
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DATA_DIR:-/var/lib/server-manager/stacks}:${DATA_DIR:-/var/lib/server-manager/stacks}
+
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: mailserver
+    hostname: ${MAIL_HOSTNAME:-mail.tijnn.dev}
+    domainname: ${MAIL_DOMAIN:-tijnn.dev}
+    restart: unless-stopped
+    environment:
+      ENABLE_IMAP: 1
+      ENABLE_POP3: 0
+      ENABLE_SPAMASSASSIN: 1
+      ENABLE_CLAMAV: 1
+      ENABLE_SMTPS: 1
+      SMTP_ONLY: 0
+      TLS_LEVEL: modern
+      SSL_TYPE: self-signed
+      POSTMASTER_ADDRESS: ${POSTMASTER_ADDRESS:-postmaster@tijnn.dev}
+      POSTMASTER_PASSWORD: ${POSTMASTER_PASSWORD:-changeme}
+      OVERRIDE_HOSTNAME: ${MAIL_HOSTNAME:-mail.tijnn.dev}
+      ONE_DIR: 1
+    entrypoint: ["/usr/bin/dumb-init", "--"]
+    command:
+      - bash
+      - -c
+      - |
+        ssl_dir=/tmp/docker-mailserver/ssl
+        host="$$OVERRIDE_HOSTNAME"
+        if [ ! -f "$$ssl_dir/$$host-cert.pem" ]; then
+          mkdir -p "$$ssl_dir/demoCA"
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout "$$ssl_dir/demoCA/cakey.pem" -out "$$ssl_dir/demoCA/cacert.pem" -days 3650 -subj "/CN=mail-ca"
+          openssl req -newkey rsa:2048 -nodes -keyout "$$ssl_dir/$$host-key.pem" -out "$$ssl_dir/$$host.csr" -subj "/CN=$$host"
+          openssl x509 -req -in "$$ssl_dir/$$host.csr" -CA "$$ssl_dir/demoCA/cacert.pem" -CAkey "$$ssl_dir/demoCA/cakey.pem" -CAcreateserial -out "$$ssl_dir/$$host-cert.pem" -days 3650
+        fi
+        if [ ! -s /tmp/docker-mailserver/postfix-accounts.cf ]; then
+          setup email add "$$POSTMASTER_ADDRESS" "$$POSTMASTER_PASSWORD"
+        fi
+        exec supervisord -c /etc/supervisor/supervisord.conf
+    ports:
+      - "25:25"
+      - "143:143"
+      - "465:465"
+      - "587:587"
+      - "993:993"
+    volumes:
+      - ./roundcube/maildata:/var/mail
+      - ./roundcube/mailstate:/var/mail-state
+      - ./roundcube/maillogs:/var/log/mail
+      - ./roundcube/config:/tmp/docker-mailserver
+    healthcheck:
+      test: ["CMD-SHELL", "ss -lntp | grep -q ':993'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    networks:
+      default:
+        aliases:
+          - ${MAIL_HOSTNAME:-mail.tijnn.dev}
+
+  roundcube:
+    image: roundcube/roundcubemail:latest
+    container_name: roundcube
+    restart: unless-stopped
+    depends_on:
+      mailserver:
+        condition: service_healthy
+    ports:
+      - "${ROUNDCUBE_PORT:-8080}:80"
+    volumes:
+      - ./roundcube/roundcube-config.inc.php:/var/roundcube/config/imap.inc.php:ro
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mailserver
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
+      ROUNDCUBEMAIL_SMTP_SERVER: ssl://mailserver
+      ROUNDCUBEMAIL_SMTP_PORT: 465
+      ROUNDCUBEMAIL_SMTP_USER: "%u"
+      ROUNDCUBEMAIL_SMTP_PASSWORD: "%p"
+      ROUNDCUBEMAIL_SMTP_AUTH_TYPE: LOGIN
+
+volumes:
+  db-data:

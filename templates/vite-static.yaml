@@ -1,0 +1,17 @@
+id: vite-static
+name: Vite static
+description: Build a Vite app and serve the static output with nginx
+services:
+  - name: build
+    image: node:22
+    script: npm install && npm run build
+    workdir: /src
+    volumes: [".:/src"]
+  - name: web
+    image: nginx:alpine
+    internalPort: 80
+    http: true
+    logs: true
+    volumes:
+      - ".:/usr/share/nginx/html:ro"
+    dependsOn: [build]

@@ -1,0 +1,16 @@
+id: go
+name: Go
+description: Build and run a Go module
+fields:
+  - key: script
+    label: Run command
+    default: go run .
+services:
+  - name: app
+    image: golang:1.26
+    workdir: /src
+    internalPort: 8080
+    http: true
+    logs: true
+    shell: true
+    volumes: [".:/src"]

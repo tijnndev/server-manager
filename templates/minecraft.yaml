@@ -1,0 +1,19 @@
+id: minecraft
+name: Minecraft
+description: Java Minecraft server with persistent world data
+fields:
+  - key: env:mc:EULA
+    label: Accept EULA
+    default: "TRUE"
+services:
+  - name: mc
+    image: itzg/minecraft-server
+    internalPort: 25565
+    logs: true
+    shell: true
+    env:
+      EULA: "TRUE"
+    volumes:
+      - "mc-data:/data"
+volumes:
+  mc-data: {}

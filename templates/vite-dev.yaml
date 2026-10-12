@@ -1,0 +1,13 @@
+id: vite-dev
+name: Vite dev
+description: Node 22 + Vite development server (HMR)
+services:
+  - name: app
+    image: node:22
+    script: npm install && npm run dev -- --host 0.0.0.0 --port 5173
+    workdir: /app
+    internalPort: 5173
+    http: true
+    logs: true
+    shell: true
+    volumes: [".:/app"]
