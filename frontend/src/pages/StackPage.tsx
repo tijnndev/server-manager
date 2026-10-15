@@ -358,6 +358,10 @@ function Files({ name }: { name: string }) {
   const refresh = () => qc.invalidateQueries({ queryKey: ["files", name, path] });
 
   const crumbs = path ? path.split("/") : [];
+  const entries = (listing.data ?? []).slice().sort((a, b) => {
+    if (a.dir !== b.dir) return a.dir ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+  });
 
   return (
     <div>
@@ -422,7 +426,7 @@ function Files({ name }: { name: string }) {
 
       {listing.isLoading ? (
         <SkeletonRows cols={[280, 100, 160, 80]} rows={4} />
-      ) : (listing.data ?? []).length === 0 ? (
+      ) : entries.length === 0 ? (
         <div className="panel">
           <Empty icon={<Folder size={28} />} title="Empty directory" hint="No files in this directory yet." />
         </div>
@@ -438,7 +442,7 @@ function Files({ name }: { name: string }) {
               </tr>
             </thead>
             <tbody>
-              {(listing.data ?? []).map((entry) => {
+              {entries.map((entry) => {
                 const full = path ? `${path}/${entry.name}` : entry.name;
                 return (
                   <tr key={entry.name}>
